@@ -1,0 +1,43 @@
+#include "peltier.h"
+#include "config.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include <stdbool.h>
+
+static const char *TAG = "peltier";
+static bool s_is_on = false;
+
+void peltier_init(void) {
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << GPIO_PELTIER),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io_conf);
+    gpio_set_level(GPIO_PELTIER, 0);
+    s_is_on = false;
+
+    ESP_LOGI(TAG, "Peltier GPIO %d initialized (digital on/off)", GPIO_PELTIER);
+}
+
+void peltier_on(void) {
+    if (!s_is_on) {
+        gpio_set_level(GPIO_PELTIER, 1);
+        s_is_on = true;
+        ESP_LOGI(TAG, "Peltier ON");
+    }
+}
+
+void peltier_off(void) {
+    if (s_is_on) {
+        gpio_set_level(GPIO_PELTIER, 0);
+        s_is_on = false;
+        ESP_LOGI(TAG, "Peltier OFF");
+    }
+}
+
+bool peltier_is_on(void) {
+    return s_is_on;
+}

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32 Cooler</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;padding:1rem}
+h1{color:#0ff;margin-bottom:1rem;font-size:1.5rem}
+h2{color:#7fdbff;margin:1rem 0 .5rem;font-size:1.1rem}
+.card{background:#16213e;border-radius:8px;padding:1rem;margin-bottom:1rem;border:1px solid #0f3460}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.val{font-size:1.8rem;font-weight:700;color:#0ff}
+.label{font-size:.8rem;color:#888;text-transform:uppercase}
+.warn{color:#ff6b6b}
+.ok{color:#51cf66}
+input[type=number],input[type=time]{background:#0f3460;border:1px solid #0ff;color:#fff;padding:.4rem;border-radius:4px;width:100%}
+button{background:#0ff;color:#1a1a2e;border:none;padding:.6rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:700;margin-top:.5rem}
+button:hover{background:#7fdbff}
+.row{display:flex;align-items:center;gap:.5rem;margin:.3rem 0}
+.row label{min-width:120px;font-size:.85rem}
+.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot-on{background:#51cf66}
+.dot-off{background:#ff6b6b}
+</style>
+</head>
+<body>
+<h1>&#x2744; ESP32 Peltier Cooler</h1>
+
+<div class="card">
+<h2>Live Status</h2>
+<div class="grid">
+<div><div class="label">Innenraum</div><div class="val" id="t_indoor">--</div></div>
+<div><div class="label">Kuehlblock</div><div class="val" id="t_heat">--</div></div>
+<div><div class="label">Luefter</div><div class="val" id="fan">--%</div></div>
+<div><div class="label">Peltier</div><div class="val" id="peltier">--</div></div>
+</div>
+<p style="margin-top:.5rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span></p>
+</div>
+
+<div class="card">
+<h2>Peltier Kuehlbereich (Innenraum)</h2>
+<div class="row"><label>Kuehlung AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40">&deg;C</div>
+<div class="row"><label>Kuehlung AUS ab:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35">&deg;C</div>
+<p style="font-size:.75rem;color:#888;margin-top:.3rem">Hysterese-Band: Peltier bleibt an zwischen AUS und AN Schwelle</p>
+</div>
+
+<div class="card">
+<h2>Kuehlblock Sicherheit</h2>
+<div class="row"><label>Max Temperatur:</label><input type="number" id="cfg_temp_max" step="1" min="40" max="80">&deg;C</div>
+<div class="row"><label>PID Zieltemp:</label><input type="number" id="cfg_temp_target" step="1" min="30" max="60">&deg;C</div>
+</div>
+
+<div class="card">
+<h2>PID Parameter</h2>
+<div class="row"><label>Kp:</label><input type="number" id="cfg_kp" step="0.1" min="0" max="20"></div>
+<div class="row"><label>Ki:</label><input type="number" id="cfg_ki" step="0.1" min="0" max="10"></div>
+<div class="row"><label>Kd:</label><input type="number" id="cfg_kd" step="0.1" min="0" max="10"></div>
+</div>
+
+<div class="card">
+<h2>Zeitfenster</h2>
+<p style="font-size:.8rem;color:#888;margin-bottom:.5rem">Format: HH:MM (Stunden:Minuten)</p>
+<div class="row"><label>Wochentag AN:</label><input type="time" id="cfg_wd_on"></div>
+<div class="row"><label>Wochentag AUS:</label><input type="time" id="cfg_wd_off"></div>
+<div class="row"><label>Wochenende AN:</label><input type="time" id="cfg_we_on"></div>
+<div class="row"><label>Wochenende AUS:</label><input type="time" id="cfg_we_off"></div>
+</div>
+
+<button onclick="saveConfig()">Einstellungen speichern</button>
+
+<div class="card" style="margin-top:1rem;border-color:#ff922b">
+<h2 style="color:#ff922b">Firmware Update (OTA)</h2>
+<div class="row"><label>Server-URL:</label><input type="text" id="ota_url" style="background:#0f3460;border:1px solid #ff922b;color:#fff;padding:.4rem;border-radius:4px;width:100%;font-size:.85rem" placeholder="http://192.168.1.100:8080/firmware.bin"></div>
+<button onclick="startOta()" style="background:#ff922b">Firmware aktualisieren</button>
+<p style="margin-top:.5rem;font-size:.85rem" id="ota_status"></p>
+<p style="font-size:.7rem;color:#888;margin-top:.3rem">Bei fehlgeschlagenem Boot wird automatisch auf die vorherige Firmware zurueckgerollt.</p>
+</div>
+
+<script>
+function minToTime(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+function timeToMin(t){var p=t.split(':');return parseInt(p[0])*60+parseInt(p[1])}
+
+function refresh(){
+fetch('/api/status').then(r=>r.json()).then(d=>{
+document.getElementById('t_indoor').textContent=d.indoor_valid?d.indoor.toFixed(1)+'°C':'--';
+document.getElementById('t_heat').textContent=d.heatsink_valid?d.heatsink.toFixed(1)+'°C':'--';
+document.getElementById('fan').textContent=Math.round(d.fan_duty/2.55)+'%';
+document.getElementById('peltier').textContent=d.peltier_on?'AN':'AUS';
+document.getElementById('peltier').className='val '+(d.peltier_on?'ok':'');
+var dot=document.getElementById('dot_active');
+dot.className='status-dot '+(d.active?'dot-on':'dot-off');
+document.getElementById('sched_status').textContent=d.active?'AKTIV':'INAKTIV';
+document.getElementById('cfg_temp_on').value=d.temp_on;
+document.getElementById('cfg_temp_off').value=d.temp_off;
+document.getElementById('cfg_temp_max').value=d.temp_max;
+document.getElementById('cfg_temp_target').value=d.temp_target;
+document.getElementById('cfg_kp').value=d.pid_kp;
+document.getElementById('cfg_ki').value=d.pid_ki;
+document.getElementById('cfg_kd').value=d.pid_kd;
+document.getElementById('cfg_wd_on').value=minToTime(d.sched_wd_on);
+document.getElementById('cfg_wd_off').value=minToTime(d.sched_wd_off);
+document.getElementById('cfg_we_on').value=minToTime(d.sched_we_on);
+document.getElementById('cfg_we_off').value=minToTime(d.sched_we_off);
+if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('t_heat').classList.add('warn');
+else document.getElementById('t_heat').classList.remove('warn');
+}).catch(e=>console.error(e));
+fetch('/api/ota/status').then(r=>r.json()).then(d=>{
+document.getElementById('ota_url').value=d.url;
+}).catch(e=>{});
+}
+
+function saveConfig(){
+var body='temp_on='+document.getElementById('cfg_temp_on').value
++'&temp_off='+document.getElementById('cfg_temp_off').value
++'&temp_max='+document.getElementById('cfg_temp_max').value
++'&temp_target='+document.getElementById('cfg_temp_target').value
++'&pid_kp='+document.getElementById('cfg_kp').value
++'&pid_ki='+document.getElementById('cfg_ki').value
++'&pid_kd='+document.getElementById('cfg_kd').value
++'&sched_wd_on='+timeToMin(document.getElementById('cfg_wd_on').value)
++'&sched_wd_off='+timeToMin(document.getElementById('cfg_wd_off').value)
++'&sched_we_on='+timeToMin(document.getElementById('cfg_we_on').value)
++'&sched_we_off='+timeToMin(document.getElementById('cfg_we_off').value);
+fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
+.then(r=>r.json()).then(d=>{alert('Gespeichert!')}).catch(e=>alert('Fehler: '+e));
+}
+
+function startOta(){
+var url=document.getElementById('ota_url').value;
+if(!url){alert('Bitte URL eingeben');return}
+if(!confirm('Firmware-Update starten von:\\n'+url+'\\n\\nBei Fehler wird automatisch zurueckgerollt.'))return;
+document.getElementById('ota_status').textContent='Update wird gestartet...';
+fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
+.then(r=>r.json()).then(d=>{pollOta()}).catch(e=>{document.getElementById('ota_status').textContent='Fehler: '+e});
+}
+function pollOta(){
+fetch('/api/ota/status').then(r=>r.json()).then(d=>{
+var el=document.getElementById('ota_status');
+if(d.status==='in_progress'){el.textContent='Update laeuft...';el.style.color='#ff922b';setTimeout(pollOta,2000)}
+else if(d.status==='success'){el.textContent='Erfolg! Neustart...';el.style.color='#51cf66'}
+else if(d.status==='failed'){el.textContent='Fehler: '+d.error;el.style.color='#ff6b6b'}
+else{el.textContent='';el.style.color=''}
+}).catch(e=>{document.getElementById('ota_status').textContent='Verbindung verloren (Neustart?)'});
+}
+
+refresh();
+setInterval(refresh,3000);
+</script>
+</body>
+</html>

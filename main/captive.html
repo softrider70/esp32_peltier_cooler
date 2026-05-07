@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32 Cooler - WiFi Setup</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:1rem}
+.container{background:#16213e;border-radius:12px;padding:2rem;max-width:400px;width:100%;border:1px solid #0f3460}
+h1{color:#0ff;margin-bottom:.5rem;font-size:1.3rem;text-align:center}
+p{color:#888;text-align:center;margin-bottom:1.5rem;font-size:.9rem}
+label{display:block;margin-bottom:.3rem;color:#7fdbff;font-size:.85rem}
+input[type=text],input[type=password]{width:100%;background:#0f3460;border:1px solid #0ff;color:#fff;padding:.6rem;border-radius:4px;margin-bottom:1rem;font-size:1rem}
+button{width:100%;background:#0ff;color:#1a1a2e;border:none;padding:.8rem;border-radius:4px;cursor:pointer;font-weight:700;font-size:1rem}
+button:hover{background:#7fdbff}
+.msg{text-align:center;margin-top:1rem;padding:.5rem;border-radius:4px;display:none}
+.msg.ok{display:block;background:#2d6a4f;color:#b7e4c7}
+.msg.err{display:block;background:#6a2d2d;color:#e4b7b7}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>&#x1F4F6; WiFi Konfiguration</h1>
+<p>ESP32 Peltier Cooler — Bitte WLAN-Zugangsdaten eingeben</p>
+<form id="wform" onsubmit="return submitWifi(event)">
+<label for="ssid">WLAN Name (SSID)</label>
+<input type="text" id="ssid" name="ssid" required maxlength="32" placeholder="MeinWLAN">
+<label for="pass">Passwort</label>
+<input type="password" id="pass" name="pass" maxlength="64" placeholder="WLAN-Passwort">
+<button type="submit">Verbinden</button>
+</form>
+<div class="msg" id="msg"></div>
+</div>
+<script>
+function submitWifi(e){
+e.preventDefault();
+var s=document.getElementById('ssid').value;
+var p=document.getElementById('pass').value;
+var msg=document.getElementById('msg');
+msg.className='msg';msg.style.display='none';
+fetch('/api/wifi',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+body:'ssid='+encodeURIComponent(s)+'&pass='+encodeURIComponent(p)})
+.then(r=>r.json()).then(d=>{
+msg.className='msg ok';msg.textContent='Gespeichert! ESP32 verbindet sich neu...';msg.style.display='block';
+}).catch(err=>{
+msg.className='msg err';msg.textContent='Fehler: '+err;msg.style.display='block';
+});
+return false;
+}
+</script>
+</body>
+</html>
