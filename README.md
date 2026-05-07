@@ -14,20 +14,36 @@ Ein geschlossener Raum (z.B. Schrank, Gehaeuse) soll aktiv gekuehlt werden. Ein 
 
 ## Hardware
 
+### Variante 1: Standard ESP32 (ohne Display)
+
 | Komponente | Beschreibung | Anschluss |
 |---|---|---|
 | ESP32 (Standard) | Mikrocontroller, Dual-Core 240 MHz | - |
-| Peltier-Element (TEC) | Kuehlung, gesteuert ueber N-MOSFET | GPIO 14 (Gate) |
-| Noctua 4-Pin Luefter | 25 kHz PWM, Tacho-Signal | PWM: GPIO 25, Tacho: GPIO 26 |
-| DS18B20 #1 | Temperaturfuehler Innenraum | GPIO 27 (OneWire) |
-| DS18B20 #2 | Temperaturfuehler Kuehlblock (heisse Seite) | GPIO 27 (OneWire) |
+| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET | GPIO 14 (Gate) |
+| Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: GPIO 25, Tacho: GPIO 26 |
+| DS18B20 #1 | Temperatursensor Innenraum | GPIO 27 (OneWire) |
+| DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | GPIO 27 (OneWire) |
 | N-MOSFET (z.B. IRLZ44N) | Schaltet Peltier-Stromkreis | Gate: GPIO 14 |
+
+### Variante 2: CYD 3.5" Display Board
+
+| Komponente | Beschreibung | Anschluss |
+|---|---|---|
+| ESP32-3248S035C (CYD) | ESP32 mit 3.5" TFT + Touch | - |
+| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET | GPIO 14 (Gate) |
+| Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: GPIO 25, Tacho: GPIO 26 |
+| DS18B20 #1 | Temperatursensor Innenraum | GPIO 27 (OneWire) |
+| DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | GPIO 27 (OneWire) |
+| N-MOSFET (z.B. IRLZ44N) | Schaltet Peltier-Stromkreis | Gate: GPIO 14 |
+| **Display** | ST7796 320x480 Pixel | CS:15, SCK:14, MOSI:13, MISO:12, DC:2, BL:27 |
+| **Touch** | GT911 I2C Touch Controller | SDA:33, SCL:32, INT:36 |
+
+**Hinweis CYD:** GPIO 14 (SCK) und GPIO 27 (BL) werden mit Peltier und OneWire geteilt!
 
 ### Verdrahtung OneWire
 
 Beide DS18B20 haengen am gleichen OneWire-Bus (GPIO 27) mit einem 4.7 kOhm Pull-Up nach 3.3V. Die Sensoren werden beim Start per ROM-Adresse identifiziert — Sensor 0 = Innenraum, Sensor 1 = Kuehlblock.
 
-### Verdrahtung Peltier-MOSFET
 
 ```
 ESP32 GPIO14 ---[1kOhm]--- Gate
@@ -85,6 +101,7 @@ main/
 ├── webserver.c/.h  HTTP-Server + Captive-DNS
 ├── scheduler.c/.h  Zeitfenster-Pruefung (SNTP, CET/CEST)
 ├── nvs_config.c/.h NVS-Persistenz aller Einstellungen
+├── cyd_display.c/.h CYD 3.5" Display + Touch Interface
 ├── index.html      Monitor-Webseite (Dark Theme, Live-Refresh)
 └── captive.html    WiFi-Setup Captive Portal
 ```
@@ -97,6 +114,14 @@ main/
 - Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, Zeitfenster
 - Auto-Refresh alle 3 Sekunden
 - REST API: `GET /api/status`, `POST /api/config`
+
+### CYD Display Interface (optional)
+
+- 3.5" TFT Display mit Touch-Steuerung
+- Live-Monitoring direkt am Gerät
+- 5 Touch-Buttons: MENU, PID, WIFI, TIME, EXIT
+- Mehrere Screens: Hauptanzeige, Konfiguration, PID-Tuning, WiFi-Setup, Zeitplan
+- Touch-Responsive UI mit visuellem Feedback
 
 ### Captive Portal (AP-Modus)
 

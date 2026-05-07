@@ -1,12 +1,10 @@
 #pragma once
 
 #include <stdbool.h>
+#include "esp_wifi.h"
 
-// WiFi operation mode
-typedef enum {
-    WIFI_MODE_STA,      // Station mode (connected to router)
-    WIFI_MODE_AP,       // AP mode (captive portal)
-} wifi_op_mode_t;
+// WiFi operation mode (using ESP-IDF types)
+typedef wifi_mode_t wifi_op_mode_t;
 
 // Initialize WiFi subsystem and attempt STA connection
 // Falls back to AP mode if credentials missing or connection fails

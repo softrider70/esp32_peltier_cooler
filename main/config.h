@@ -6,6 +6,17 @@
 #define GPIO_ONEWIRE_BUS    27      // DS18B20 OneWire data line (both sensors)
 #define GPIO_PELTIER        14      // MOSFET gate for Peltier element (digital on/off)
 
+// ===== CYD Display GPIO Configuration =====
+#define CYD_TFT_CS         15      // Display Chip Select
+#define CYD_TFT_SCK        14      // SPI Clock (geteilt mit Peltier!)
+#define CYD_TFT_MOSI       13      // SPI MOSI
+#define CYD_TFT_MISO       12      // SPI MISO
+#define CYD_TFT_DC         2       // Data/Command
+#define CYD_TFT_BL         27      // Backlight PWM (geteilt mit OneWire!)
+#define CYD_TOUCH_SDA      33      // Touch I2C Data
+#define CYD_TOUCH_SCL      32      // Touch I2C Clock
+#define CYD_TOUCH_INT      36      // Touch Interrupt
+
 // ===== PWM Configuration =====
 #define FAN_PWM_FREQ_HZ     25000   // Noctua spec: 25 kHz PWM
 #define FAN_PWM_CHANNEL     LEDC_CHANNEL_0

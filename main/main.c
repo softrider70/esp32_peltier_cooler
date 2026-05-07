@@ -12,6 +12,7 @@
 #include "wifi.h"
 #include "webserver.h"
 #include "ota.h"
+#include "cyd_display.h"
 
 static const char *TAG = "main";
 
@@ -39,7 +40,11 @@ void app_main(void) {
     // 5. Initialize scheduler (SNTP time sync)
     scheduler_init();
 
-    // 6. Create FreeRTOS tasks
+    // 6. Initialize CYD Display
+    cyd_display_init();
+    ESP_LOGI(TAG, "CYD Display initialized");
+
+    // 7. Create FreeRTOS tasks
     xTaskCreate(task_sensor, "sensor", TASK_STACK_SENSOR,
                 NULL, TASK_PRIO_SENSOR, NULL);
 
@@ -49,7 +54,10 @@ void app_main(void) {
     xTaskCreate(task_scheduler, "scheduler", TASK_STACK_SCHEDULER,
                 NULL, TASK_PRIO_SCHEDULER, NULL);
 
-    // 7. OTA: validate firmware after stable boot (all tasks running)
+    xTaskCreate(cyd_display_task, "cyd_display", 4096,
+                NULL, TASK_PRIO_WEBSERVER, NULL);
+
+    // 8. OTA: validate firmware after stable boot (all tasks running)
     //    If this is first boot after OTA, mark as valid → cancels rollback
     //    If firmware crashes before this point, bootloader auto-rolls back
     vTaskDelay(pdMS_TO_TICKS(5000));

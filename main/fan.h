@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 // Initialize fan PWM (Noctua 25kHz)
 void fan_init(void);
