@@ -19,6 +19,10 @@ static uint8_t s_rom_indoor[8];
 static uint8_t s_rom_heatsink[8];
 static int s_sensor_count = 0;
 
+// Simulation values (override real sensors)
+static float s_sim_indoor = -999.0f;
+static float s_sim_heatsink = -999.0f;
+
 // OneWire timing (microseconds)
 static inline void ow_delay_us(uint32_t us) {
     ets_delay_us(us);
@@ -251,6 +255,29 @@ sensor_data_t sensor_get_data(void) {
     data = s_sensor_data;
     xSemaphoreGive(s_data_mutex);
     return data;
+}
+
+void sensor_set_simulation(float indoor_temp, float heatsink_temp) {
+    xSemaphoreTake(s_data_mutex, portMAX_DELAY);
+    
+    // Set simulation values
+    s_sim_indoor = indoor_temp;
+    s_sim_heatsink = heatsink_temp;
+    
+    // Update sensor data immediately
+    if (indoor_temp > -999.0f) {
+        s_sensor_data.temp_indoor = indoor_temp;
+        s_sensor_data.indoor_valid = true;
+    }
+    
+    if (heatsink_temp > -999.0f) {
+        s_sensor_data.temp_heatsink = heatsink_temp;
+        s_sensor_data.heatsink_valid = true;
+    }
+    
+    xSemaphoreGive(s_data_mutex);
+    
+    ESP_LOGI(TAG, "Simulation set: indoor=%.1f°C, heatsink=%.1f°C", indoor_temp, heatsink_temp);
 }
 
 void task_sensor(void *pvParameters) {

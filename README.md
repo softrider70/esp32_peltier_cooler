@@ -14,48 +14,60 @@ Ein geschlossener Raum (z.B. Schrank, Gehaeuse) soll aktiv gekuehlt werden. Ein 
 
 ## Hardware
 
-### Variante 1: Standard ESP32 (ohne Display)
-
 | Komponente | Beschreibung | Anschluss |
 |---|---|---|
-| ESP32 (Standard) | Mikrocontroller, Dual-Core 240 MHz | - |
-| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET | GPIO 14 (Gate) |
-| Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: GPIO 25, Tacho: GPIO 26 |
-| DS18B20 #1 | Temperatursensor Innenraum | GPIO 27 (OneWire) |
-| DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | GPIO 27 (OneWire) |
-| N-MOSFET (z.B. IRLZ44N) | Schaltet Peltier-Stromkreis | Gate: GPIO 14 |
-
-### Variante 2: CYD 3.5" Display Board
-
-| Komponente | Beschreibung | Anschluss |
-|---|---|---|
-| ESP32-3248S035C (CYD) | ESP32 mit 3.5" TFT + Touch | - |
-| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET | GPIO 14 (Gate) |
-| Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: GPIO 25, Tacho: GPIO 26 |
-| DS18B20 #1 | Temperatursensor Innenraum | GPIO 27 (OneWire) |
-| DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | GPIO 27 (OneWire) |
-| N-MOSFET (z.B. IRLZ44N) | Schaltet Peltier-Stromkreis | Gate: GPIO 14 |
-| **Display** | ST7796 320x480 Pixel | CS:15, SCK:14, MOSI:13, MISO:12, DC:2, BL:27 |
-| **Touch** | GT911 I2C Touch Controller | SDA:33, SCL:32, INT:36 |
-
-**Hinweis CYD:** GPIO 14 (SCK) und GPIO 27 (BL) werden mit Peltier und OneWire geteilt!
+| ESP32-D (ESP32-D0WD-V3) | Mikrocontroller, Dual-Core 240 MHz, 30-Pin Board | - |
+| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET | D16 (GPIO16, Gate) |
+| Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: D5 (GPIO5), Tacho: D18 (GPIO18) |
+| DS18B20 #1 | Temperatursensor Innenraum | D4 (GPIO4, OneWire) |
+| DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | D4 (GPIO4, OneWire) |
+| N-MOSFET (z.B. IRLZ44N) | Schaltet Peltier-Stromkreis | Gate: D16 (GPIO16) |
 
 ### Verdrahtung OneWire
 
-Beide DS18B20 haengen am gleichen OneWire-Bus (GPIO 27) mit einem 4.7 kOhm Pull-Up nach 3.3V. Die Sensoren werden beim Start per ROM-Adresse identifiziert — Sensor 0 = Innenraum, Sensor 1 = Kuehlblock.
+Beide DS18B20 haengen am gleichen OneWire-Bus (D4/GPIO4) mit einem 4.7 kOhm Pull-Up nach 3.3V. Die Sensoren werden beim Start per ROM-Adresse identifiziert — Sensor 0 = Innenraum, Sensor 1 = Kuehlblock.
 
+### Verdrahtung Peltier
 
 ```
-ESP32 GPIO14 ---[1kOhm]--- Gate
-                            |
-                         MOSFET (IRLZ44N)
-                            |
-               Drain --- Peltier(–) --- Peltier(+) --- V+
-                            |
-                          Source --- GND
+ESP32 D16 (GPIO16) ---[1kOhm]--- Gate
+                                |
+                             MOSFET (IRLZ44N)
+                                |
+                   Drain --- Peltier(–) --- Peltier(+) --- V+
+                                |
+                              Source --- GND
 
 Gate-Pulldown: 10kOhm nach GND (sicherer Zustand bei ESP32-Reset)
 ```
+
+### Verdrahtung Noctua Lüfter (PWM + Tacho)
+
+**PWM mit NPN Transistor Inverter (3.3V → 5V):**
+```
+          5V (Noctua)
+             │
+           [10kΩ] Pull-up
+             │
+             ├── Noctua PWM Pin
+             │
+ESP32 D5 ──┬── [1kΩ] ──┬── NPN-Transistor (2N2222/BC547)
+           │           │
+          GND         ├── Collector
+                       │
+                      Emitter ─── GND
+```
+
+**Tacho mit Spannungsteiler (5V → 3.3V):**
+```
+Noctua Tacho ──┬── [10kΩ] ──┬── ESP32 D18
+               │           │
+              GND        [20kΩ]
+                          │
+                         GND
+```
+
+**Hinweis:** Der NPN Transistor invertiert das PWM-Signal, wird im Software automatisch korrigiert.
 
 ## Regellogik
 
@@ -101,7 +113,6 @@ main/
 ├── webserver.c/.h  HTTP-Server + Captive-DNS
 ├── scheduler.c/.h  Zeitfenster-Pruefung (SNTP, CET/CEST)
 ├── nvs_config.c/.h NVS-Persistenz aller Einstellungen
-├── cyd_display.c/.h CYD 3.5" Display + Touch Interface
 ├── index.html      Monitor-Webseite (Dark Theme, Live-Refresh)
 └── captive.html    WiFi-Setup Captive Portal
 ```
@@ -114,14 +125,6 @@ main/
 - Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, Zeitfenster
 - Auto-Refresh alle 3 Sekunden
 - REST API: `GET /api/status`, `POST /api/config`
-
-### CYD Display Interface (optional)
-
-- 3.5" TFT Display mit Touch-Steuerung
-- Live-Monitoring direkt am Gerät
-- 5 Touch-Buttons: MENU, PID, WIFI, TIME, EXIT
-- Mehrere Screens: Hauptanzeige, Konfiguration, PID-Tuning, WiFi-Setup, Zeitplan
-- Touch-Responsive UI mit visuellem Feedback
 
 ### Captive Portal (AP-Modus)
 

@@ -45,7 +45,11 @@ void fan_init(void) {
 
 void fan_set_duty(uint8_t duty) {
     s_current_duty = duty;
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL, duty);
+    
+    // Invert PWM for NPN transistor (if enabled)
+    uint32_t actual_duty = FAN_PWM_INVERTED ? (255 - duty) : duty;
+    
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL, actual_duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL);
 }
 

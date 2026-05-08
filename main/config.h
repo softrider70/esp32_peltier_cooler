@@ -1,27 +1,17 @@
 #pragma once
 
-// ===== GPIO Configuration =====
-#define GPIO_FAN_PWM        25      // Noctua 4-pin PWM signal
-#define GPIO_FAN_TACHO      26      // Noctua 4-pin tachometer input
-#define GPIO_ONEWIRE_BUS    27      // DS18B20 OneWire data line (both sensors)
-#define GPIO_PELTIER        14      // MOSFET gate for Peltier element (digital on/off)
+// ===== GPIO Configuration (ESP32-D Board D2-D35) =====
+#define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
+#define GPIO_FAN_TACHO      18      // Noctua 4-pin tachometer input (D18/GPIO18)
+#define GPIO_ONEWIRE_BUS    4       // DS18B20 OneWire data line (D4/GPIO4)
+#define GPIO_PELTIER        16      // MOSFET gate for Peltier element (D16/GPIO16)
 
-// ===== CYD Display GPIO Configuration =====
-#define CYD_TFT_CS         15      // Display Chip Select
-#define CYD_TFT_SCK        14      // SPI Clock (geteilt mit Peltier!)
-#define CYD_TFT_MOSI       13      // SPI MOSI
-#define CYD_TFT_MISO       12      // SPI MISO
-#define CYD_TFT_DC         2       // Data/Command
-#define CYD_TFT_BL         27      // Backlight PWM (geteilt mit OneWire!)
-#define CYD_TOUCH_SDA      33      // Touch I2C Data
-#define CYD_TOUCH_SCL      32      // Touch I2C Clock
-#define CYD_TOUCH_INT      36      // Touch Interrupt
-
-// ===== PWM Configuration =====
+// ===== PWM Configuration (NPN Transistor Inverter) =====
 #define FAN_PWM_FREQ_HZ     25000   // Noctua spec: 25 kHz PWM
 #define FAN_PWM_CHANNEL     LEDC_CHANNEL_0
 #define FAN_PWM_TIMER       LEDC_TIMER_0
 #define FAN_PWM_RESOLUTION  LEDC_TIMER_8_BIT  // 0-255
+#define FAN_PWM_INVERTED    true    // NPN Transistor inverts PWM signal
 
 // ===== Temperature Thresholds =====
 #define TEMP_PELTIER_ON_DEFAULT     25.0f   // Peltier ON when indoor above this

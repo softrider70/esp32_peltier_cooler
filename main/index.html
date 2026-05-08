@@ -39,6 +39,15 @@ button:hover{background:#7fdbff}
 <p style="margin-top:.5rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span></p>
 </div>
 
+<div class="card" style="border-color:#ff922b">
+<h2 style="color:#ff922b">Sensor Simulation (DS18B20)</h2>
+<p style="font-size:.8rem;color:#888;margin-bottom:.5rem">Manuelle Temperatur-Eingabe zum Testen ohne reale Sensoren</p>
+<div class="row"><label>Innenraum (°C):</label><input type="number" id="sim_indoor" step="0.1" min="-10" max="50" placeholder="z.B. 25.5"></div>
+<div class="row"><label>Kuehlblock (°C):</label><input type="number" id="sim_heatsink" step="0.1" min="0" max="80" placeholder="z.B. 45.0"></div>
+<button onclick="sendSimulation()" style="background:#ff922b">Simulation senden</button>
+<p style="margin-top:.5rem;font-size:.75rem;color:#888">Die Werte überschreiben die realen Sensordaten bis zum nächsten Neustart.</p>
+</div>
+
 <div class="card">
 <h2>Peltier Kuehlbereich (Innenraum)</h2>
 <div class="row"><label>Kuehlung AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40">&deg;C</div>
@@ -125,6 +134,17 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&sched_we_off='+timeToMin(document.getElementById('cfg_we_off').value);
 fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
 .then(r=>r.json()).then(d=>{alert('Gespeichert!')}).catch(e=>alert('Fehler: '+e));
+}
+
+function sendSimulation(){
+var indoor=document.getElementById('sim_indoor').value;
+var heatsink=document.getElementById('sim_heatsink').value;
+if(!indoor&&!heatsink){alert('Bitte mindestens eine Temperatur eingeben');return}
+var body='';
+if(indoor)body+='indoor='+indoor;
+if(heatsink)body+=(body?'&':'')+'heatsink='+heatsink;
+fetch('/api/sensor/sim',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
+.then(r=>r.json()).then(d=>{alert('Simulation aktiv! Werte gelten bis zum Neustart.');refresh()}).catch(e=>alert('Fehler: '+e));
 }
 
 function startOta(){
