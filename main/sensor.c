@@ -286,20 +286,40 @@ void task_sensor(void *pvParameters) {
     while (1) {
         sensor_data_t new_data = {0};
 
-        if (s_sensor_count >= 1) {
-            float t = ds18b20_read_temp(s_rom_indoor);
-            if (t > -126.0f) {
-                new_data.temp_indoor = t;
+        // Use simulation values if active
+        xSemaphoreTake(s_data_mutex, portMAX_DELAY);
+        bool use_sim = (s_sim_indoor > -999.0f || s_sim_heatsink > -999.0f);
+        xSemaphoreGive(s_data_mutex);
+
+        if (!use_sim) {
+            // Real sensor reading
+            if (s_sensor_count >= 1) {
+                float t = ds18b20_read_temp(s_rom_indoor);
+                if (t > -126.0f) {
+                    new_data.temp_indoor = t;
+                    new_data.indoor_valid = true;
+                }
+            }
+
+            if (s_sensor_count >= 2) {
+                float t = ds18b20_read_temp(s_rom_heatsink);
+                if (t > -126.0f) {
+                    new_data.temp_heatsink = t;
+                    new_data.heatsink_valid = true;
+                }
+            }
+        } else {
+            // Use simulation values
+            xSemaphoreTake(s_data_mutex, portMAX_DELAY);
+            if (s_sim_indoor > -999.0f) {
+                new_data.temp_indoor = s_sim_indoor;
                 new_data.indoor_valid = true;
             }
-        }
-
-        if (s_sensor_count >= 2) {
-            float t = ds18b20_read_temp(s_rom_heatsink);
-            if (t > -126.0f) {
-                new_data.temp_heatsink = t;
+            if (s_sim_heatsink > -999.0f) {
+                new_data.temp_heatsink = s_sim_heatsink;
                 new_data.heatsink_valid = true;
             }
+            xSemaphoreGive(s_data_mutex);
         }
 
         xSemaphoreTake(s_data_mutex, portMAX_DELAY);
