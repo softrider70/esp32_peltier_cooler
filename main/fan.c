@@ -102,9 +102,8 @@ void task_fan_pid(void *pvParameters) {
         }
 
         // ---- PID: regulate fan to keep heatsink at target ----
-        // We compute error as (measurement - setpoint) so that positive error
-        // means "too hot" → increase fan speed. This is an inverted PID
-        // (output rises with positive error).
+        // For cooling: error = measurement - setpoint (positive when too hot → more fan)
+        // This is an inverted PID compared to standard (where error = setpoint - measurement)
         float error = sd.temp_heatsink - cfg->temp_heatsink_target;
         float fan_output;
 
@@ -113,11 +112,25 @@ void task_fan_pid(void *pvParameters) {
             fan_output = PID_OUTPUT_MIN;
             pid_reset(&s_fan_pid);
         } else {
-            // Use pid_compute with swapped args so error = measurement - setpoint > 0
-            // pid_compute: error = setpoint - measurement, so pass (measurement, setpoint)
-            // to get error = measurement - setpoint (positive → output grows)
-            fan_output = pid_compute(&s_fan_pid, 0.0f, -error, dt);
-            // pid error = 0 - (-error) = +error → positive → output increases
+            // Manual PID computation with inverted error for cooling
+            // error = measurement - setpoint (positive when too hot)
+            float p_term = s_fan_pid.kp * error;
+            s_fan_pid.integral += error * dt;
+            float i_term = s_fan_pid.ki * s_fan_pid.integral;
+            float derivative = (error - s_fan_pid.prev_error) / dt;
+            float d_term = s_fan_pid.kd * derivative;
+            s_fan_pid.prev_error = error;
+
+            fan_output = p_term + i_term + d_term;
+
+            // Clamp output
+            if (fan_output > PID_OUTPUT_MAX) {
+                fan_output = PID_OUTPUT_MAX;
+                s_fan_pid.integral -= error * dt;  // Anti-windup
+            } else if (fan_output < PID_OUTPUT_MIN) {
+                fan_output = PID_OUTPUT_MIN;
+                s_fan_pid.integral -= error * dt;  // Anti-windup
+            }
         }
 
         fan_set_duty((uint8_t)fan_output);
