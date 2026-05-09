@@ -127,13 +127,9 @@ document.getElementById('cfg_wd_on').value=minToTime(d.sched_wd_on);
 document.getElementById('cfg_wd_off').value=minToTime(d.sched_wd_off);
 document.getElementById('cfg_we_on').value=minToTime(d.sched_we_on);
 document.getElementById('cfg_we_off').value=minToTime(d.sched_we_off);
-if(d.ota_url)document.getElementById('ota_url').value=d.ota_url;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('t_heat').classList.add('warn');
 else document.getElementById('t_heat').classList.remove('warn');
 }).catch(e=>console.error(e));
-fetch('/api/ota/status').then(r=>r.json()).then(d=>{
-document.getElementById('ota_url').value=d.url;
-}).catch(e=>{});
 }
 
 function saveConfig(){
@@ -188,8 +184,15 @@ else{el.textContent='';el.style.color=''}
 }).catch(e=>{document.getElementById('ota_status').textContent='Verbindung verloren (Neustart?)'});
 }
 
+function init(){
+fetch('/api/ota/status').then(r=>r.json()).then(d=>{
+document.getElementById('ota_url').value=d.url;
+}).catch(e=>{});
 refresh();
 setInterval(refresh,3000);
+}
+
+init();
 </script>
 </body>
 </html>
