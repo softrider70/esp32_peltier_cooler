@@ -20,8 +20,13 @@ input[type=number],input[type=time],input[type=text]{background:#0f3460;border:1
 input.ota-input{border-color:#ff922b}
 button{background:#0ff;color:#1a1a2e;border:none;padding:.6rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:700;margin-top:.5rem}
 button:hover{background:#7fdbff}
+button:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;align-items:center;gap:.3rem;margin:.2rem 0}
 .row label{min-width:90px;font-size:.8rem}
+.status{margin-top:.5rem;padding:.5rem;border-radius:4px;font-size:.85rem;display:none}
+.status.success{background:#51cf66;color:#fff}
+.status.error{background:#ff6b6b;color:#fff}
+.status.info{background:#0ff;color:#1a1a2e}
 .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .dot-on{background:#51cf66}
 .dot-off{background:#ff6b6b}
@@ -40,6 +45,7 @@ button:hover{background:#7fdbff}
 </div>
 <p style="margin-top:.5rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span></p>
 <p style="margin-top:.3rem;font-size:.85rem;color:#888">Systemzeit: <span id="system_time">--</span></p>
+<div id="status_msg" class="status"></div>
 </div>
 
 <div class="card" style="border-color:#ff922b">
@@ -105,6 +111,14 @@ button:hover{background:#7fdbff}
 function minToTime(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
 function timeToMin(t){var p=t.split(':');return parseInt(p[0])*60+parseInt(p[1])}
 
+function showStatus(msg,type){
+var el=document.getElementById('status_msg');
+el.textContent=msg;
+el.className='status '+type;
+el.style.display='block';
+setTimeout(function(){el.style.display='none'},3000);
+}
+
 function refresh(){
 fetch('/api/status').then(r=>r.json()).then(d=>{
 document.getElementById('t_indoor').textContent=d.indoor_valid?d.indoor.toFixed(1)+'°C':'--';
@@ -145,30 +159,30 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&sched_we_on='+timeToMin(document.getElementById('cfg_we_on').value)
 +'&sched_we_off='+timeToMin(document.getElementById('cfg_we_off').value);
 fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
-.then(r=>r.json()).then(d=>{alert('Gespeichert!')}).catch(e=>alert('Fehler: '+e));
+.then(r=>r.json()).then(d=>{showStatus('Gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
 function sendSimulation(){
 var indoor=document.getElementById('sim_indoor').value;
 var heatsink=document.getElementById('sim_heatsink').value;
-if(!indoor&&!heatsink){alert('Bitte mindestens eine Temperatur eingeben');return}
+if(!indoor&&!heatsink){showStatus('Bitte mindestens eine Temperatur eingeben','error');return}
 var body='';
 if(indoor)body+='indoor='+indoor;
 if(heatsink)body+=(body?'&':'')+'heatsink='+heatsink;
 fetch('/api/sensor/sim',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
-.then(r=>r.json()).then(d=>{alert('Simulation aktiv! Werte gelten bis zum Neustart.');refresh()}).catch(e=>alert('Fehler: '+e));
+.then(r=>r.json()).then(d=>{showStatus('Simulation aktiv!','success');refresh()}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
 function saveOtaUrl(){
 var url=document.getElementById('ota_url').value;
-if(!url){alert('Bitte URL eingeben');return}
+if(!url){showStatus('Bitte URL eingeben','error');return}
 fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
-.then(r=>r.json()).then(d=>{alert('OTA-URL gespeichert!')}).catch(e=>alert('Fehler: '+e));
+.then(r=>r.json()).then(d=>{showStatus('OTA-URL gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
 function startOta(){
 var url=document.getElementById('ota_url').value;
-if(!url){alert('Bitte URL eingeben');return}
+if(!url){showStatus('Bitte URL eingeben','error');return}
 if(!confirm('Firmware-Update starten von:\\n'+url+'\\n\\nBei Fehler wird automatisch zurueckgerollt.'))return;
 document.getElementById('ota_status').textContent='Update wird gestartet...';
 fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
