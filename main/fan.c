@@ -20,12 +20,18 @@ static pid_controller_t s_fan_pid;
 static volatile uint32_t s_tacho_pulses = 0;
 static uint16_t s_current_rpm = 0;
 static uint64_t s_last_rpm_time = 0;
+static volatile uint64_t s_last_pulse_time = 0;
 #define TACHO_PULSES_PER_REV 2  // Noctua: 2 pulses per revolution
 #define RPM_UPDATE_INTERVAL_MS 1000  // Update RPM every second
+#define TACHO_DEBOUNCE_US 500  // Debounce time in microseconds (prevent bouncing)
 
-// Tacho interrupt handler
+// Tacho interrupt handler with debounce
 static void IRAM_ATTR tacho_isr_handler(void* arg) {
-    s_tacho_pulses++;
+    uint64_t now = esp_timer_get_time();
+    if (now - s_last_pulse_time > TACHO_DEBOUNCE_US) {
+        s_tacho_pulses++;
+        s_last_pulse_time = now;
+    }
 }
 
 void fan_init(void) {
