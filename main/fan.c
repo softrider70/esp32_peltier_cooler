@@ -62,19 +62,19 @@ void fan_init(void) {
     pid_init(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
              PID_OUTPUT_MIN, PID_OUTPUT_MAX);
 
-    // Configure tacho GPIO for interrupt with pull-down (filter noise)
+    // Configure tacho GPIO for interrupt with pull-up (Noctua is open-collector)
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << GPIO_FAN_TACHO),
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,
-        .intr_type = GPIO_INTR_POSEDGE,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_NEGEDGE,  // Trigger on falling edge (pulse low)
     };
     gpio_config(&io_conf);
     gpio_install_isr_service(0);
     gpio_isr_handler_add(GPIO_FAN_TACHO, tacho_isr_handler, NULL);
 
-    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d (pull-down)", GPIO_FAN_PWM, GPIO_FAN_TACHO);
+    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d (pull-up, negedge)", GPIO_FAN_PWM, GPIO_FAN_TACHO);
 }
 
 void fan_set_duty(uint8_t duty) {
