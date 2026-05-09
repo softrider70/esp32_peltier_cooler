@@ -18,15 +18,17 @@ static pid_controller_t s_fan_pid;
 
 // RPM measurement variables
 static volatile uint32_t s_tacho_pulses = 0;
+static volatile uint32_t s_tacho_interrupts = 0;  // Total interrupt count for debug
 static uint16_t s_current_rpm = 0;
 static uint64_t s_last_rpm_time = 0;
 static volatile uint64_t s_last_pulse_time = 0;
-#define TACHO_PULSES_PER_REV 32  // Adjusted for accurate RPM measurement
+#define TACHO_PULSES_PER_REV 4  // 4 pulses per revolution (typical for many fans)
 #define RPM_UPDATE_INTERVAL_MS 1000  // Update RPM every second
-#define TACHO_DEBOUNCE_US 100  // Debounce time in microseconds (prevent bouncing)
+#define TACHO_DEBOUNCE_US 10  // Very short debounce to avoid missing pulses
 
 // Tacho interrupt handler with debounce
 static void IRAM_ATTR tacho_isr_handler(void* arg) {
+    s_tacho_interrupts++;
     uint64_t now = esp_timer_get_time();
     if (now - s_last_pulse_time > TACHO_DEBOUNCE_US) {
         s_tacho_pulses++;
@@ -107,13 +109,16 @@ void task_fan_pid(void *pvParameters) {
         uint64_t current_time = esp_timer_get_time() / 1000;  // milliseconds
         if (current_time - s_last_rpm_time >= RPM_UPDATE_INTERVAL_MS) {
             uint32_t pulses = s_tacho_pulses;
+            uint32_t interrupts = s_tacho_interrupts;
             s_tacho_pulses = 0;  // Reset counter
+            s_tacho_interrupts = 0;  // Reset interrupt counter
             uint64_t time_diff_ms = current_time - s_last_rpm_time;
             s_last_rpm_time = current_time;
 
             // RPM = (pulses * 60000) / (time_ms * pulses_per_rev)
             if (time_diff_ms > 0) {
                 s_current_rpm = (uint16_t)((pulses * 60000UL) / (time_diff_ms * TACHO_PULSES_PER_REV));
+                ESP_LOGI(TAG, "RPM: interrupts=%lu, pulses=%lu, time=%llu ms, rpm=%u", interrupts, pulses, time_diff_ms, s_current_rpm);
             } else {
                 s_current_rpm = 0;
             }
