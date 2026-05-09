@@ -36,7 +36,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h1>&#x2744; ESP32 Peltier Cooler</h1>
 
 <div class="card">
-<h2>Live Status</h2>
+<h2>Live Status <span style="font-size:.7rem;color:#888;font-weight:normal">Build <span id="build">--</span></span></h2>
 <div class="grid">
 <div><div class="label">Innen</div><div class="val" id="t_indoor">--</div></div>
 <div><div class="label">Kühlblock</div><div class="val" id="t_heat">--</div></div>
@@ -121,6 +121,7 @@ var dot=document.getElementById('dot_active');
 dot.className='status-dot '+(d.active?'dot-on':'dot-off');
 document.getElementById('sched_status').textContent=d.active?'AKTIV':'INAKTIV';
 document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Zeit-Sync';
+document.getElementById('build').textContent=d.build;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('t_heat').classList.add('warn');
 else document.getElementById('t_heat').classList.remove('warn');
 }).catch(e=>console.error(e));

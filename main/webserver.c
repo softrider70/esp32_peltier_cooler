@@ -73,7 +73,8 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"pid_kp\":%.1f,\"pid_ki\":%.1f,\"pid_kd\":%.1f,"
         "\"sched_wd_on\":%d,\"sched_wd_off\":%d,"
         "\"sched_we_on\":%d,\"sched_we_off\":%d,"
-        "\"wifi_mode\":\"%s\",\"ota_url\":\"%s\"}",
+        "\"wifi_mode\":\"%s\",\"ota_url\":\"%s\","
+        "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
         sd.heatsink_valid ? "true" : "false",
@@ -86,7 +87,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->sched_wd_on, cfg->sched_wd_off,
         cfg->sched_we_on, cfg->sched_we_off,
         wifi_is_connected() ? "STA" : "AP",
-        ota_url);
+        ota_url, BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, buf, len);
