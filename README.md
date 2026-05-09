@@ -21,7 +21,6 @@ Ein geschlossener Raum (z.B. Schrank, Gehaeuse) soll aktiv gekuehlt werden. Ein 
 | Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: D5 (GPIO5), Tacho: D18 (GPIO18) |
 | DS18B20 #1 | Temperatursensor Innenraum | D4 (GPIO4, OneWire) |
 | DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | D4 (GPIO4, OneWire) |
-| N-MOSFET (z.B. IRLZ44N) | Schaltet Peltier-Stromkreis | Gate: D16 (GPIO16) |
 
 ### Verdrahtung OneWire
 
@@ -29,6 +28,16 @@ Beide DS18B20 haengen am gleichen OneWire-Bus (D4/GPIO4) mit einem 4.7 kOhm Pull
 
 ### Verdrahtung Peltier
 
+**N-MOSFET Modul (z.B. IRF520N Modul):**
+```
+ESP32 D16 (GPIO16) --- IN
+Modul VCC --- 5V
+Modul GND --- GND
+Modul OUT --- Peltier(–)
+Peltier(+) --- V+ (12V)
+```
+
+**Alternativ: Einzelner MOSFET (IRLZ44N):**
 ```
 ESP32 D16 (GPIO16) ---[1kOhm]--- Gate
                                 |

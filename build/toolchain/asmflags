@@ -1,6 +1,0 @@
--Wno-frame-address
--mlongcalls
--fno-builtin-memcpy
--fno-builtin-memset
--fno-builtin-bzero
-"-specs=C:/Users/win4g/Downloads/GitHub/VS-Projekte/CascadeProjects/esp32_cooler/build/specs/picolibc.specs"
