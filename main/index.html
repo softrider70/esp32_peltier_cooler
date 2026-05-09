@@ -11,15 +11,17 @@ h1{color:#0ff;margin-bottom:1rem;font-size:1.5rem}
 h2{color:#7fdbff;margin:1rem 0 .5rem;font-size:1.1rem}
 .card{background:#16213e;border-radius:8px;padding:1rem;margin-bottom:1rem;border:1px solid #0f3460}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
 .val{font-size:1.8rem;font-weight:700;color:#0ff}
 .label{font-size:.8rem;color:#888;text-transform:uppercase}
 .warn{color:#ff6b6b}
 .ok{color:#51cf66}
-input[type=number],input[type=time]{background:#0f3460;border:1px solid #0ff;color:#fff;padding:.4rem;border-radius:4px;width:100%}
+input[type=number],input[type=time],input[type=text]{background:#0f3460;border:1px solid #0ff;color:#fff;padding:.3rem;border-radius:4px;width:100%;font-size:.85rem}
+input.ota-input{border-color:#ff922b}
 button{background:#0ff;color:#1a1a2e;border:none;padding:.6rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:700;margin-top:.5rem}
 button:hover{background:#7fdbff}
-.row{display:flex;align-items:center;gap:.5rem;margin:.3rem 0}
-.row label{min-width:120px;font-size:.85rem}
+.row{display:flex;align-items:center;gap:.3rem;margin:.2rem 0}
+.row label{min-width:90px;font-size:.8rem}
 .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .dot-on{background:#51cf66}
 .dot-off{background:#ff6b6b}
@@ -43,46 +45,56 @@ button:hover{background:#7fdbff}
 <div class="card" style="border-color:#ff922b">
 <h2 style="color:#ff922b">Sensor Simulation (DS18B20)</h2>
 <p style="font-size:.8rem;color:#888;margin-bottom:.5rem">Manuelle Temperatur-Eingabe zum Testen ohne reale Sensoren</p>
-<div class="row"><label>Innenraum (°C):</label><input type="number" id="sim_indoor" step="0.1" min="-10" max="50" placeholder="z.B. 25.5"></div>
-<div class="row"><label>Kuehlblock (°C):</label><input type="number" id="sim_heatsink" step="0.1" min="0" max="80" placeholder="z.B. 45.0"></div>
+<div class="input-grid">
+<div class="row"><label>Innen:</label><input type="number" id="sim_indoor" step="0.1" min="-10" max="50" placeholder="25.5"></div>
+<div class="row"><label>Kühlblock:</label><input type="number" id="sim_heatsink" step="0.1" min="0" max="80" placeholder="45.0"></div>
+</div>
 <button onclick="sendSimulation()" style="background:#ff922b">Simulation senden</button>
 <p style="margin-top:.5rem;font-size:.75rem;color:#888">Die Werte überschreiben die realen Sensordaten bis zum nächsten Neustart.</p>
 </div>
 
 <div class="card">
 <h2>Peltier Kuehlbereich (Innenraum)</h2>
-<div class="row"><label>Kuehlung AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40">&deg;C</div>
-<div class="row"><label>Kuehlung AUS ab:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35">&deg;C</div>
+<div class="input-grid">
+<div class="row"><label>AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40"></div>
+<div class="row"><label>AUS ab:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35"></div>
+</div>
 <p style="font-size:.75rem;color:#888;margin-top:.3rem">Hysterese-Band: Peltier bleibt an zwischen AUS und AN Schwelle</p>
 </div>
 
 <div class="card">
 <h2>Kuehlblock Sicherheit</h2>
-<div class="row"><label>Max Temperatur:</label><input type="number" id="cfg_temp_max" step="1" min="40" max="80">&deg;C</div>
-<div class="row"><label>PID Zieltemp:</label><input type="number" id="cfg_temp_target" step="1" min="30" max="60">&deg;C</div>
+<div class="input-grid">
+<div class="row"><label>Max Temp:</label><input type="number" id="cfg_temp_max" step="1" min="40" max="80"></div>
+<div class="row"><label>PID Ziel:</label><input type="number" id="cfg_temp_target" step="1" min="30" max="60"></div>
+</div>
 </div>
 
 <div class="card">
 <h2>PID Parameter</h2>
+<div class="input-grid">
 <div class="row"><label>Kp:</label><input type="number" id="cfg_kp" step="0.1" min="0" max="20"></div>
 <div class="row"><label>Ki:</label><input type="number" id="cfg_ki" step="0.1" min="0" max="10"></div>
+</div>
 <div class="row"><label>Kd:</label><input type="number" id="cfg_kd" step="0.1" min="0" max="10"></div>
 </div>
 
 <div class="card">
 <h2>Zeitfenster</h2>
 <p style="font-size:.8rem;color:#888;margin-bottom:.5rem">Format: HH:MM (Stunden:Minuten)</p>
-<div class="row"><label>Wochentag AN:</label><input type="time" id="cfg_wd_on"></div>
-<div class="row"><label>Wochentag AUS:</label><input type="time" id="cfg_wd_off"></div>
-<div class="row"><label>Wochenende AN:</label><input type="time" id="cfg_we_on"></div>
-<div class="row"><label>Wochenende AUS:</label><input type="time" id="cfg_we_off"></div>
+<div class="input-grid">
+<div class="row"><label>WD AN:</label><input type="time" id="cfg_wd_on"></div>
+<div class="row"><label>WD AUS:</label><input type="time" id="cfg_wd_off"></div>
+<div class="row"><label>WE AN:</label><input type="time" id="cfg_we_on"></div>
+<div class="row"><label>WE AUS:</label><input type="time" id="cfg_we_off"></div>
+</div>
 </div>
 
 <button onclick="saveConfig()">Einstellungen speichern</button>
 
 <div class="card" style="margin-top:1rem;border-color:#ff922b">
 <h2 style="color:#ff922b">Firmware Update (OTA)</h2>
-<div class="row"><label>Server-URL:</label><input type="text" id="ota_url" style="background:#0f3460;border:1px solid #ff922b;color:#fff;padding:.4rem;border-radius:4px;width:100%;font-size:.85rem" value="http://192.168.1.191:8080/firmware.bin" placeholder="http://192.168.1.191:8080/firmware.bin"></div>
+<div class="row"><label>URL:</label><input type="text" class="ota-input" id="ota_url" value="http://192.168.1.191:8080/firmware.bin" placeholder="http://192.168.1.191:8080/firmware.bin"></div>
 <button onclick="saveOtaUrl()" style="background:#ff922b;margin-right:.5rem">URL speichern</button>
 <button onclick="startOta()" style="background:#ff922b">Firmware aktualisieren</button>
 <p style="margin-top:.5rem;font-size:.85rem" id="ota_status"></p>
