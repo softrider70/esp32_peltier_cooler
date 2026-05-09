@@ -25,6 +25,7 @@ static volatile uint64_t s_last_pulse_time = 0;
 #define TACHO_PULSES_PER_REV 2  // Standard Noctua: 2 pulses per revolution
 #define RPM_UPDATE_INTERVAL_MS 1000  // Update RPM every second
 #define TACHO_DEBOUNCE_US 1000  // 1ms debounce to filter noise
+#define TACHO_ENABLED false  // Disabled - hardware not connected
 
 // Tacho interrupt handler with debounce
 static void IRAM_ATTR tacho_isr_handler(void* arg) {
@@ -62,6 +63,7 @@ void fan_init(void) {
     pid_init(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
              PID_OUTPUT_MIN, PID_OUTPUT_MAX);
 
+#if TACHO_ENABLED
     // Configure tacho GPIO for interrupt with pull-up (Noctua is open-collector)
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << GPIO_FAN_TACHO),
@@ -75,6 +77,9 @@ void fan_init(void) {
     gpio_isr_handler_add(GPIO_FAN_TACHO, tacho_isr_handler, NULL);
 
     ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d (pull-up, negedge)", GPIO_FAN_PWM, GPIO_FAN_TACHO);
+#else
+    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho DISABLED (hardware not connected)", GPIO_FAN_PWM);
+#endif
 }
 
 void fan_set_duty(uint8_t duty) {
@@ -99,13 +104,16 @@ void task_fan_pid(void *pvParameters) {
     (void)pvParameters;
 
     const float dt = (float)PID_SAMPLE_TIME_MS / 1000.0f;
+#if TACHO_ENABLED
     s_last_rpm_time = esp_timer_get_time() / 1000;  // Initial time
+#endif
 
     while (1) {
         sensor_data_t sd = sensor_get_data();
         app_config_t *cfg = nvs_config_get();
 
-        // Update RPM calculation every second
+        // Update RPM calculation every second (disabled due to hardware not connected)
+#if TACHO_ENABLED
         uint64_t current_time = esp_timer_get_time() / 1000;  // milliseconds
         if (current_time - s_last_rpm_time >= RPM_UPDATE_INTERVAL_MS) {
             uint32_t pulses = s_tacho_pulses;
@@ -123,6 +131,9 @@ void task_fan_pid(void *pvParameters) {
                 s_current_rpm = 0;
             }
         }
+#else
+        s_current_rpm = 0;  // Tacho disabled - always return 0
+#endif
 
         // Update PID tunings if changed at runtime
         pid_set_tunings(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd);
