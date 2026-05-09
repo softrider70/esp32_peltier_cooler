@@ -48,14 +48,26 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     app_config_t *cfg = nvs_config_get();
 
     char buf[512];
+    // Get current time
+    char time_str[32] = "No time";
+    bool time_synced = false;
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    if (timeinfo.tm_year >= (2020 - 1900)) {
+        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+        time_synced = true;
+    }
+
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
         "\"indoor_valid\":%s,\"heatsink_valid\":%s,"
         "\"fan_duty\":%d,\"peltier_on\":%s,"
-        "\"active\":%s,"
+        "\"active\":%s,\"time_synced\":%s,\"time\":\"%s\","
         "\"temp_on\":%.1f,\"temp_off\":%.1f,"
         "\"temp_max\":%.1f,\"temp_target\":%.1f,"
-        "\"pid_kp\":%.2f,\"pid_ki\":%.2f,\"pid_kd\":%.2f,"
+        "\"pid_kp\":%.1f,\"pid_ki\":%.1f,\"pid_kd\":%.1f,"
         "\"sched_wd_on\":%d,\"sched_wd_off\":%d,"
         "\"sched_we_on\":%d,\"sched_we_off\":%d,"
         "\"wifi_mode\":\"%s\"}",
@@ -64,6 +76,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         sd.heatsink_valid ? "true" : "false",
         fan_get_duty(), peltier_is_on() ? "true" : "false",
         scheduler_is_active() ? "true" : "false",
+        time_synced ? "true" : "false", time_str,
         cfg->temp_peltier_on, cfg->temp_peltier_off,
         cfg->temp_heatsink_max, cfg->temp_heatsink_target,
         cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,

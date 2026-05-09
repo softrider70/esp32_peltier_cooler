@@ -37,6 +37,7 @@ button:hover{background:#7fdbff}
 <div><div class="label">Peltier</div><div class="val" id="peltier">--</div></div>
 </div>
 <p style="margin-top:.5rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span></p>
+<p style="margin-top:.3rem;font-size:.85rem;color:#888">Systemzeit: <span id="system_time">--</span></p>
 </div>
 
 <div class="card" style="border-color:#ff922b">
@@ -81,7 +82,8 @@ button:hover{background:#7fdbff}
 
 <div class="card" style="margin-top:1rem;border-color:#ff922b">
 <h2 style="color:#ff922b">Firmware Update (OTA)</h2>
-<div class="row"><label>Server-URL:</label><input type="text" id="ota_url" style="background:#0f3460;border:1px solid #ff922b;color:#fff;padding:.4rem;border-radius:4px;width:100%;font-size:.85rem" placeholder="http://192.168.1.100:8080/firmware.bin"></div>
+<div class="row"><label>Server-URL:</label><input type="text" id="ota_url" style="background:#0f3460;border:1px solid #ff922b;color:#fff;padding:.4rem;border-radius:4px;width:100%;font-size:.85rem" placeholder="http://192.168.1.191:8080/firmware.bin"></div>
+<button onclick="saveOtaUrl()" style="background:#ff922b;margin-right:.5rem">URL speichern</button>
 <button onclick="startOta()" style="background:#ff922b">Firmware aktualisieren</button>
 <p style="margin-top:.5rem;font-size:.85rem" id="ota_status"></p>
 <p style="font-size:.7rem;color:#888;margin-top:.3rem">Bei fehlgeschlagenem Boot wird automatisch auf die vorherige Firmware zurueckgerollt.</p>
@@ -101,6 +103,7 @@ document.getElementById('peltier').className='val '+(d.peltier_on?'ok':'');
 var dot=document.getElementById('dot_active');
 dot.className='status-dot '+(d.active?'dot-on':'dot-off');
 document.getElementById('sched_status').textContent=d.active?'AKTIV':'INAKTIV';
+document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Zeit-Sync';
 document.getElementById('cfg_temp_on').value=d.temp_on;
 document.getElementById('cfg_temp_off').value=d.temp_off;
 document.getElementById('cfg_temp_max').value=d.temp_max;
@@ -145,6 +148,13 @@ if(indoor)body+='indoor='+indoor;
 if(heatsink)body+=(body?'&':'')+'heatsink='+heatsink;
 fetch('/api/sensor/sim',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
 .then(r=>r.json()).then(d=>{alert('Simulation aktiv! Werte gelten bis zum Neustart.');refresh()}).catch(e=>alert('Fehler: '+e));
+}
+
+function saveOtaUrl(){
+var url=document.getElementById('ota_url').value;
+if(!url){alert('Bitte URL eingeben');return}
+fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
+.then(r=>r.json()).then(d=>{alert('OTA-URL gespeichert!')}).catch(e=>alert('Fehler: '+e));
 }
 
 function startOta(){
