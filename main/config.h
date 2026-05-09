@@ -11,7 +11,7 @@
 #define FAN_PWM_CHANNEL     LEDC_CHANNEL_0
 #define FAN_PWM_TIMER       LEDC_TIMER_0
 #define FAN_PWM_RESOLUTION  LEDC_TIMER_8_BIT  // 0-255
-#define FAN_PWM_INVERTED    true    // NPN Transistor inverts PWM signal
+#define FAN_PWM_INVERTED    false   // PWM invertierung deaktiviert
 
 // ===== Temperature Thresholds =====
 #define TEMP_PELTIER_ON_DEFAULT     25.0f   // Peltier ON when indoor above this
