@@ -177,15 +177,21 @@ void task_fan_pid(void *pvParameters) {
         float fan_output;
 
         if (error <= 0.0f) {
-            // Heatsink below target — fan off, reset integrator
+            // Heatsink below target — fan off, reset integrator only
             fan_output = PID_OUTPUT_MIN;
-            pid_reset(&s_fan_pid);
+            s_fan_pid.integral = 0.0f;  // Reset only integral, keep prev_error
         } else {
             // Manual PID computation with inverted error for cooling
             // error = measurement - setpoint (positive when too hot)
             float p_term = s_fan_pid.kp * error;
             s_fan_pid.integral += error * dt;
             float i_term = s_fan_pid.ki * s_fan_pid.integral;
+            
+            // Initialize prev_error on first run
+            if (s_fan_pid.prev_error == 0.0f && error != 0.0f) {
+                s_fan_pid.prev_error = error;
+            }
+            
             float derivative = (error - s_fan_pid.prev_error) / dt;
             float d_term = s_fan_pid.kd * derivative;
             s_fan_pid.prev_error = error;
