@@ -22,9 +22,9 @@ static volatile uint32_t s_tacho_interrupts = 0;  // Total interrupt count for d
 static uint16_t s_current_rpm = 0;
 static uint64_t s_last_rpm_time = 0;
 static volatile uint64_t s_last_pulse_time = 0;
-#define TACHO_PULSES_PER_REV 4  // 4 pulses per revolution (typical for many fans)
+#define TACHO_PULSES_PER_REV 2  // Standard Noctua: 2 pulses per revolution
 #define RPM_UPDATE_INTERVAL_MS 1000  // Update RPM every second
-#define TACHO_DEBOUNCE_US 10  // Very short debounce to avoid missing pulses
+#define TACHO_DEBOUNCE_US 1000  // 1ms debounce to filter noise
 
 // Tacho interrupt handler with debounce
 static void IRAM_ATTR tacho_isr_handler(void* arg) {
@@ -62,19 +62,19 @@ void fan_init(void) {
     pid_init(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
              PID_OUTPUT_MIN, PID_OUTPUT_MAX);
 
-    // Configure tacho GPIO for interrupt
+    // Configure tacho GPIO for interrupt with pull-down (filter noise)
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << GPIO_FAN_TACHO),
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type = GPIO_INTR_POSEDGE,
     };
     gpio_config(&io_conf);
     gpio_install_isr_service(0);
     gpio_isr_handler_add(GPIO_FAN_TACHO, tacho_isr_handler, NULL);
 
-    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d", GPIO_FAN_PWM, GPIO_FAN_TACHO);
+    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d (pull-down)", GPIO_FAN_PWM, GPIO_FAN_TACHO);
 }
 
 void fan_set_duty(uint8_t duty) {
