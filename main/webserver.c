@@ -47,7 +47,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     sensor_data_t sd = sensor_get_data();
     app_config_t *cfg = nvs_config_get();
 
-    char buf[512];
+    char buf[768];
     // Get current time
     char time_str[32] = "No time";
     bool time_synced = false;
@@ -60,6 +60,9 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         time_synced = true;
     }
 
+    // Get OTA URL
+    const char *ota_url = ota_get_url();
+
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
         "\"indoor_valid\":%s,\"heatsink_valid\":%s,"
@@ -70,7 +73,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"pid_kp\":%.1f,\"pid_ki\":%.1f,\"pid_kd\":%.1f,"
         "\"sched_wd_on\":%d,\"sched_wd_off\":%d,"
         "\"sched_we_on\":%d,\"sched_we_off\":%d,"
-        "\"wifi_mode\":\"%s\"}",
+        "\"wifi_mode\":\"%s\",\"ota_url\":\"%s\"}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
         sd.heatsink_valid ? "true" : "false",
@@ -82,7 +85,8 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
         cfg->sched_wd_on, cfg->sched_wd_off,
         cfg->sched_we_on, cfg->sched_we_off,
-        wifi_is_connected() ? "STA" : "AP");
+        wifi_is_connected() ? "STA" : "AP",
+        ota_url);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, buf, len);

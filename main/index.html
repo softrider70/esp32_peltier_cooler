@@ -82,7 +82,7 @@ button:hover{background:#7fdbff}
 
 <div class="card" style="margin-top:1rem;border-color:#ff922b">
 <h2 style="color:#ff922b">Firmware Update (OTA)</h2>
-<div class="row"><label>Server-URL:</label><input type="text" id="ota_url" style="background:#0f3460;border:1px solid #ff922b;color:#fff;padding:.4rem;border-radius:4px;width:100%;font-size:.85rem" placeholder="http://192.168.1.191:8080/firmware.bin"></div>
+<div class="row"><label>Server-URL:</label><input type="text" id="ota_url" style="background:#0f3460;border:1px solid #ff922b;color:#fff;padding:.4rem;border-radius:4px;width:100%;font-size:.85rem" value="http://192.168.1.191:8080/firmware.bin" placeholder="http://192.168.1.191:8080/firmware.bin"></div>
 <button onclick="saveOtaUrl()" style="background:#ff922b;margin-right:.5rem">URL speichern</button>
 <button onclick="startOta()" style="background:#ff922b">Firmware aktualisieren</button>
 <p style="margin-top:.5rem;font-size:.85rem" id="ota_status"></p>
@@ -115,6 +115,7 @@ document.getElementById('cfg_wd_on').value=minToTime(d.sched_wd_on);
 document.getElementById('cfg_wd_off').value=minToTime(d.sched_wd_off);
 document.getElementById('cfg_we_on').value=minToTime(d.sched_we_on);
 document.getElementById('cfg_we_off').value=minToTime(d.sched_we_off);
+if(d.ota_url)document.getElementById('ota_url').value=d.ota_url;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('t_heat').classList.add('warn');
 else document.getElementById('t_heat').classList.remove('warn');
 }).catch(e=>console.error(e));

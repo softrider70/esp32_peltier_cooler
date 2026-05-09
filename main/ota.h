@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 // Default OTA firmware URL
-#define OTA_DEFAULT_URL "http://192.168.1.100:8080/firmware.bin"
+#define OTA_DEFAULT_URL "http://192.168.1.191:8080/firmware.bin"
 
 // NVS key for OTA server URL
 #define NVS_KEY_OTA_URL  "ota_url"
