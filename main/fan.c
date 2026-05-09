@@ -6,6 +6,8 @@
 #include "scheduler.h"
 #include "nvs_config.h"
 #include "driver/ledc.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,6 +15,18 @@
 static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
 static pid_controller_t s_fan_pid;
+
+// RPM measurement variables
+static volatile uint32_t s_tacho_pulses = 0;
+static uint16_t s_current_rpm = 0;
+static uint64_t s_last_rpm_time = 0;
+#define TACHO_PULSES_PER_REV 2  // Noctua: 2 pulses per revolution
+#define RPM_UPDATE_INTERVAL_MS 1000  // Update RPM every second
+
+// Tacho interrupt handler
+static void IRAM_ATTR tacho_isr_handler(void* arg) {
+    s_tacho_pulses++;
+}
 
 void fan_init(void) {
     ledc_timer_config_t timer_conf = {
@@ -40,7 +54,19 @@ void fan_init(void) {
     pid_init(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
              PID_OUTPUT_MIN, PID_OUTPUT_MAX);
 
-    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz)", GPIO_FAN_PWM);
+    // Configure tacho GPIO for interrupt
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << GPIO_FAN_TACHO),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_POSEDGE,
+    };
+    gpio_config(&io_conf);
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(GPIO_FAN_TACHO, tacho_isr_handler, NULL);
+
+    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d", GPIO_FAN_PWM, GPIO_FAN_TACHO);
 }
 
 void fan_set_duty(uint8_t duty) {
@@ -57,14 +83,35 @@ uint8_t fan_get_duty(void) {
     return s_current_duty;
 }
 
+uint16_t fan_get_rpm(void) {
+    return s_current_rpm;
+}
+
 void task_fan_pid(void *pvParameters) {
     (void)pvParameters;
 
     const float dt = (float)PID_SAMPLE_TIME_MS / 1000.0f;
+    s_last_rpm_time = esp_timer_get_time() / 1000;  // Initial time
 
     while (1) {
         sensor_data_t sd = sensor_get_data();
         app_config_t *cfg = nvs_config_get();
+
+        // Update RPM calculation every second
+        uint64_t current_time = esp_timer_get_time() / 1000;  // milliseconds
+        if (current_time - s_last_rpm_time >= RPM_UPDATE_INTERVAL_MS) {
+            uint32_t pulses = s_tacho_pulses;
+            s_tacho_pulses = 0;  // Reset counter
+            uint64_t time_diff_ms = current_time - s_last_rpm_time;
+            s_last_rpm_time = current_time;
+
+            // RPM = (pulses * 60000) / (time_ms * pulses_per_rev)
+            if (time_diff_ms > 0) {
+                s_current_rpm = (uint16_t)((pulses * 60000UL) / (time_diff_ms * TACHO_PULSES_PER_REV));
+            } else {
+                s_current_rpm = 0;
+            }
+        }
 
         // Update PID tunings if changed at runtime
         pid_set_tunings(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd);

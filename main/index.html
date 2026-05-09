@@ -40,7 +40,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="grid">
 <div><div class="label">Innen</div><div class="val" id="t_indoor">--</div></div>
 <div><div class="label">Kühlblock</div><div class="val" id="t_heat">--</div></div>
-<div><div class="label">Lüfter</div><div class="val" id="fan">--%</div></div>
+<div><div class="label">Lüfter Soll</div><div class="val" id="fan_duty">--%</div></div>
+<div><div class="label">Lüfter Ist</div><div class="val" id="fan_rpm">-- RPM</div></div>
 <div><div class="label">Peltier</div><div class="val" id="peltier">--</div></div>
 </div>
 <p style="margin-top:.3rem;font-size:.75rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span> | Zeit: <span id="system_time">--</span></p>
@@ -114,7 +115,8 @@ function refresh(){
 fetch('/api/status').then(r=>r.json()).then(d=>{
 document.getElementById('t_indoor').textContent=d.indoor_valid?d.indoor.toFixed(1)+'°C':'--';
 document.getElementById('t_heat').textContent=d.heatsink_valid?d.heatsink.toFixed(1)+'°C':'--';
-document.getElementById('fan').textContent=Math.round(d.fan_duty/2.55)+'%';
+document.getElementById('fan_duty').textContent=Math.round(d.fan_duty/2.55)+'%';
+document.getElementById('fan_rpm').textContent=d.fan_rpm+' RPM';
 document.getElementById('peltier').textContent=d.peltier_on?'AN':'AUS';
 document.getElementById('peltier').className='val '+(d.peltier_on?'ok':'');
 var dot=document.getElementById('dot_active');

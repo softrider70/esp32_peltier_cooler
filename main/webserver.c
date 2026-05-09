@@ -66,7 +66,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
         "\"indoor_valid\":%s,\"heatsink_valid\":%s,"
-        "\"fan_duty\":%d,\"peltier_on\":%s,"
+        "\"fan_duty\":%d,\"fan_rpm\":%d,\"peltier_on\":%s,"
         "\"active\":%s,\"time_synced\":%s,\"time\":\"%s\","
         "\"temp_on\":%.1f,\"temp_off\":%.1f,"
         "\"temp_max\":%.1f,\"temp_target\":%.1f,"
@@ -78,7 +78,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
         sd.heatsink_valid ? "true" : "false",
-        fan_get_duty(), peltier_is_on() ? "true" : "false",
+        fan_get_duty(), fan_get_rpm(), peltier_is_on() ? "true" : "false",
         scheduler_is_active() ? "true" : "false",
         time_synced ? "true" : "false", time_str,
         cfg->temp_peltier_on, cfg->temp_peltier_off,
