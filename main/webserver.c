@@ -240,20 +240,23 @@ static esp_err_t handler_api_graph(httpd_req_t *req) {
     uint16_t count = 0;
     const data_point_t *data = data_logger_get_data(&count);
     
-    // Build JSON array
-    char *json_buf = malloc(4096);  // Buffer for JSON response
+    // Build JSON array (32KB buffer for 720 points)
+    char *json_buf = malloc(32768);
     if (!json_buf) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
         return ESP_FAIL;
     }
     
-    int pos = snprintf(json_buf, 4096, "[");
+    int pos = snprintf(json_buf, 32768, "[");
     
     for (uint16_t i = 0; i < count; i++) {
         // Skip points with zero timestamp (uninitialized)
         if (data[i].timestamp == 0) continue;
         
-        pos += snprintf(json_buf + pos, 4096 - pos,
+        // Check buffer space
+        if (pos > 32000) break;  // Safety limit
+        
+        pos += snprintf(json_buf + pos, 32768 - pos,
             "%s{\"timestamp\":%lu,\"indoor\":%.1f,\"heatsink\":%.1f,\"fan\":%u,\"peltier\":%s}",
             (pos > 1) ? "," : "",
             data[i].timestamp,
@@ -261,15 +264,12 @@ static esp_err_t handler_api_graph(httpd_req_t *req) {
             data[i].temp_heatsink,
             data[i].fan_duty,
             data[i].peltier_on ? "true" : "false");
-        
-        if (pos >= 4090) break;  // Prevent buffer overflow
     }
     
-    pos += snprintf(json_buf + pos, 4096 - pos, "]");
+    snprintf(json_buf + pos, 32768 - pos, "]");
     
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, json_buf, pos);
-    
+    httpd_resp_send(req, json_buf, strlen(json_buf));
     free(json_buf);
     return ESP_OK;
 }
