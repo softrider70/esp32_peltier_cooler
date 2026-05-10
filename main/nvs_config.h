@@ -15,6 +15,7 @@ typedef struct {
     float    pid_kd;
     uint16_t sched_on[7];           // Daily on times (hours 0-23, stored as minutes)
     uint16_t sched_off[7];          // Daily off times (hours 0-23, stored as minutes)
+    uint16_t data_log_interval;     // Data logging interval in seconds (default: 10s)
 } app_config_t;
 
 // Initialize NVS and load config (or set defaults)

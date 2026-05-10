@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        38      // Build counter - increment with each flash
+#define BUILD_NUMBER        39      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -71,6 +71,7 @@
 #define NVS_KEY_SCHED_SA_OFF "sch_sa_off"  // Saturday off
 #define NVS_KEY_SCHED_SO_ON  "sch_so_on"   // Sunday on
 #define NVS_KEY_SCHED_SO_OFF "sch_so_off"  // Sunday off
+#define NVS_KEY_DATA_LOG_INTERVAL "log_interval"  // Data logging interval (seconds)
 
 // ===== Task Priorities =====
 #define TASK_PRIO_SENSOR     5

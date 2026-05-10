@@ -63,6 +63,10 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
 
     // Get OTA URL
     const char *ota_url = ota_get_url();
+    
+    // Calculate ring buffer duration in hours
+    uint32_t interval_sec = data_logger_get_interval() / 1000;
+    float duration_hours = (DATA_POINTS_MAX * interval_sec) / 3600.0f;
 
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
@@ -75,6 +79,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"sched_on\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"wifi_mode\":\"%s\",\"ota_url\":\"%s\","
+        "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
@@ -89,7 +94,9 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->sched_on[0]/60, cfg->sched_on[1]/60, cfg->sched_on[2]/60, cfg->sched_on[3]/60, cfg->sched_on[4]/60, cfg->sched_on[5]/60, cfg->sched_on[6]/60,
         cfg->sched_off[0]/60, cfg->sched_off[1]/60, cfg->sched_off[2]/60, cfg->sched_off[3]/60, cfg->sched_off[4]/60, cfg->sched_off[5]/60, cfg->sched_off[6]/60,
         wifi_is_connected() ? "STA" : "AP",
-        ota_url, BUILD_NUMBER);
+        ota_url,
+        interval_sec, duration_hours,
+        BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, buf, len);
@@ -124,6 +131,8 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->pid_ki = strtof(value, NULL);
     if (httpd_query_key_value(buf, "pid_kd", value, sizeof(value)) == ESP_OK)
         cfg->pid_kd = strtof(value, NULL);
+    if (httpd_query_key_value(buf, "data_log_interval", value, sizeof(value)) == ESP_OK)
+        cfg->data_log_interval = (uint16_t)atoi(value);
 
     // Parse daily schedule (7 days, 2 values each)
     for (int i = 0; i < 7; i++) {
@@ -138,6 +147,9 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     }
 
     nvs_config_save();
+    
+    // Update data logger interval if changed
+    data_logger_set_interval(cfg->data_log_interval * 1000);  // Convert seconds to ms
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"ok\"}");

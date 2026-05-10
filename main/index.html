@@ -99,6 +99,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 
 <div class="card">
+<h2>Datenaufzeichnung</h2>
+<div class="row"><label>Intervall (s):</label><input type="number" id="cfg_data_log_interval" step="1" min="1" max="3600"></div>
+<p style="font-size:.7rem;color:#888;margin-top:.2rem">Ringspeicher: <span id="ring_buffer_hours">--</span> Stunden</p>
+</div>
+
+<div class="card">
 <h2>Zeitfenster</h2>
 <p style="font-size:.7rem;color:#888;margin-bottom:.3rem">Stundenwerte (0-23), Minuten auf 00</p>
 <table style="width:100%;font-size:.75rem;border-collapse:collapse">
@@ -269,7 +275,8 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&temp_target='+document.getElementById('cfg_temp_target').value
 +'&pid_kp='+document.getElementById('cfg_kp').value
 +'&pid_ki='+document.getElementById('cfg_ki').value
-+'&pid_kd='+document.getElementById('cfg_kd').value;
++'&pid_kd='+document.getElementById('cfg_kd').value
++'&data_log_interval='+document.getElementById('cfg_data_log_interval').value;
 for(var i=0;i<7;i++){
 body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value;
 body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value;
@@ -315,11 +322,20 @@ document.getElementById('cfg_temp_target').value=d.temp_target;
 document.getElementById('cfg_kp').value=d.pid_kp;
 document.getElementById('cfg_ki').value=d.pid_ki;
 document.getElementById('cfg_kd').value=d.pid_kd;
+document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
+document.getElementById('ring_buffer_hours').textContent=d.ring_buffer_hours.toFixed(1);
 for(var i=0;i<7;i++){
 document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
 document.getElementById('sched_'+i+'_off').value=d.sched_off[i];
 }
 }).catch(e=>{});
+
+// Update ring buffer duration on interval change
+document.getElementById('cfg_data_log_interval').addEventListener('input',function(){
+var interval=parseInt(this.value)||10;
+var hours=(720*interval)/3600;  // 720 points * interval / 3600
+document.getElementById('ring_buffer_hours').textContent=hours.toFixed(1);
+});
 
 // Enter-Taste Event-Listener für Input-Felder
 var inputs=document.querySelectorAll('input[type=number],input[type=time],input[type=text]');

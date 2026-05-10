@@ -17,6 +17,7 @@ static void load_defaults(void) {
     s_config.pid_kp = PID_KP_DEFAULT;
     s_config.pid_ki = PID_KI_DEFAULT;
     s_config.pid_kd = PID_KD_DEFAULT;
+    s_config.data_log_interval = 10;  // Default: 10 seconds
     
     // Default schedule: Mon-Thu 11-19, Fri 11-21, Sat-Sun 11-21
     for (int i = 0; i < 7; i++) {
@@ -80,6 +81,7 @@ void nvs_config_init(void) {
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SA_OFF, &u16) == ESP_OK) s_config.sched_off[5] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_ON, &u16) == ESP_OK) s_config.sched_on[6] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_OFF, &u16) == ESP_OK) s_config.sched_off[6] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, &u16) == ESP_OK) s_config.data_log_interval = u16;
 
         nvs_close(handle);
         ESP_LOGI(TAG, "Config loaded from NVS");
@@ -124,6 +126,7 @@ void nvs_config_save(void) {
     nvs_set_u16(handle, NVS_KEY_SCHED_SA_OFF, s_config.sched_off[5]);
     nvs_set_u16(handle, NVS_KEY_SCHED_SO_ON, s_config.sched_on[6]);
     nvs_set_u16(handle, NVS_KEY_SCHED_SO_OFF, s_config.sched_off[6]);
+    nvs_set_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, s_config.data_log_interval);
 
     nvs_commit(handle);
     nvs_close(handle);

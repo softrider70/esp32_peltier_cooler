@@ -14,6 +14,7 @@ static const char *TAG = "data_logger";
 static data_point_t s_ring_buffer[DATA_POINTS_MAX];
 static volatile uint16_t s_ring_index = 0;  // Current write position
 static volatile bool s_initialized = false;
+static volatile uint32_t s_log_interval_ms = DATA_LOGGER_INTERVAL_MS;  // Configurable interval
 
 void data_logger_init(void) {
     // Clear ring buffer
@@ -66,7 +67,7 @@ void task_data_logger(void *pvParameters) {
                  point.temp_indoor, point.temp_heatsink, point.fan_duty, 
                  point.peltier_on, s_ring_index);
         
-        vTaskDelay(pdMS_TO_TICKS(DATA_LOGGER_INTERVAL_MS));
+        vTaskDelay(pdMS_TO_TICKS(s_log_interval_ms));
     }
 }
 
@@ -80,4 +81,15 @@ data_point_t data_logger_get_latest(void) {
         return s_ring_buffer[DATA_POINTS_MAX - 1];
     }
     return s_ring_buffer[s_ring_index - 1];
+}
+
+void data_logger_set_interval(uint32_t interval_ms) {
+    if (interval_ms < 1000) interval_ms = 1000;  // Minimum 1 second
+    if (interval_ms > 3600000) interval_ms = 3600000;  // Maximum 1 hour
+    s_log_interval_ms = interval_ms;
+    ESP_LOGI(TAG, "Logging interval set to %lu ms", interval_ms);
+}
+
+uint32_t data_logger_get_interval(void) {
+    return s_log_interval_ms;
 }

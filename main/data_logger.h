@@ -27,3 +27,9 @@ const data_point_t* data_logger_get_data(uint16_t *count);
 
 // Get latest data point
 data_point_t data_logger_get_latest(void);
+
+// Set logging interval (in milliseconds)
+void data_logger_set_interval(uint32_t interval_ms);
+
+// Get current logging interval (in milliseconds)
+uint32_t data_logger_get_interval(void);
