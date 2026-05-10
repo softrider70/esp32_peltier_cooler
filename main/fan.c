@@ -70,7 +70,7 @@ void fan_init(void) {
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_ANY_EDGE,  // Trigger on both edges
+        .intr_type = GPIO_INTR_ANYEDGE,  // Trigger on both edges
     };
     gpio_config(&io_conf);
     gpio_install_isr_service(0);
@@ -85,12 +85,13 @@ void fan_init(void) {
 
 void fan_set_duty(uint8_t duty) {
     s_current_duty = duty;
-    
+
     // Invert PWM for NPN transistor (if enabled)
     uint32_t actual_duty = FAN_PWM_INVERTED ? (255 - duty) : duty;
-    
+
     ledc_set_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL, actual_duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL);
+    ESP_LOGI(TAG, "Fan duty: requested=%u, actual=%lu (inverted=%d)", duty, actual_duty, FAN_PWM_INVERTED);
 }
 
 uint8_t fan_get_duty(void) {
