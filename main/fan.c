@@ -18,6 +18,10 @@ static uint8_t s_current_duty = 0;
 static pid_controller_t s_fan_pid;
 static bool s_was_active = false;  // Track previous active state for NVS save
 
+// P-Vorsteuerung: Temperaturänderungsrate tracking
+static float s_last_temp_indoor = 0.0f;
+static uint64_t s_last_temp_time = 0;
+
 // RPM measurement variables
 static volatile uint32_t s_tacho_pulses = 0;
 static volatile uint32_t s_tacho_interrupts = 0;  // Total interrupt count for debug
@@ -194,9 +198,32 @@ void task_fan_pid(void *pvParameters) {
         }
 #endif
 
+        // ---- P-Vorsteuerung: Temperaturänderungsrate berechnen ----
+        float dt_min = 0.0f;
+        if (sd.indoor_valid && s_last_temp_time > 0) {
+            uint64_t now = esp_timer_get_time() / 1000;  // ms
+            float time_diff_min = (now - s_last_temp_time) / 60000.0f;
+            if (time_diff_min > 0) {
+                dt_min = (sd.temp_indoor - s_last_temp_indoor) / time_diff_min;
+            }
+        }
+        s_last_temp_indoor = sd.temp_indoor;
+        s_last_temp_time = esp_timer_get_time() / 1000;
+
+        // P-Vorsteuerung: Wenn Temperatur steigt und nahe am Ziel, früher aktivieren
+        bool peltier_early = false;
+#if P_FEEDFORWARD_ENABLED
+        if (sd.indoor_valid && dt_min > P_FEEDFORWARD_THRESHOLD_C &&
+            sd.temp_indoor >= (cfg->temp_peltier_on - P_FEEDFORWARD_OFFSET_C)) {
+            peltier_early = true;
+            ESP_LOGI(TAG, "P-Vorsteuerung: dT/dt=%.3f°C/min, temp=%.1f°C >= %.1f°C",
+                     dt_min, sd.temp_indoor, cfg->temp_peltier_on - P_FEEDFORWARD_OFFSET_C);
+        }
+#endif
+
         // ---- Peltier: digital on/off based on indoor temperature range ----
         if (sd.indoor_valid) {
-            if (sd.temp_indoor >= cfg->temp_peltier_on) {
+            if (sd.temp_indoor >= cfg->temp_peltier_on || peltier_early) {
                 peltier_on();
             } else if (sd.temp_indoor <= cfg->temp_peltier_off) {
                 peltier_off();
