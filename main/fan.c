@@ -18,9 +18,14 @@ static uint8_t s_current_duty = 0;
 static pid_controller_t s_fan_pid;
 static bool s_was_active = false;  // Track previous active state for NVS save
 
-// P-Vorsteuerung: Temperaturänderungsrate tracking
-static float s_last_temp_indoor = 0.0f;
-static uint64_t s_last_temp_time = 0;
+// Predictive Trendanalyse Variablen
+static float s_dt_history[P_PREDICTIVE_WINDOW];  // Ringbuffer für dT/dt
+static int s_dt_index = 0;                       // Aktueller Index
+static float s_dt_avg = 0.0f;                    // Gleitender Durchschnitt
+static float s_dt_accel = 0.0f;                  // Beschleunigung (d²T/dt²)
+static float s_prev_dt_avg = 0.0f;               // Vorheriger Durchschnitt
+static float s_last_temp_indoor = 0.0f;          // Letzte Temperatur
+static uint64_t s_last_temp_time = 0;            // Letzte Zeit
 
 // RPM measurement variables
 static volatile uint32_t s_tacho_pulses = 0;
@@ -198,7 +203,7 @@ void task_fan_pid(void *pvParameters) {
         }
 #endif
 
-        // ---- P-Vorsteuerung: Temperaturänderungsrate berechnen ----
+        // ---- Predictive Trendanalyse: Vorhersage, wann Ziel erreicht wird ----
         float dt_min = 0.0f;
         if (sd.indoor_valid && s_last_temp_time > 0) {
             uint64_t now = esp_timer_get_time() / 1000;  // ms
@@ -210,14 +215,33 @@ void task_fan_pid(void *pvParameters) {
         s_last_temp_indoor = sd.temp_indoor;
         s_last_temp_time = esp_timer_get_time() / 1000;
 
-        // P-Vorsteuerung: Wenn Temperatur steigt und nahe am Ziel, früher aktivieren
+        // Gleitenden Durchschnitt berechnen
+        s_dt_history[s_dt_index] = dt_min;
+        s_dt_index = (s_dt_index + 1) % P_PREDICTIVE_WINDOW;
+
+        float sum = 0.0f;
+        for (int i = 0; i < P_PREDICTIVE_WINDOW; i++) {
+            sum += s_dt_history[i];
+        }
+        s_dt_avg = sum / P_PREDICTIVE_WINDOW;
+
+        // Beschleunigung berechnen
+        s_dt_accel = s_dt_avg - s_prev_dt_avg;
+        s_prev_dt_avg = s_dt_avg;
+
+        // Prädiktive Logik: Wann wird Ziel erreicht?
         bool peltier_early = false;
-#if P_FEEDFORWARD_ENABLED
-        if (sd.indoor_valid && dt_min > P_FEEDFORWARD_THRESHOLD_C &&
-            sd.temp_indoor >= (cfg->temp_peltier_on - P_FEEDFORWARD_OFFSET_C)) {
-            peltier_early = true;
-            ESP_LOGI(TAG, "P-Vorsteuerung: dT/dt=%.3f°C/min, temp=%.1f°C >= %.1f°C",
-                     dt_min, sd.temp_indoor, cfg->temp_peltier_on - P_FEEDFORWARD_OFFSET_C);
+#if P_PREDICTIVE_ENABLED
+        float temp_diff = cfg->temp_peltier_on - sd.temp_indoor;
+        if (s_dt_avg > 0 && temp_diff > 0) {
+            float time_to_target_min = temp_diff / s_dt_avg;
+            float time_to_target_sec = time_to_target_min * 60.0f;
+
+            if (time_to_target_sec < P_PREDICTIVE_TIME_SEC) {
+                peltier_early = true;
+                ESP_LOGI(TAG, "Predictive: dT=%.3f°C/min, accel=%.3f, time=%.1fs",
+                         s_dt_avg, s_dt_accel, time_to_target_sec);
+            }
         }
 #endif
 
