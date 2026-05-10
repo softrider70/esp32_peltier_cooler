@@ -68,13 +68,13 @@ ESP32 D5 ──┬── [1kΩ] ──┬── NPN-Transistor (2N2222/BC547)
                       Emitter ─── GND
 ```
 
-**Tacho mit Spannungsteiler (5V → 3.3V):**
+**Tacho (Open-Collector mit Pull-Up):**
 ```
-Noctua Tacho ──┬── [10kΩ] ──┬── ESP32 D18
-               │           │
-              GND        [20kΩ]
-                          │
-                         GND
+Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
+                      │
+                   (interner Pull-Up auf 3.3V)
+                      │
+                     GND (gemeinsam mit ESP32)
 ```
 
 **Hinweis:** Der NPN Transistor invertiert das PWM-Signal, wird im Software automatisch korrigiert.
@@ -184,10 +184,13 @@ idf.py -p COMx flash monitor
 
 ## RPM-Kalibrierung
 
-Die RPM-Messung des Luefters kann kalibriert werden, falls die angezeigten Werte von den tatsaechlichen Umdrehungen abweichen:
+Die RPM-Messung des Luefters kann kalibriert werden, falls die angezeigten Werte von den tatsaechlichen Umdrehungen abweichen.
 
+**Voraussetzung:** Tacho muss korrekt angeschlossen sein (direkt mit GPIO18, kein Spannungsteiler, GND gemeinsam).
+
+Kalibrierung:
 1. Luefter auf 100% PWM setzen (z.B. PID Kp erhoehen)
-2. RPM-Wert im Serial Monitor ablesen
+2. RPM-Wert im Serial Monitor ablesen (`interrupts > 0` pruefen)
 3. Kalibrierungsfaktor berechnen: `Faktor = Ziel-RPM / Gemessene-RPM`
 4. Faktor in `config.h` anpassen: `#define RPM_CALIBRATION_FACTOR X.Xf`
 5. Neu flashen
