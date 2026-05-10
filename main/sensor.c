@@ -218,7 +218,13 @@ static float ds18b20_read_temp(const uint8_t *rom) {
 // ===== Public API =====
 
 void sensor_init(void) {
+    ESP_LOGI(TAG, "=== sensor_init() START ===");
+    
     s_data_mutex = xSemaphoreCreateMutex();
+    if (s_data_mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create mutex!");
+        return;
+    }
 
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << GPIO_ONEWIRE_BUS),
@@ -228,10 +234,13 @@ void sensor_init(void) {
         .intr_type = GPIO_INTR_DISABLE,
     };
     gpio_config(&io_conf);
+    ESP_LOGI(TAG, "GPIO %d configured as OneWire (open-drain, pull-up)", GPIO_ONEWIRE_BUS);
 
     // Discover sensors
     uint8_t roms[SENSOR_MAX_DEVICES][8];
+    ESP_LOGI(TAG, "Starting ROM search for DS18B20 sensors...");
     s_sensor_count = ow_search_rom(roms, SENSOR_MAX_DEVICES);
+    ESP_LOGI(TAG, "ROM search completed, found %d sensor(s)", s_sensor_count);
 
     ESP_LOGI(TAG, "Found %d DS18B20 sensor(s)", s_sensor_count);
 
@@ -247,6 +256,8 @@ void sensor_init(void) {
                  roms[1][0], roms[1][1], roms[1][2], roms[1][3],
                  roms[1][4], roms[1][5], roms[1][6], roms[1][7]);
     }
+    
+    ESP_LOGI(TAG, "=== sensor_init() COMPLETE ===");
 }
 
 sensor_data_t sensor_get_data(void) {
@@ -282,6 +293,8 @@ void sensor_set_simulation(float indoor_temp, float heatsink_temp) {
 
 void task_sensor(void *pvParameters) {
     (void)pvParameters;
+    ESP_LOGI(TAG, "=== task_sensor() STARTED ===");
+    ESP_LOGI(TAG, "Sensor count: %d, Interval: %dms", s_sensor_count, SENSOR_READ_INTERVAL_MS);
 
     while (1) {
         sensor_data_t new_data = {0};
@@ -326,8 +339,9 @@ void task_sensor(void *pvParameters) {
         s_sensor_data = new_data;
         xSemaphoreGive(s_data_mutex);
 
-        ESP_LOGD(TAG, "Indoor: %.1f°C, Heatsink: %.1f°C",
-                 new_data.temp_indoor, new_data.temp_heatsink);
+        ESP_LOGI(TAG, "Read: Indoor=%.1f°C%s, Heatsink=%.1f°C%s",
+                 new_data.temp_indoor, new_data.indoor_valid ? "" : "(invalid)",
+                 new_data.temp_heatsink, new_data.heatsink_valid ? "" : "(invalid)");
 
         vTaskDelay(pdMS_TO_TICKS(SENSOR_READ_INTERVAL_MS));
     }
