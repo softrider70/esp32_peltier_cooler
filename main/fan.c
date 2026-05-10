@@ -211,17 +211,19 @@ void task_fan_pid(void *pvParameters) {
             float p_term = s_fan_pid.kp * error;
             s_fan_pid.integral += error * dt;
             float i_term = s_fan_pid.ki * s_fan_pid.integral;
-            
+
             // Initialize prev_error on first run
             if (s_fan_pid.prev_error == 0.0f && error != 0.0f) {
                 s_fan_pid.prev_error = error;
             }
-            
+
             float derivative = (error - s_fan_pid.prev_error) / dt;
             float d_term = s_fan_pid.kd * derivative;
             s_fan_pid.prev_error = error;
 
-            fan_output = p_term + i_term + d_term;
+            // Scale PID output to PWM range (0-255)
+            // Assuming max error ~5°C should give 100% PWM
+            fan_output = (p_term + i_term + d_term) * 50.0f;
 
             // Clamp output
             if (fan_output > PID_OUTPUT_MAX) {

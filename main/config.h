@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        31      // Build counter - increment with each flash
+#define BUILD_NUMBER        32      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -26,9 +26,9 @@
 #define TEMP_HEATSINK_TARGET        45.0f   // PID target for heatsink
 
 // ===== PID Defaults =====
-#define PID_KP_DEFAULT      2.0f
-#define PID_KI_DEFAULT      0.5f
-#define PID_KD_DEFAULT      1.0f
+#define PID_KP_DEFAULT      1.0f    // Scaled by 50 in code → effective 50
+#define PID_KI_DEFAULT      0.1f    // Scaled by 50 in code → effective 5
+#define PID_KD_DEFAULT      0.5f    // Scaled by 50 in code → effective 25
 #define PID_OUTPUT_MIN      0.0f    // Fan off
 #define PID_OUTPUT_MAX      255.0f  // Fan full speed
 #define PID_SAMPLE_TIME_MS  1000    // 1 second
