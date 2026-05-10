@@ -2,8 +2,10 @@
 #include "sensor.h"
 #include "fan.h"
 #include "peltier.h"
+#include "config.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
@@ -92,4 +94,58 @@ void data_logger_set_interval(uint32_t interval_ms) {
 
 uint32_t data_logger_get_interval(void) {
     return s_log_interval_ms;
+}
+
+// Save graph data to NVS
+void data_logger_save_to_nvs(void) {
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for saving graph data");
+        return;
+    }
+
+    // Save data points as binary blob
+    err = nvs_set_blob(handle, NVS_KEY_GRAPH_DATA, s_ring_buffer, sizeof(s_ring_buffer));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to save graph data to NVS");
+        nvs_close(handle);
+        return;
+    }
+
+    err = nvs_commit(handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to commit graph data to NVS");
+    } else {
+        ESP_LOGI(TAG, "Graph data saved to NVS (%u points)", DATA_POINTS_MAX);
+    }
+
+    nvs_close(handle);
+}
+
+// Load graph data from NVS
+void data_logger_load_from_nvs(void) {
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "No graph data in NVS (first boot or not saved)");
+        return;
+    }
+
+    size_t required_size = sizeof(s_ring_buffer);
+    err = nvs_get_blob(handle, NVS_KEY_GRAPH_DATA, s_ring_buffer, &required_size);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to load graph data from NVS");
+        nvs_close(handle);
+        return;
+    }
+
+    if (required_size != sizeof(s_ring_buffer)) {
+        ESP_LOGW(TAG, "Graph data size mismatch in NVS, using defaults");
+        memset(s_ring_buffer, 0, sizeof(s_ring_buffer));
+    } else {
+        ESP_LOGI(TAG, "Graph data loaded from NVS (%u points)", DATA_POINTS_MAX);
+    }
+
+    nvs_close(handle);
 }

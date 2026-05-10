@@ -5,6 +5,7 @@
 #include "pid.h"
 #include "scheduler.h"
 #include "nvs_config.h"
+#include "data_logger.h"
 #include "driver/ledc.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -15,6 +16,7 @@
 static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
 static pid_controller_t s_fan_pid;
+static bool s_was_active = false;  // Track previous active state for NVS save
 
 // RPM measurement variables
 static volatile uint32_t s_tacho_pulses = 0;
@@ -141,6 +143,13 @@ void task_fan_pid(void *pvParameters) {
         pid_set_tunings(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd);
 
         bool active = scheduler_is_active();
+
+        // Save graph data when transitioning from active to inactive
+        if (s_was_active && !active) {
+            data_logger_save_to_nvs();
+            ESP_LOGI(TAG, "Graph data saved to NVS on shutdown");
+        }
+        s_was_active = active;
 
         // ---- Emergency mode: sensor errors → fan full, peltier off ----
         if (sensor_get_emergency_mode()) {

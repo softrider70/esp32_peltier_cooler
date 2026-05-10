@@ -33,3 +33,9 @@ void data_logger_set_interval(uint32_t interval_ms);
 
 // Get current logging interval (in milliseconds)
 uint32_t data_logger_get_interval(void);
+
+// Save graph data to NVS (call before shutdown)
+void data_logger_save_to_nvs(void);
+
+// Load graph data from NVS (call at startup)
+void data_logger_load_from_nvs(void);

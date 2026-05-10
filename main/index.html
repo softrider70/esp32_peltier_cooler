@@ -175,7 +175,7 @@ return mins+':'+(secs<10?'0':'')+secs;
 var indoor=validData.map(d=>d.indoor);
 var heatsink=validData.map(d=>d.heatsink);
 var fan=validData.map(d=>d.fan/2.55);  // Convert to percentage
-var peltier=validData.map(d=>d.peltier_on?90:0);  // Scale to 0-90% for visibility
+var peltier=validData.map(d=>d.peltier_on?90:0);  // Scale to 0-90% (same axis as fan)
 
 var ctx=document.getElementById('tempChart').getContext('2d');
 if(chart)chart.destroy();
@@ -216,7 +216,7 @@ fill:true,
 tension:0,
 stepped:true,
 pointRadius:0,
-yAxisID:'y1'
+yAxisID:'y'
 }
 ]
 },
@@ -228,15 +228,7 @@ y:{
 beginAtZero:true,
 max:100,
 position:'left',
-title:{display:true,text:'Lüfter (%)'}
-},
-y1:{
-beginAtZero:true,
-max:90,
-position:'left',
-title:{display:true,text:'Peltier (%)'},
-grid:{drawOnChartArea:false},
-offset:true
+title:{display:true,text:'Lüfter / Peltier (%)'}
 },
 y2:{
 beginAtZero:false,

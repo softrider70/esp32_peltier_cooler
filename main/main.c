@@ -32,6 +32,9 @@ void app_main(void) {
     // 2.5. Initialize data logger (ring buffer)
     data_logger_init();
     
+    // Load graph data from NVS (if available)
+    data_logger_load_from_nvs();
+    
     // Load configured logging interval from NVS
     app_config_t *cfg = nvs_config_get();
     data_logger_set_interval(cfg->data_log_interval * 1000);  // Convert seconds to ms
