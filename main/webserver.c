@@ -272,7 +272,7 @@ static esp_err_t handler_api_graph(httpd_req_t *req) {
         if (pos > 40000) break;  // Safety limit
         
         pos += snprintf(json_buf + pos, 40960 - pos,
-            "%s{\"timestamp\":%lu,\"indoor\":%.1f,\"heatsink\":%.1f,\"fan\":%u,\"peltier\":%s}",
+            "%s{\"timestamp\":%lu,\"indoor\":%.1f,\"heatsink\":%.1f,\"fan\":%u,\"peltier_on\":%s}",
             (pos > 1) ? "," : "",
             data[i].timestamp,
             data[i].temp_indoor,
