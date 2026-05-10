@@ -2,6 +2,18 @@
 
 Temperaturgeregelte Kuehlung eines Innenraums mittels Peltier-Element, gesteuert durch einen ESP32.
 
+## Systemverständnis
+
+**Wichtiges Konzept:**
+- **Peltier-Element:** Kuehlelement (erzeugt Kaelte auf der kalten Seite, Waerme auf der heissen Seite)
+- **Luefter:** Wärmeabfuhr (fuehrt die Waerme vom Peltier/Kuehlblock an die Umgebung ab)
+- **Zusammenwirken:** Wenn die Temperatur steigt, muss der Luefter FRUEHER loslegen, um die Waerme vom Peltier effizient abzufuehren, bevor der Kuehlblock ueberhitzt wird
+
+**Predictive Trendanalyse:**
+- Das System berechnet die Temperaturänderungsrate (dT/dt)
+- Wenn vorhergesagt wird, dass das Ziel in < 60 Sekunden erreicht wird, wird der Luefter proportional geboostet
+- Ziel: Fruehzeitige Wärmeabfuhr, damit der Lüfter nicht auf 80-100% laufen muss
+
 ## Aufgabe
 
 Ein geschlossener Raum (z.B. Schrank, Gehaeuse) soll aktiv gekuehlt werden. Ein Peltier-Element entzieht dem Innenraum Waerme und gibt sie ueber einen Kuehlblock mit Noctua-Luefter an die Umgebung ab. Die Steuerung uebernimmt ein ESP32, der:

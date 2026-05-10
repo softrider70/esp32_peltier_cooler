@@ -230,7 +230,7 @@ void task_fan_pid(void *pvParameters) {
         s_prev_dt_avg = s_dt_avg;
 
         // Prädiktive Logik: Wann wird Ziel erreicht?
-        bool peltier_early = false;
+        float fan_boost_factor = 1.0f;  // Standard: kein Boost
 #if P_PREDICTIVE_ENABLED
         float temp_diff = cfg->temp_peltier_on - sd.temp_indoor;
         if (s_dt_avg > 0 && temp_diff > 0) {
@@ -238,16 +238,18 @@ void task_fan_pid(void *pvParameters) {
             float time_to_target_sec = time_to_target_min * 60.0f;
 
             if (time_to_target_sec < P_PREDICTIVE_TIME_SEC) {
-                peltier_early = true;
-                ESP_LOGI(TAG, "Predictive: dT=%.3f°C/min, accel=%.3f, time=%.1fs",
-                         s_dt_avg, s_dt_accel, time_to_target_sec);
+                // Lüfter boosten: Je näher am Ziel, desto stärker der Boost
+                float boost = 1.0f + (P_PREDICTIVE_TIME_SEC - time_to_target_sec) / P_PREDICTIVE_TIME_SEC;
+                fan_boost_factor = boost;
+                ESP_LOGI(TAG, "Predictive: dT=%.3f°C/min, accel=%.3f, time=%.1fs, boost=%.2fx",
+                         s_dt_avg, s_dt_accel, time_to_target_sec, boost);
             }
         }
 #endif
 
         // ---- Peltier: digital on/off based on indoor temperature range ----
         if (sd.indoor_valid) {
-            if (sd.temp_indoor >= cfg->temp_peltier_on || peltier_early) {
+            if (sd.temp_indoor >= cfg->temp_peltier_on) {
                 peltier_on();
             } else if (sd.temp_indoor <= cfg->temp_peltier_off) {
                 peltier_off();
@@ -293,6 +295,9 @@ void task_fan_pid(void *pvParameters) {
             // Scale PID output to PWM range (0-255)
             // Assuming max error ~5°C should give 100% PWM
             fan_output = (p_term + i_term + d_term) * 20.0f;
+
+            // Apply predictive fan boost
+            fan_output *= fan_boost_factor;
 
             // Clamp output
             if (fan_output > PID_OUTPUT_MAX) {
