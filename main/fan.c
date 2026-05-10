@@ -172,6 +172,15 @@ void task_fan_pid(void *pvParameters) {
             continue;
         }
 
+        // ---- Safety: RPM check (fan failure detection) ----
+#if TACHO_ENABLED
+        if (s_current_duty > 127 && s_current_rpm == 0) {
+            // Fan should be running (>50% PWM) but RPM = 0 → fan failure
+            ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0", s_current_duty);
+            // Could trigger emergency mode here
+        }
+#endif
+
         // ---- Peltier: digital on/off based on indoor temperature range ----
         if (sd.indoor_valid) {
             if (sd.temp_indoor >= cfg->temp_peltier_on) {
@@ -213,11 +222,19 @@ void task_fan_pid(void *pvParameters) {
             // Clamp output
             if (fan_output > PID_OUTPUT_MAX) {
                 fan_output = PID_OUTPUT_MAX;
-                s_fan_pid.integral -= error * dt;  // Anti-windup
             } else if (fan_output < PID_OUTPUT_MIN) {
                 fan_output = PID_OUTPUT_MIN;
-                s_fan_pid.integral -= error * dt;  // Anti-windup
             }
+
+            // RPM Feedback: Increase PWM if RPM is lower than expected
+#if TACHO_ENABLED
+            uint16_t expected_rpm = (uint16_t)((fan_output / 255.0f) * 1700.0f);  // Expected RPM at this PWM
+            if (s_current_rpm > 0 && s_current_rpm < expected_rpm * 0.8f && fan_output < 250.0f) {
+                // RPM is < 80% of expected, increase PWM by 10%
+                fan_output *= 1.1f;
+                ESP_LOGI(TAG, "RPM feedback: expected=%u, actual=%u, boosting PWM", expected_rpm, s_current_rpm);
+            }
+#endif
         }
 
         fan_set_duty((uint8_t)fan_output);
