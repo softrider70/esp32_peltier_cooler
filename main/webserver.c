@@ -138,35 +138,6 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     return ESP_OK;
 }
 
-static esp_err_t handler_api_sensor_sim(httpd_req_t *req) {
-    char buf[256];
-    int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
-    if (received <= 0) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "No data");
-        return ESP_FAIL;
-    }
-    buf[received] = '\0';
-
-    // Parse simulation values
-    char value[65];
-    float indoor_temp = -999.0f;
-    float heatsink_temp = -999.0f;
-
-    if (httpd_query_key_value(buf, "indoor", value, sizeof(value)) == ESP_OK)
-        indoor_temp = strtof(value, NULL);
-    if (httpd_query_key_value(buf, "heatsink", value, sizeof(value)) == ESP_OK)
-        heatsink_temp = strtof(value, NULL);
-
-    // Set simulation values
-    sensor_set_simulation(indoor_temp, heatsink_temp);
-
-    ESP_LOGI(TAG, "Sensor simulation: indoor=%.1f, heatsink=%.1f", indoor_temp, heatsink_temp);
-
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
-    return ESP_OK;
-}
-
 static esp_err_t handler_api_wifi(httpd_req_t *req) {
     char buf[256];
     int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
@@ -334,9 +305,6 @@ void webserver_init(void) {
     httpd_uri_t uri_api_config = {
         .uri = "/api/config", .method = HTTP_POST, .handler = handler_api_config
     };
-    httpd_uri_t uri_api_sensor_sim = {
-        .uri = "/api/sensor/sim", .method = HTTP_POST, .handler = handler_api_sensor_sim
-    };
     httpd_uri_t uri_api_wifi = {
         .uri = "/api/wifi", .method = HTTP_POST, .handler = handler_api_wifi
     };
@@ -354,7 +322,6 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_index);
     httpd_register_uri_handler(s_server, &uri_api_status);
     httpd_register_uri_handler(s_server, &uri_api_config);
-    httpd_register_uri_handler(s_server, &uri_api_sensor_sim);
     httpd_register_uri_handler(s_server, &uri_api_wifi);
     httpd_register_uri_handler(s_server, &uri_api_ota);
     httpd_register_uri_handler(s_server, &uri_api_ota_status);

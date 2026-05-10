@@ -19,10 +19,6 @@ static uint8_t s_rom_indoor[8];
 static uint8_t s_rom_heatsink[8];
 static int s_sensor_count = 0;
 
-// Simulation values (override real sensors)
-static float s_sim_indoor = -999.0f;
-static float s_sim_heatsink = -999.0f;
-
 // OneWire timing (microseconds)
 static inline void ow_delay_us(uint32_t us) {
     ets_delay_us(us);
@@ -268,29 +264,6 @@ sensor_data_t sensor_get_data(void) {
     return data;
 }
 
-void sensor_set_simulation(float indoor_temp, float heatsink_temp) {
-    xSemaphoreTake(s_data_mutex, portMAX_DELAY);
-    
-    // Set simulation values
-    s_sim_indoor = indoor_temp;
-    s_sim_heatsink = heatsink_temp;
-    
-    // Update sensor data immediately
-    if (indoor_temp > -999.0f) {
-        s_sensor_data.temp_indoor = indoor_temp;
-        s_sensor_data.indoor_valid = true;
-    }
-    
-    if (heatsink_temp > -999.0f) {
-        s_sensor_data.temp_heatsink = heatsink_temp;
-        s_sensor_data.heatsink_valid = true;
-    }
-    
-    xSemaphoreGive(s_data_mutex);
-    
-    ESP_LOGI(TAG, "Simulation set: indoor=%.1f°C, heatsink=%.1f°C", indoor_temp, heatsink_temp);
-}
-
 void task_sensor(void *pvParameters) {
     (void)pvParameters;
     ESP_LOGI(TAG, "=== task_sensor() STARTED ===");
@@ -299,40 +272,21 @@ void task_sensor(void *pvParameters) {
     while (1) {
         sensor_data_t new_data = {0};
 
-        // Use simulation values if active
-        xSemaphoreTake(s_data_mutex, portMAX_DELAY);
-        bool use_sim = (s_sim_indoor > -999.0f || s_sim_heatsink > -999.0f);
-        xSemaphoreGive(s_data_mutex);
-
-        if (!use_sim) {
-            // Real sensor reading
-            if (s_sensor_count >= 1) {
-                float t = ds18b20_read_temp(s_rom_indoor);
-                if (t > -126.0f) {
-                    new_data.temp_indoor = t;
-                    new_data.indoor_valid = true;
-                }
-            }
-
-            if (s_sensor_count >= 2) {
-                float t = ds18b20_read_temp(s_rom_heatsink);
-                if (t > -126.0f) {
-                    new_data.temp_heatsink = t;
-                    new_data.heatsink_valid = true;
-                }
-            }
-        } else {
-            // Use simulation values
-            xSemaphoreTake(s_data_mutex, portMAX_DELAY);
-            if (s_sim_indoor > -999.0f) {
-                new_data.temp_indoor = s_sim_indoor;
+        // Real sensor reading
+        if (s_sensor_count >= 1) {
+            float t = ds18b20_read_temp(s_rom_indoor);
+            if (t > -126.0f) {
+                new_data.temp_indoor = t;
                 new_data.indoor_valid = true;
             }
-            if (s_sim_heatsink > -999.0f) {
-                new_data.temp_heatsink = s_sim_heatsink;
+        }
+
+        if (s_sensor_count >= 2) {
+            float t = ds18b20_read_temp(s_rom_heatsink);
+            if (t > -126.0f) {
+                new_data.temp_heatsink = t;
                 new_data.heatsink_valid = true;
             }
-            xSemaphoreGive(s_data_mutex);
         }
 
         xSemaphoreTake(s_data_mutex, portMAX_DELAY);
