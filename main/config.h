@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        15      // Build counter - increment with each flash
+#define BUILD_NUMBER        16      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -31,7 +31,7 @@
 #define PID_SAMPLE_TIME_MS  1000    // 1 second
 
 // ===== Sensor Configuration =====
-#define SENSOR_READ_INTERVAL_MS  2000   // Read sensors every 2s
+#define SENSOR_READ_INTERVAL_MS  5000   // Read sensors every 5s (reduced errors)
 #define SENSOR_MAX_DEVICES       2
 
 // ===== WiFi Configuration =====
