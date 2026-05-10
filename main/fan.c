@@ -24,7 +24,7 @@ static uint64_t s_last_rpm_time = 0;
 static volatile uint64_t s_last_pulse_time = 0;
 #define TACHO_PULSES_PER_REV 2  // Standard Noctua: 2 pulses per revolution
 #define RPM_UPDATE_INTERVAL_MS 1000  // Update RPM every second
-#define TACHO_DEBOUNCE_US 1000  // 1ms debounce to filter noise
+#define TACHO_DEBOUNCE_US 100  // 100us debounce to filter noise
 #define TACHO_ENABLED true  // Enabled - Tacho connected
 
 // Tacho interrupt handler with debounce
@@ -70,13 +70,14 @@ void fan_init(void) {
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_NEGEDGE,  // Trigger on falling edge (pulse low)
+        .intr_type = GPIO_INTR_ANY_EDGE,  // Trigger on both edges
     };
     gpio_config(&io_conf);
     gpio_install_isr_service(0);
     gpio_isr_handler_add(GPIO_FAN_TACHO, tacho_isr_handler, NULL);
+    ESP_LOGI(TAG, "Tacho interrupt installed on GPIO %d", GPIO_FAN_TACHO);
 
-    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d (pull-up, negedge)", GPIO_FAN_PWM, GPIO_FAN_TACHO);
+    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d (pull-up, anyedge)", GPIO_FAN_PWM, GPIO_FAN_TACHO);
 #else
     ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho DISABLED (hardware not connected)", GPIO_FAN_PWM);
 #endif
