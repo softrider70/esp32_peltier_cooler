@@ -12,6 +12,7 @@
 #include "wifi.h"
 #include "webserver.h"
 #include "ota.h"
+#include "data_logger.h"
 
 static const char *TAG = "main";
 
@@ -27,6 +28,10 @@ void app_main(void) {
     fan_init();
     peltier_init();
     ESP_LOGI(TAG, "Hardware initialized");
+
+    // 2.5. Initialize data logger (ring buffer)
+    data_logger_init();
+    ESP_LOGI(TAG, "Data logger initialized");
 
     // 3. Initialize WiFi (blocks until connected or AP mode active)
     wifi_init();
@@ -48,6 +53,9 @@ void app_main(void) {
 
     xTaskCreate(task_scheduler, "scheduler", TASK_STACK_SCHEDULER,
                 NULL, TASK_PRIO_SCHEDULER, NULL);
+
+    xTaskCreate(task_data_logger, "data_logger", 4096,
+                NULL, 3, NULL);
 
     // 7. OTA: validate firmware after stable boot (all tasks running)
     //    If this is first boot after OTA, mark as valid → cancels rollback

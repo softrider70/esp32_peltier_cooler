@@ -7,6 +7,7 @@
 #include "nvs_config.h"
 #include "wifi.h"
 #include "ota.h"
+#include "data_logger.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "lwip/sockets.h"
@@ -221,6 +222,46 @@ static esp_err_t handler_api_ota_status(httpd_req_t *req) {
     return ESP_OK;
 }
 
+// ===== Graph Data Handler =====
+
+static esp_err_t handler_api_graph(httpd_req_t *req) {
+    uint16_t count = 0;
+    const data_point_t *data = data_logger_get_data(&count);
+    
+    // Build JSON array
+    char *json_buf = malloc(4096);  // Buffer for JSON response
+    if (!json_buf) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+    
+    int pos = snprintf(json_buf, 4096, "[");
+    
+    for (uint16_t i = 0; i < count; i++) {
+        // Skip points with zero timestamp (uninitialized)
+        if (data[i].timestamp == 0) continue;
+        
+        pos += snprintf(json_buf + pos, 4096 - pos,
+            "%s{\"timestamp\":%lu,\"indoor\":%.1f,\"heatsink\":%.1f,\"fan\":%u,\"peltier\":%s}",
+            (pos > 1) ? "," : "",
+            data[i].timestamp,
+            data[i].temp_indoor,
+            data[i].temp_heatsink,
+            data[i].fan_duty,
+            data[i].peltier_on ? "true" : "false");
+        
+        if (pos >= 4090) break;  // Prevent buffer overflow
+    }
+    
+    pos += snprintf(json_buf + pos, 4096 - pos, "]");
+    
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_buf, pos);
+    
+    free(json_buf);
+    return ESP_OK;
+}
+
 // Catch-all handler for captive portal redirect
 static esp_err_t handler_captive_redirect(httpd_req_t *req) {
     httpd_resp_set_status(req, "302 Found");
@@ -292,7 +333,7 @@ static void dns_task(void *pvParameters) {
 
 void webserver_init(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 12;
+    config.max_uri_handlers = 13;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     if (httpd_start(&s_server, &config) != ESP_OK) {
@@ -319,6 +360,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_ota_status = {
         .uri = "/api/ota/status", .method = HTTP_GET, .handler = handler_api_ota_status
     };
+    httpd_uri_t uri_api_graph = {
+        .uri = "/api/graph", .method = HTTP_GET, .handler = handler_api_graph
+    };
     // Catch-all for captive portal (must be last)
     httpd_uri_t uri_catchall = {
         .uri = "/*", .method = HTTP_GET, .handler = handler_captive_redirect
@@ -330,6 +374,7 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_wifi);
     httpd_register_uri_handler(s_server, &uri_api_ota);
     httpd_register_uri_handler(s_server, &uri_api_ota_status);
+    httpd_register_uri_handler(s_server, &uri_api_graph);
     httpd_register_uri_handler(s_server, &uri_catchall);
 
     ESP_LOGI(TAG, "HTTP server started");
