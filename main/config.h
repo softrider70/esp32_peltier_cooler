@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        24      // Build counter - increment with each flash
+#define BUILD_NUMBER        29      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -17,7 +17,7 @@
 #define FAN_PWM_INVERTED    true    // PWM invertierung aktiviert (Hardware invertiert)
 
 // ===== RPM Calibration =====
-#define RPM_CALIBRATION_FACTOR 1.0f  // Scale factor to adjust RPM reading (target/measured)
+#define RPM_CALIBRATION_FACTOR 0.567f  // Scale factor: 1700 target / 3000 measured
 
 // ===== Temperature Thresholds =====
 #define TEMP_PELTIER_ON_DEFAULT     25.0f   // Peltier ON when indoor above this

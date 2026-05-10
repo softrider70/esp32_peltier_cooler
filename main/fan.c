@@ -189,8 +189,8 @@ void task_fan_pid(void *pvParameters) {
         float fan_output;
 
         if (error <= 0.0f) {
-            // Heatsink below target — fan off, reset integrator only
-            fan_output = PID_OUTPUT_MIN;
+            // Heatsink below target — minimum fan speed (20%) to avoid hard cutoff
+            fan_output = 51.0f;  // 20% of 255
             s_fan_pid.integral = 0.0f;  // Reset only integral, keep prev_error
         } else {
             // Manual PID computation with inverted error for cooling
