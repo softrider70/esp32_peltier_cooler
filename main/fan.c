@@ -229,21 +229,17 @@ void task_fan_pid(void *pvParameters) {
         s_dt_accel = s_dt_avg - s_prev_dt_avg;
         s_prev_dt_avg = s_dt_avg;
 
-        // Prädiktive Logik: Wann wird Ziel erreicht?
+        // Prädiktive Logik: Sofort boosten bei schnellem Temperaturanstieg
         float fan_boost_factor = 1.0f;  // Standard: kein Boost
 #if P_PREDICTIVE_ENABLED
-        float temp_diff = cfg->temp_peltier_on - sd.temp_indoor;
-        if (s_dt_avg > 0 && temp_diff > 0) {
-            float time_to_target_min = temp_diff / s_dt_avg;
-            float time_to_target_sec = time_to_target_min * 60.0f;
-
-            if (time_to_target_sec < P_PREDICTIVE_TIME_SEC) {
-                // Lüfter boosten: Je näher am Ziel, desto stärker der Boost
-                float boost = 1.0f + (P_PREDICTIVE_TIME_SEC - time_to_target_sec) / P_PREDICTIVE_TIME_SEC;
-                fan_boost_factor = boost;
-                ESP_LOGI(TAG, "Predictive: dT=%.3f°C/min, accel=%.3f, time=%.1fs, boost=%.2fx",
-                         s_dt_avg, s_dt_accel, time_to_target_sec, boost);
-            }
+        if (s_dt_avg > P_PREDICTIVE_DT_THRESHOLD) {
+            // Temperatur steigt schnell → sofort boosten
+            // Boost proportional zur Steigungsrate
+            float boost = 1.0f + (s_dt_avg - P_PREDICTIVE_DT_THRESHOLD) * 2.0f;
+            if (boost > 2.0f) boost = 2.0f;  // Maximaler Boost
+            fan_boost_factor = boost;
+            ESP_LOGI(TAG, "Predictive: dT=%.3f°C/min, accel=%.3f, boost=%.2fx",
+                     s_dt_avg, s_dt_accel, boost);
         }
 #endif
 
