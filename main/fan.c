@@ -123,9 +123,9 @@ void task_fan_pid(void *pvParameters) {
             uint64_t time_diff_ms = current_time - s_last_rpm_time;
             s_last_rpm_time = current_time;
 
-            // RPM = (pulses * 60000) / (time_ms * pulses_per_rev)
+            // RPM = (pulses * 60000 * calibration_factor) / (time_ms * pulses_per_rev)
             if (time_diff_ms > 0) {
-                s_current_rpm = (uint16_t)((pulses * 60000UL) / (time_diff_ms * TACHO_PULSES_PER_REV));
+                s_current_rpm = (uint16_t)(((pulses * 60000UL) * RPM_CALIBRATION_FACTOR) / (time_diff_ms * TACHO_PULSES_PER_REV));
                 ESP_LOGI(TAG, "RPM: interrupts=%lu, pulses=%lu, time=%llu ms, rpm=%u", interrupts, pulses, time_diff_ms, s_current_rpm);
             } else {
                 s_current_rpm = 0;
