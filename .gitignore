@@ -1,0 +1,31 @@
+# ESP-IDF build directory
+build/
+
+# ESP-IDF temporary files
+*.pyc
+__pycache__/
+*.pyo
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ESP-IDF specific
+sdkconfig
+sdkconfig.old
+managed_components
+
+# Flash binaries
+*.bin
+*.elf
+*.map
+
+# Logs
+*.log
+*.out

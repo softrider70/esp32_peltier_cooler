@@ -13,10 +13,8 @@ typedef struct {
     float    pid_kp;
     float    pid_ki;
     float    pid_kd;
-    uint16_t sched_wd_on;          // Weekday on (minutes from midnight)
-    uint16_t sched_wd_off;         // Weekday off
-    uint16_t sched_we_on;          // Weekend on
-    uint16_t sched_we_off;         // Weekend off
+    uint16_t sched_on[7];           // Daily on times (hours 0-23, stored as minutes)
+    uint16_t sched_off[7];          // Daily off times (hours 0-23, stored as minutes)
 } app_config_t;
 
 // Initialize NVS and load config (or set defaults)

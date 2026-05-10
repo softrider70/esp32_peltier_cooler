@@ -10,36 +10,74 @@ Ein geschlossener Raum (z.B. Schrank, Gehaeuse) soll aktiv gekuehlt werden. Ein 
 2. die Kuehlblock-Temperatur ueberwacht und den Luefter per PID-Regelung steuert
 3. eine Sicherheitsabschaltung bei Uebertemperatur am Kuehlblock ausfuehrt
 4. per Webinterface Live-Monitoring und Parametrierung ermoeglicht
-5. Zeitfenster fuer den Betrieb (Wochentag/Wochenende getrennt) verwaltet
+5. Zeitfenster fuer den Betrieb (jeder Wochentag individuell) verwaltet
+6. RPM-Messung des Luefters mit Kalibrierungsmoeglichkeit
 
 ## Hardware
 
 | Komponente | Beschreibung | Anschluss |
 |---|---|---|
-| ESP32 (Standard) | Mikrocontroller, Dual-Core 240 MHz | - |
-| Peltier-Element (TEC) | Kuehlung, gesteuert ueber N-MOSFET | GPIO 14 (Gate) |
-| Noctua 4-Pin Luefter | 25 kHz PWM, Tacho-Signal | PWM: GPIO 25, Tacho: GPIO 26 |
-| DS18B20 #1 | Temperaturfuehler Innenraum | GPIO 27 (OneWire) |
-| DS18B20 #2 | Temperaturfuehler Kuehlblock (heisse Seite) | GPIO 27 (OneWire) |
-| N-MOSFET (z.B. IRLZ44N) | Schaltet Peltier-Stromkreis | Gate: GPIO 14 |
+| ESP32-D (ESP32-D0WD-V3) | Mikrocontroller, Dual-Core 240 MHz, 30-Pin Board | - |
+| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET | D16 (GPIO16, Gate) |
+| Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: D5 (GPIO5), Tacho: D18 (GPIO18) |
+| DS18B20 #1 | Temperatursensor Innenraum | D4 (GPIO4, OneWire) |
+| DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | D4 (GPIO4, OneWire) |
 
 ### Verdrahtung OneWire
 
-Beide DS18B20 haengen am gleichen OneWire-Bus (GPIO 27) mit einem 4.7 kOhm Pull-Up nach 3.3V. Die Sensoren werden beim Start per ROM-Adresse identifiziert — Sensor 0 = Innenraum, Sensor 1 = Kuehlblock.
+Beide DS18B20 haengen am gleichen OneWire-Bus (D4/GPIO4) mit einem 4.7 kOhm Pull-Up nach 3.3V. Die Sensoren werden beim Start per ROM-Adresse identifiziert — Sensor 0 = Innenraum, Sensor 1 = Kuehlblock.
 
-### Verdrahtung Peltier-MOSFET
+### Verdrahtung Peltier
 
+**N-MOSFET Modul (z.B. IRF520N Modul):**
 ```
-ESP32 GPIO14 ---[1kOhm]--- Gate
-                            |
-                         MOSFET (IRLZ44N)
-                            |
-               Drain --- Peltier(–) --- Peltier(+) --- V+
-                            |
-                          Source --- GND
+ESP32 D16 (GPIO16) --- IN
+Modul VCC --- 5V
+Modul GND --- GND
+Modul OUT --- Peltier(–)
+Peltier(+) --- V+ (12V)
+```
+
+**Alternativ: Einzelner MOSFET (IRLZ44N):**
+```
+ESP32 D16 (GPIO16) ---[1kOhm]--- Gate
+                                |
+                             MOSFET (IRLZ44N)
+                                |
+                   Drain --- Peltier(–) --- Peltier(+) --- V+
+                                |
+                              Source --- GND
 
 Gate-Pulldown: 10kOhm nach GND (sicherer Zustand bei ESP32-Reset)
 ```
+
+### Verdrahtung Noctua Lüfter (PWM + Tacho)
+
+**PWM mit NPN Transistor Inverter (3.3V → 5V):**
+```
+          5V (Noctua)
+             │
+           [10kΩ] Pull-up
+             │
+             ├── Noctua PWM Pin
+             │
+ESP32 D5 ──┬── [1kΩ] ──┬── NPN-Transistor (2N2222/BC547)
+           │           │
+          GND         ├── Collector
+                       │
+                      Emitter ─── GND
+```
+
+**Tacho (Open-Collector mit Pull-Up):**
+```
+Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
+                      │
+                   (interner Pull-Up auf 3.3V)
+                      │
+                     GND (gemeinsam mit ESP32)
+```
+
+**Hinweis:** Der NPN Transistor invertiert das PWM-Signal, wird im Software automatisch korrigiert.
 
 ## Regellogik
 
@@ -93,8 +131,8 @@ main/
 
 ### Monitor-Seite (STA-Modus)
 
-- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Peltier AN/AUS
-- Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, Zeitfenster
+- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status
+- Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
 - Auto-Refresh alle 3 Sekunden
 - REST API: `GET /api/status`, `POST /api/config`
 
@@ -120,10 +158,10 @@ Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert un
 | PID Kp | `pid_kp` | 2.0 | Proportional-Anteil |
 | PID Ki | `pid_ki` | 0.5 | Integral-Anteil |
 | PID Kd | `pid_kd` | 1.0 | Differential-Anteil |
-| Wochentag AN | `sch_wd_on` | 08:00 | Betriebsstart Mo-Fr |
-| Wochentag AUS | `sch_wd_off` | 22:00 | Betriebsende Mo-Fr |
-| Wochenende AN | `sch_we_on` | 09:00 | Betriebsstart Sa-So |
-| Wochenende AUS | `sch_we_off` | 23:00 | Betriebsende Sa-So |
+| Mo-Fr AN | `sch_mo_on` ... `sch_do_on` | 11:00 | Betriebsstart Mo-Do (Stunden 0-23) |
+| Mo-Fr AUS | `sch_mo_off` ... `sch_do_off` | 19:00 | Betriebsende Mo-Do |
+| Fr-So AN | `sch_fr_on` ... `sch_so_on` | 11:00 | Betriebsstart Fr-So |
+| Fr-So AUS | `sch_fr_off` ... `sch_so_off` | 21:00 | Betriebsende Fr-So |
 
 ## Build & Flash
 
@@ -144,12 +182,29 @@ idf.py -p COMx flash monitor
 4. Falls Luefter pendelt: Kd erhoehen (0.5-Schritte) zur Daempfung
 5. Alle Werte werden sofort in NVS persistiert
 
+## RPM-Kalibrierung
+
+Die RPM-Messung des Luefters kann kalibriert werden, falls die angezeigten Werte von den tatsaechlichen Umdrehungen abweichen.
+
+**Voraussetzung:** Tacho muss korrekt angeschlossen sein (direkt mit GPIO18, kein Spannungsteiler, GND gemeinsam).
+
+Kalibrierung:
+1. Luefter auf 100% PWM setzen (z.B. PID Kp erhoehen)
+2. RPM-Wert im Serial Monitor ablesen (`interrupts > 0` pruefen)
+3. Kalibrierungsfaktor berechnen: `Faktor = Ziel-RPM / Gemessene-RPM`
+4. Faktor in `config.h` anpassen: `#define RPM_CALIBRATION_FACTOR X.Xf`
+5. Neu flashen
+
+Standard: `RPM_CALIBRATION_FACTOR = 1.0f` (nicht kalibriert)
+
 ## Sicherheit
 
 - Peltier-GPIO hat Hardware-Pulldown → AUS bei ESP32-Reset/Brownout
 - Kuehlblock-Temperatur wird alle 2s geprueft
 - Bei Ueberschreitung von `temp_max`: sofortige Peltier-Abschaltung + Luefter 100%
-- Bei Sensorausfall (CRC-Fehler, kein Signal): System deaktiviert (fail-safe)
+- Bei Sensorfehlern: Vorheriger gueltiger Wert wird behalten
+- Bei 5 aufeinanderfolgenden Sensorfehlern: Notmodus aktiv (Luefter 100%, Peltier AUS)
+- Notmodus wird bei naechster gueltigen Messung automatisch deaktiviert
 - Scheduler inaktiv → alles aus
 
 ## Lizenz

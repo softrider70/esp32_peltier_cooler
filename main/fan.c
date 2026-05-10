@@ -6,6 +6,8 @@
 #include "scheduler.h"
 #include "nvs_config.h"
 #include "driver/ledc.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,6 +15,27 @@
 static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
 static pid_controller_t s_fan_pid;
+
+// RPM measurement variables
+static volatile uint32_t s_tacho_pulses = 0;
+static volatile uint32_t s_tacho_interrupts = 0;  // Total interrupt count for debug
+static uint16_t s_current_rpm = 0;
+static uint64_t s_last_rpm_time = 0;
+static volatile uint64_t s_last_pulse_time = 0;
+#define TACHO_PULSES_PER_REV 2  // Standard Noctua: 2 pulses per revolution
+#define RPM_UPDATE_INTERVAL_MS 1000  // Update RPM every second
+#define TACHO_DEBOUNCE_US 100  // 100us debounce to filter noise
+#define TACHO_ENABLED true  // Enabled - Tacho connected
+
+// Tacho interrupt handler with debounce
+static void IRAM_ATTR tacho_isr_handler(void* arg) {
+    s_tacho_interrupts++;
+    uint64_t now = esp_timer_get_time();
+    if (now - s_last_pulse_time > TACHO_DEBOUNCE_US) {
+        s_tacho_pulses++;
+        s_last_pulse_time = now;
+    }
+}
 
 void fan_init(void) {
     ledc_timer_config_t timer_conf = {
@@ -40,32 +63,94 @@ void fan_init(void) {
     pid_init(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
              PID_OUTPUT_MIN, PID_OUTPUT_MAX);
 
-    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz)", GPIO_FAN_PWM);
+#if TACHO_ENABLED
+    // Configure tacho GPIO for interrupt with pull-up (Noctua is open-collector)
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << GPIO_FAN_TACHO),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_ANYEDGE,  // Trigger on both edges
+    };
+    gpio_config(&io_conf);
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(GPIO_FAN_TACHO, tacho_isr_handler, NULL);
+    ESP_LOGI(TAG, "Tacho interrupt installed on GPIO %d", GPIO_FAN_TACHO);
+
+    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho on GPIO %d (pull-up, anyedge)", GPIO_FAN_PWM, GPIO_FAN_TACHO);
+#else
+    ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho DISABLED (hardware not connected)", GPIO_FAN_PWM);
+#endif
 }
 
 void fan_set_duty(uint8_t duty) {
     s_current_duty = duty;
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL, duty);
+
+    // Invert PWM for NPN transistor (if enabled)
+    uint32_t actual_duty = FAN_PWM_INVERTED ? (255 - duty) : duty;
+
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL, actual_duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL);
+    ESP_LOGI(TAG, "Fan duty: requested=%u, actual=%lu (inverted=%d)", duty, actual_duty, FAN_PWM_INVERTED);
 }
 
 uint8_t fan_get_duty(void) {
     return s_current_duty;
 }
 
+uint16_t fan_get_rpm(void) {
+    return s_current_rpm;
+}
+
 void task_fan_pid(void *pvParameters) {
     (void)pvParameters;
 
     const float dt = (float)PID_SAMPLE_TIME_MS / 1000.0f;
+#if TACHO_ENABLED
+    s_last_rpm_time = esp_timer_get_time() / 1000;  // Initial time
+#endif
 
     while (1) {
         sensor_data_t sd = sensor_get_data();
         app_config_t *cfg = nvs_config_get();
 
+        // Update RPM calculation every second (disabled due to hardware not connected)
+#if TACHO_ENABLED
+        uint64_t current_time = esp_timer_get_time() / 1000;  // milliseconds
+        if (current_time - s_last_rpm_time >= RPM_UPDATE_INTERVAL_MS) {
+            uint32_t pulses = s_tacho_pulses;
+            uint32_t interrupts = s_tacho_interrupts;
+            s_tacho_pulses = 0;  // Reset counter
+            s_tacho_interrupts = 0;  // Reset interrupt counter
+            uint64_t time_diff_ms = current_time - s_last_rpm_time;
+            s_last_rpm_time = current_time;
+
+            // RPM = (pulses * 60000 * calibration_factor) / (time_ms * pulses_per_rev)
+            if (time_diff_ms > 0) {
+                s_current_rpm = (uint16_t)(((pulses * 60000UL) * RPM_CALIBRATION_FACTOR) / (time_diff_ms * TACHO_PULSES_PER_REV));
+                ESP_LOGI(TAG, "RPM: interrupts=%lu, pulses=%lu, time=%llu ms, rpm=%u", interrupts, pulses, time_diff_ms, s_current_rpm);
+            } else {
+                s_current_rpm = 0;
+            }
+        }
+#else
+        s_current_rpm = 0;  // Tacho disabled - always return 0
+#endif
+
         // Update PID tunings if changed at runtime
         pid_set_tunings(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd);
 
         bool active = scheduler_is_active();
+
+        // ---- Emergency mode: sensor errors → fan full, peltier off ----
+        if (sensor_get_emergency_mode()) {
+            peltier_off();
+            fan_set_duty(255);
+            ESP_LOGW(TAG, "EMERGENCY MODE: Fan full, Peltier off (sensor errors)");
+            pid_reset(&s_fan_pid);
+            vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+            continue;
+        }
 
         // ---- System inactive or no heatsink sensor: everything off ----
         if (!active || !sd.heatsink_valid) {
@@ -87,6 +172,19 @@ void task_fan_pid(void *pvParameters) {
             continue;
         }
 
+        // ---- Safety: RPM check (fan failure detection) ----
+#if TACHO_ENABLED
+        if (s_current_duty > 127 && s_current_rpm == 0) {
+            // Fan should be running (>50% PWM) but RPM = 0 → fan failure
+            ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0 - SHUTTING DOWN PELTIER", s_current_duty);
+            peltier_off();
+            fan_set_duty(255);  // Keep fan at 100% to try to restart
+            pid_reset(&s_fan_pid);
+            vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+            continue;  // Skip normal PID loop
+        }
+#endif
+
         // ---- Peltier: digital on/off based on indoor temperature range ----
         if (sd.indoor_valid) {
             if (sd.temp_indoor >= cfg->temp_peltier_on) {
@@ -98,22 +196,60 @@ void task_fan_pid(void *pvParameters) {
         }
 
         // ---- PID: regulate fan to keep heatsink at target ----
-        // We compute error as (measurement - setpoint) so that positive error
-        // means "too hot" → increase fan speed. This is an inverted PID
-        // (output rises with positive error).
+        // For cooling: error = measurement - setpoint (positive when too hot → more fan)
+        // This is an inverted PID compared to standard (where error = setpoint - measurement)
         float error = sd.temp_heatsink - cfg->temp_heatsink_target;
         float fan_output;
 
         if (error <= 0.0f) {
-            // Heatsink below target — fan off, reset integrator
-            fan_output = PID_OUTPUT_MIN;
-            pid_reset(&s_fan_pid);
+            // Heatsink below target — fan off
+            fan_output = 0.0f;
+            s_fan_pid.integral = 0.0f;  // Reset only integral, keep prev_error
         } else {
-            // Use pid_compute with swapped args so error = measurement - setpoint > 0
-            // pid_compute: error = setpoint - measurement, so pass (measurement, setpoint)
-            // to get error = measurement - setpoint (positive → output grows)
-            fan_output = pid_compute(&s_fan_pid, 0.0f, -error, dt);
-            // pid error = 0 - (-error) = +error → positive → output increases
+            // Manual PID computation with inverted error for cooling
+            // error = measurement - setpoint (positive when too hot)
+            float p_term = s_fan_pid.kp * error;
+            s_fan_pid.integral += error * dt;
+
+            // Anti-windup: Limit integral term
+            const float integral_max = 10.0f;  // Prevent integral windup
+            if (s_fan_pid.integral > integral_max) {
+                s_fan_pid.integral = integral_max;
+            } else if (s_fan_pid.integral < -integral_max) {
+                s_fan_pid.integral = -integral_max;
+            }
+
+            float i_term = s_fan_pid.ki * s_fan_pid.integral;
+
+            // Initialize prev_error on first run
+            if (s_fan_pid.prev_error == 0.0f && error != 0.0f) {
+                s_fan_pid.prev_error = error;
+            }
+
+            float derivative = (error - s_fan_pid.prev_error) / dt;
+            float d_term = s_fan_pid.kd * derivative;
+            s_fan_pid.prev_error = error;
+
+            // Scale PID output to PWM range (0-255)
+            // Assuming max error ~5°C should give 100% PWM
+            fan_output = (p_term + i_term + d_term) * 20.0f;
+
+            // Clamp output
+            if (fan_output > PID_OUTPUT_MAX) {
+                fan_output = PID_OUTPUT_MAX;
+            } else if (fan_output < PID_OUTPUT_MIN) {
+                fan_output = PID_OUTPUT_MIN;
+            }
+
+            // RPM Feedback: Increase PWM if RPM is lower than expected
+#if TACHO_ENABLED
+            uint16_t expected_rpm = (uint16_t)((fan_output / 255.0f) * 1700.0f);  // Expected RPM at this PWM
+            if (s_current_rpm > 0 && s_current_rpm < expected_rpm * 0.8f && fan_output < 250.0f) {
+                // RPM is < 80% of expected, increase PWM by 10%
+                fan_output *= 1.1f;
+                ESP_LOGI(TAG, "RPM feedback: expected=%u, actual=%u, boosting PWM", expected_rpm, s_current_rpm);
+            }
+#endif
         }
 
         fan_set_duty((uint8_t)fan_output);

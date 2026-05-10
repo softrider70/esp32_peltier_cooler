@@ -1,16 +1,23 @@
 #pragma once
 
-// ===== GPIO Configuration =====
-#define GPIO_FAN_PWM        25      // Noctua 4-pin PWM signal
-#define GPIO_FAN_TACHO      26      // Noctua 4-pin tachometer input
-#define GPIO_ONEWIRE_BUS    27      // DS18B20 OneWire data line (both sensors)
-#define GPIO_PELTIER        14      // MOSFET gate for Peltier element (digital on/off)
+// ===== Build Information =====
+#define BUILD_NUMBER        35      // Build counter - increment with each flash
 
-// ===== PWM Configuration =====
+// ===== GPIO Configuration (ESP32-D Board D2-D35) =====
+#define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
+#define GPIO_FAN_TACHO      18      // Noctua 4-pin tachometer input (D18/GPIO18)
+#define GPIO_ONEWIRE_BUS    4       // DS18B20 OneWire data line (D4/GPIO4)
+#define GPIO_PELTIER        16      // MOSFET gate for Peltier element (D16/GPIO16)
+
+// ===== PWM Configuration (NPN Transistor Inverter) =====
 #define FAN_PWM_FREQ_HZ     25000   // Noctua spec: 25 kHz PWM
 #define FAN_PWM_CHANNEL     LEDC_CHANNEL_0
 #define FAN_PWM_TIMER       LEDC_TIMER_0
 #define FAN_PWM_RESOLUTION  LEDC_TIMER_8_BIT  // 0-255
+#define FAN_PWM_INVERTED    true    // PWM invertierung aktiviert (Hardware invertiert)
+
+// ===== RPM Calibration =====
+#define RPM_CALIBRATION_FACTOR 0.567f  // Scale factor: 1700 target / 3000 measured
 
 // ===== Temperature Thresholds =====
 #define TEMP_PELTIER_ON_DEFAULT     25.0f   // Peltier ON when indoor above this
@@ -19,9 +26,9 @@
 #define TEMP_HEATSINK_TARGET        45.0f   // PID target for heatsink
 
 // ===== PID Defaults =====
-#define PID_KP_DEFAULT      2.0f
-#define PID_KI_DEFAULT      0.5f
-#define PID_KD_DEFAULT      1.0f
+#define PID_KP_DEFAULT      2.0f    // Scaled by 20 in code → effective 40
+#define PID_KI_DEFAULT      0.2f    // Scaled by 20 in code → effective 4
+#define PID_KD_DEFAULT      1.0f    // Scaled by 20 in code → effective 20
 #define PID_OUTPUT_MIN      0.0f    // Fan off
 #define PID_OUTPUT_MAX      255.0f  // Fan full speed
 #define PID_SAMPLE_TIME_MS  1000    // 1 second
@@ -50,10 +57,20 @@
 #define NVS_KEY_PID_KP       "pid_kp"
 #define NVS_KEY_PID_KI       "pid_ki"
 #define NVS_KEY_PID_KD       "pid_kd"
-#define NVS_KEY_SCHED_WD_ON  "sch_wd_on"   // Weekday on  (minutes from midnight)
-#define NVS_KEY_SCHED_WD_OFF "sch_wd_off"  // Weekday off
-#define NVS_KEY_SCHED_WE_ON  "sch_we_on"   // Weekend on
-#define NVS_KEY_SCHED_WE_OFF "sch_we_off"  // Weekend off
+#define NVS_KEY_SCHED_MO_ON  "sch_mo_on"   // Monday on (minutes from midnight)
+#define NVS_KEY_SCHED_MO_OFF "sch_mo_off"  // Monday off
+#define NVS_KEY_SCHED_DI_ON  "sch_di_on"   // Tuesday on
+#define NVS_KEY_SCHED_DI_OFF "sch_di_off"  // Tuesday off
+#define NVS_KEY_SCHED_MI_ON  "sch_mi_on"   // Wednesday on
+#define NVS_KEY_SCHED_MI_OFF "sch_mi_off"  // Wednesday off
+#define NVS_KEY_SCHED_DO_ON  "sch_do_on"   // Thursday on
+#define NVS_KEY_SCHED_DO_OFF "sch_do_off"  // Thursday off
+#define NVS_KEY_SCHED_FR_ON  "sch_fr_on"   // Friday on
+#define NVS_KEY_SCHED_FR_OFF "sch_fr_off"  // Friday off
+#define NVS_KEY_SCHED_SA_ON  "sch_sa_on"   // Saturday on
+#define NVS_KEY_SCHED_SA_OFF "sch_sa_off"  // Saturday off
+#define NVS_KEY_SCHED_SO_ON  "sch_so_on"   // Sunday on
+#define NVS_KEY_SCHED_SO_OFF "sch_so_off"  // Sunday off
 
 // ===== Task Priorities =====
 #define TASK_PRIO_SENSOR     5

@@ -6,21 +6,28 @@
 <title>ESP32 Cooler</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;padding:1rem}
-h1{color:#0ff;margin-bottom:1rem;font-size:1.5rem}
-h2{color:#7fdbff;margin:1rem 0 .5rem;font-size:1.1rem}
-.card{background:#16213e;border-radius:8px;padding:1rem;margin-bottom:1rem;border:1px solid #0f3460}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
-.val{font-size:1.8rem;font-weight:700;color:#0ff}
-.label{font-size:.8rem;color:#888;text-transform:uppercase}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;padding:.5rem}
+h1{color:#0ff;margin-bottom:.5rem;font-size:1.2rem}
+h2{color:#7fdbff;margin:.5rem 0 .3rem;font-size:.95rem}
+.card{background:#16213e;border-radius:6px;padding:.5rem;margin-bottom:.5rem;border:1px solid #0f3460}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem}
+.val{font-size:1.4rem;font-weight:700;color:#0ff}
+.label{font-size:.7rem;color:#888;text-transform:uppercase}
 .warn{color:#ff6b6b}
 .ok{color:#51cf66}
-input[type=number],input[type=time]{background:#0f3460;border:1px solid #0ff;color:#fff;padding:.4rem;border-radius:4px;width:100%}
-button{background:#0ff;color:#1a1a2e;border:none;padding:.6rem 1.2rem;border-radius:4px;cursor:pointer;font-weight:700;margin-top:.5rem}
+input[type=number],input[type=time],input[type=text]{background:#0f3460;border:1px solid #0ff;color:#fff;padding:.2rem;border-radius:4px;width:100%;font-size:.8rem}
+input.ota-input{border-color:#ff922b}
+button{background:#0ff;color:#1a1a2e;border:none;padding:.4rem .8rem;border-radius:4px;cursor:pointer;font-weight:700;margin-top:.3rem;font-size:.85rem}
 button:hover{background:#7fdbff}
-.row{display:flex;align-items:center;gap:.5rem;margin:.3rem 0}
-.row label{min-width:120px;font-size:.85rem}
-.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;align-items:center;gap:.2rem;margin:.15rem 0}
+.row label{min-width:70px;font-size:.75rem}
+.status{margin-top:.3rem;padding:.4rem;border-radius:4px;font-size:.75rem;display:none}
+.status.success{background:#51cf66;color:#fff}
+.status.error{background:#ff6b6b;color:#fff}
+.status.info{background:#0ff;color:#1a1a2e}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .dot-on{background:#51cf66}
 .dot-off{background:#ff6b6b}
 </style>
@@ -29,27 +36,30 @@ button:hover{background:#7fdbff}
 <h1>&#x2744; ESP32 Peltier Cooler</h1>
 
 <div class="card">
-<h2>Live Status</h2>
+<h2>Live Status <span style="font-size:.7rem;color:#888;font-weight:normal">Build <span id="build">--</span></span></h2>
 <div class="grid">
-<div><div class="label">Innenraum</div><div class="val" id="t_indoor">--</div></div>
-<div><div class="label">Kuehlblock</div><div class="val" id="t_heat">--</div></div>
-<div><div class="label">Luefter</div><div class="val" id="fan">--%</div></div>
+<div><div class="label">Innen</div><div class="val" id="t_indoor">--</div></div>
+<div><div class="label">Kühlblock</div><div class="val" id="t_heat">--</div></div>
+<div><div class="label">Lüfter Soll</div><div class="val" id="fan_duty">--%</div></div>
+<div><div class="label">Lüfter Ist</div><div class="val" id="fan_rpm">-- RPM</div></div>
 <div><div class="label">Peltier</div><div class="val" id="peltier">--</div></div>
 </div>
-<p style="margin-top:.5rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span></p>
+<p style="margin-top:.3rem;font-size:.75rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span> | Notmodus: <span class="status-dot" id="dot_emergency"></span> <span id="emergency_status">--</span> | Zeit: <span id="system_time">--</span></p>
+<div id="status_msg" class="status"></div>
+</div>
+
+<div class="card-grid">
+<div class="card">
+<h2>Peltier Kühlbereich</h2>
+<div class="row"><label>AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40"></div>
+<div class="row"><label>AUS ab:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35"></div>
+<p style="font-size:.7rem;color:#888;margin-top:.2rem">Hysterese: Peltier bleibt an zwischen AUS und AN</p>
 </div>
 
 <div class="card">
-<h2>Peltier Kuehlbereich (Innenraum)</h2>
-<div class="row"><label>Kuehlung AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40">&deg;C</div>
-<div class="row"><label>Kuehlung AUS ab:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35">&deg;C</div>
-<p style="font-size:.75rem;color:#888;margin-top:.3rem">Hysterese-Band: Peltier bleibt an zwischen AUS und AN Schwelle</p>
-</div>
-
-<div class="card">
-<h2>Kuehlblock Sicherheit</h2>
-<div class="row"><label>Max Temperatur:</label><input type="number" id="cfg_temp_max" step="1" min="40" max="80">&deg;C</div>
-<div class="row"><label>PID Zieltemp:</label><input type="number" id="cfg_temp_target" step="1" min="30" max="60">&deg;C</div>
+<h2>Kühlblock Sicherheit</h2>
+<div class="row"><label>Max Temp:</label><input type="number" id="cfg_temp_max" step="1" min="40" max="80"></div>
+<div class="row"><label>PID Ziel:</label><input type="number" id="cfg_temp_target" step="1" min="30" max="60"></div>
 </div>
 
 <div class="card">
@@ -61,54 +71,59 @@ button:hover{background:#7fdbff}
 
 <div class="card">
 <h2>Zeitfenster</h2>
-<p style="font-size:.8rem;color:#888;margin-bottom:.5rem">Format: HH:MM (Stunden:Minuten)</p>
-<div class="row"><label>Wochentag AN:</label><input type="time" id="cfg_wd_on"></div>
-<div class="row"><label>Wochentag AUS:</label><input type="time" id="cfg_wd_off"></div>
-<div class="row"><label>Wochenende AN:</label><input type="time" id="cfg_we_on"></div>
-<div class="row"><label>Wochenende AUS:</label><input type="time" id="cfg_we_off"></div>
+<p style="font-size:.7rem;color:#888;margin-bottom:.3rem">Stundenwerte (0-23), Minuten auf 00</p>
+<table style="width:100%;font-size:.75rem;border-collapse:collapse">
+<tr style="background:#f0f0f0"><th>Tag</th><th>AN</th><th>AUS</th></tr>
+<tr><td>Mo</td><td><input type="number" id="sched_0_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_0_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Di</td><td><input type="number" id="sched_1_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_1_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Mi</td><td><input type="number" id="sched_2_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_2_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Do</td><td><input type="number" id="sched_3_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_3_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Fr</td><td><input type="number" id="sched_4_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_4_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Sa</td><td><input type="number" id="sched_5_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_5_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>So</td><td><input type="number" id="sched_6_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_6_off" min="0" max="23" style="width:50px"></td></tr>
+</table>
+</div>
 </div>
 
-<button onclick="saveConfig()">Einstellungen speichern</button>
+<button onclick="saveConfig()" style="margin-bottom:.5rem">Speichern</button>
 
-<div class="card" style="margin-top:1rem;border-color:#ff922b">
+<div class="card" style="margin-top:.5rem;border-color:#ff922b">
 <h2 style="color:#ff922b">Firmware Update (OTA)</h2>
-<div class="row"><label>Server-URL:</label><input type="text" id="ota_url" style="background:#0f3460;border:1px solid #ff922b;color:#fff;padding:.4rem;border-radius:4px;width:100%;font-size:.85rem" placeholder="http://192.168.1.100:8080/firmware.bin"></div>
-<button onclick="startOta()" style="background:#ff922b">Firmware aktualisieren</button>
-<p style="margin-top:.5rem;font-size:.85rem" id="ota_status"></p>
-<p style="font-size:.7rem;color:#888;margin-top:.3rem">Bei fehlgeschlagenem Boot wird automatisch auf die vorherige Firmware zurueckgerollt.</p>
+<div class="row"><label>URL:</label><input type="text" class="ota-input" id="ota_url" value="http://192.168.1.191:8080/firmware.bin" placeholder="http://192.168.1.191:8080/firmware.bin"></div>
+<button onclick="saveOtaUrl()" style="background:#ff922b;margin-right:.3rem">URL speichern</button>
+<button onclick="startOta()" style="background:#ff922b">Update</button>
+<p style="margin-top:.3rem;font-size:.7rem" id="ota_status"></p>
+<p style="font-size:.65rem;color:#888;margin-top:.2rem">Bei Fehler wird automatisch zurueckgerollt.</p>
 </div>
 
 <script>
-function minToTime(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
-function timeToMin(t){var p=t.split(':');return parseInt(p[0])*60+parseInt(p[1])}
+function showStatus(msg,type){
+var el=document.getElementById('status_msg');
+el.textContent=msg;
+el.className='status '+type;
+el.style.display='block';
+setTimeout(function(){el.style.display='none'},3000);
+}
 
 function refresh(){
 fetch('/api/status').then(r=>r.json()).then(d=>{
 document.getElementById('t_indoor').textContent=d.indoor_valid?d.indoor.toFixed(1)+'°C':'--';
 document.getElementById('t_heat').textContent=d.heatsink_valid?d.heatsink.toFixed(1)+'°C':'--';
-document.getElementById('fan').textContent=Math.round(d.fan_duty/2.55)+'%';
+document.getElementById('fan_duty').textContent=Math.round(d.fan_duty/2.55)+'%';
+document.getElementById('fan_rpm').textContent=d.fan_rpm+' RPM';
 document.getElementById('peltier').textContent=d.peltier_on?'AN':'AUS';
 document.getElementById('peltier').className='val '+(d.peltier_on?'ok':'');
 var dot=document.getElementById('dot_active');
 dot.className='status-dot '+(d.active?'dot-on':'dot-off');
 document.getElementById('sched_status').textContent=d.active?'AKTIV':'INAKTIV';
-document.getElementById('cfg_temp_on').value=d.temp_on;
-document.getElementById('cfg_temp_off').value=d.temp_off;
-document.getElementById('cfg_temp_max').value=d.temp_max;
-document.getElementById('cfg_temp_target').value=d.temp_target;
-document.getElementById('cfg_kp').value=d.pid_kp;
-document.getElementById('cfg_ki').value=d.pid_ki;
-document.getElementById('cfg_kd').value=d.pid_kd;
-document.getElementById('cfg_wd_on').value=minToTime(d.sched_wd_on);
-document.getElementById('cfg_wd_off').value=minToTime(d.sched_wd_off);
-document.getElementById('cfg_we_on').value=minToTime(d.sched_we_on);
-document.getElementById('cfg_we_off').value=minToTime(d.sched_we_off);
+var dot_emergency=document.getElementById('dot_emergency');
+dot_emergency.className='status-dot '+(d.emergency?'dot-warn':'dot-off');
+document.getElementById('emergency_status').textContent=d.emergency?'AKTIV':'INAKTIV';
+document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Zeit-Sync';
+document.getElementById('build').textContent=d.build;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('t_heat').classList.add('warn');
 else document.getElementById('t_heat').classList.remove('warn');
 }).catch(e=>console.error(e));
-fetch('/api/ota/status').then(r=>r.json()).then(d=>{
-document.getElementById('ota_url').value=d.url;
-}).catch(e=>{});
 }
 
 function saveConfig(){
@@ -118,18 +133,25 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&temp_target='+document.getElementById('cfg_temp_target').value
 +'&pid_kp='+document.getElementById('cfg_kp').value
 +'&pid_ki='+document.getElementById('cfg_ki').value
-+'&pid_kd='+document.getElementById('cfg_kd').value
-+'&sched_wd_on='+timeToMin(document.getElementById('cfg_wd_on').value)
-+'&sched_wd_off='+timeToMin(document.getElementById('cfg_wd_off').value)
-+'&sched_we_on='+timeToMin(document.getElementById('cfg_we_on').value)
-+'&sched_we_off='+timeToMin(document.getElementById('cfg_we_off').value);
++'&pid_kd='+document.getElementById('cfg_kd').value;
+for(var i=0;i<7;i++){
+body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value;
+body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value;
+}
 fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
-.then(r=>r.json()).then(d=>{alert('Gespeichert!')}).catch(e=>alert('Fehler: '+e));
+.then(r=>r.json()).then(d=>{showStatus('Gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
+}
+
+function saveOtaUrl(){
+var url=document.getElementById('ota_url').value;
+if(!url){showStatus('Bitte URL eingeben','error');return}
+fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
+.then(r=>r.json()).then(d=>{showStatus('OTA-URL gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
 function startOta(){
 var url=document.getElementById('ota_url').value;
-if(!url){alert('Bitte URL eingeben');return}
+if(!url){showStatus('Bitte URL eingeben','error');return}
 if(!confirm('Firmware-Update starten von:\\n'+url+'\\n\\nBei Fehler wird automatisch zurueckgerollt.'))return;
 document.getElementById('ota_status').textContent='Update wird gestartet...';
 fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
@@ -145,8 +167,42 @@ else{el.textContent='';el.style.color=''}
 }).catch(e=>{document.getElementById('ota_status').textContent='Verbindung verloren (Neustart?)'});
 }
 
+function init(){
+fetch('/api/ota/status').then(r=>r.json()).then(d=>{
+document.getElementById('ota_url').value=d.url;
+}).catch(e=>{});
+fetch('/api/status').then(r=>r.json()).then(d=>{
+document.getElementById('cfg_temp_on').value=d.temp_on;
+document.getElementById('cfg_temp_off').value=d.temp_off;
+document.getElementById('cfg_temp_max').value=d.temp_max;
+document.getElementById('cfg_temp_target').value=d.temp_target;
+document.getElementById('cfg_kp').value=d.pid_kp;
+document.getElementById('cfg_ki').value=d.pid_ki;
+document.getElementById('cfg_kd').value=d.pid_kd;
+for(var i=0;i<7;i++){
+document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
+document.getElementById('sched_'+i+'_off').value=d.sched_off[i];
+}
+}).catch(e=>{});
+
+// Enter-Taste Event-Listener für Input-Felder
+var inputs=document.querySelectorAll('input[type=number],input[type=time],input[type=text]');
+inputs.forEach(function(input){
+input.addEventListener('keydown',function(e){
+if(e.key==='Enter'){
+var id=input.id;
+if(id.startsWith('cfg_'))saveConfig();
+else if(id.startsWith('sched_'))saveConfig();
+else if(id==='ota_url')saveOtaUrl();
+}
+});
+});
+
 refresh();
 setInterval(refresh,3000);
+}
+
+init();
 </script>
 </body>
 </html>

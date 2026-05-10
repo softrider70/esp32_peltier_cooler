@@ -47,29 +47,48 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     sensor_data_t sd = sensor_get_data();
     app_config_t *cfg = nvs_config_get();
 
-    char buf[512];
+    char buf[1024];
+    // Get current time
+    char time_str[32] = "No time";
+    bool time_synced = false;
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    if (timeinfo.tm_year >= (2020 - 1900)) {
+        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+        time_synced = true;
+    }
+
+    // Get OTA URL
+    const char *ota_url = ota_get_url();
+
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
         "\"indoor_valid\":%s,\"heatsink_valid\":%s,"
-        "\"fan_duty\":%d,\"peltier_on\":%s,"
-        "\"active\":%s,"
+        "\"fan_duty\":%d,\"fan_rpm\":%d,\"peltier_on\":%s,"
+        "\"active\":%s,\"emergency\":%s,\"time_synced\":%s,\"time\":\"%s\","
         "\"temp_on\":%.1f,\"temp_off\":%.1f,"
         "\"temp_max\":%.1f,\"temp_target\":%.1f,"
-        "\"pid_kp\":%.2f,\"pid_ki\":%.2f,\"pid_kd\":%.2f,"
-        "\"sched_wd_on\":%d,\"sched_wd_off\":%d,"
-        "\"sched_we_on\":%d,\"sched_we_off\":%d,"
-        "\"wifi_mode\":\"%s\"}",
+        "\"pid_kp\":%.1f,\"pid_ki\":%.1f,\"pid_kd\":%.1f,"
+        "\"sched_on\":[%d,%d,%d,%d,%d,%d,%d],"
+        "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
+        "\"wifi_mode\":\"%s\",\"ota_url\":\"%s\","
+        "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
         sd.heatsink_valid ? "true" : "false",
-        fan_get_duty(), peltier_is_on() ? "true" : "false",
+        fan_get_duty(), fan_get_rpm(), peltier_is_on() ? "true" : "false",
         scheduler_is_active() ? "true" : "false",
+        sensor_get_emergency_mode() ? "true" : "false",
+        time_synced ? "true" : "false", time_str,
         cfg->temp_peltier_on, cfg->temp_peltier_off,
         cfg->temp_heatsink_max, cfg->temp_heatsink_target,
         cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
-        cfg->sched_wd_on, cfg->sched_wd_off,
-        cfg->sched_we_on, cfg->sched_we_off,
-        wifi_is_connected() ? "STA" : "AP");
+        cfg->sched_on[0]/60, cfg->sched_on[1]/60, cfg->sched_on[2]/60, cfg->sched_on[3]/60, cfg->sched_on[4]/60, cfg->sched_on[5]/60, cfg->sched_on[6]/60,
+        cfg->sched_off[0]/60, cfg->sched_off[1]/60, cfg->sched_off[2]/60, cfg->sched_off[3]/60, cfg->sched_off[4]/60, cfg->sched_off[5]/60, cfg->sched_off[6]/60,
+        wifi_is_connected() ? "STA" : "AP",
+        ota_url, BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, buf, len);
@@ -77,7 +96,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
 }
 
 static esp_err_t handler_api_config(httpd_req_t *req) {
-    char buf[512];
+    char buf[1024];
     int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (received <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "No data");
@@ -104,14 +123,18 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->pid_ki = strtof(value, NULL);
     if (httpd_query_key_value(buf, "pid_kd", value, sizeof(value)) == ESP_OK)
         cfg->pid_kd = strtof(value, NULL);
-    if (httpd_query_key_value(buf, "sched_wd_on", value, sizeof(value)) == ESP_OK)
-        cfg->sched_wd_on = (uint16_t)atoi(value);
-    if (httpd_query_key_value(buf, "sched_wd_off", value, sizeof(value)) == ESP_OK)
-        cfg->sched_wd_off = (uint16_t)atoi(value);
-    if (httpd_query_key_value(buf, "sched_we_on", value, sizeof(value)) == ESP_OK)
-        cfg->sched_we_on = (uint16_t)atoi(value);
-    if (httpd_query_key_value(buf, "sched_we_off", value, sizeof(value)) == ESP_OK)
-        cfg->sched_we_off = (uint16_t)atoi(value);
+
+    // Parse daily schedule (7 days, 2 values each)
+    for (int i = 0; i < 7; i++) {
+        char key_on[20], key_off[20];
+        snprintf(key_on, sizeof(key_on), "sched_%d_on", i);
+        snprintf(key_off, sizeof(key_off), "sched_%d_off", i);
+        
+        if (httpd_query_key_value(buf, key_on, value, sizeof(value)) == ESP_OK)
+            cfg->sched_on[i] = (uint16_t)atoi(value) * 60;  // Hours to minutes
+        if (httpd_query_key_value(buf, key_off, value, sizeof(value)) == ESP_OK)
+            cfg->sched_off[i] = (uint16_t)atoi(value) * 60;  // Hours to minutes
+    }
 
     nvs_config_save();
 

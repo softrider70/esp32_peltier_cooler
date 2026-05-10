@@ -17,10 +17,16 @@ static void load_defaults(void) {
     s_config.pid_kp = PID_KP_DEFAULT;
     s_config.pid_ki = PID_KI_DEFAULT;
     s_config.pid_kd = PID_KD_DEFAULT;
-    s_config.sched_wd_on = 8 * 60;      // 08:00
-    s_config.sched_wd_off = 22 * 60;    // 22:00
-    s_config.sched_we_on = 9 * 60;      // 09:00
-    s_config.sched_we_off = 23 * 60;    // 23:00
+    
+    // Default schedule: Mon-Thu 11-19, Fri 11-21, Sat-Sun 11-21
+    for (int i = 0; i < 7; i++) {
+        s_config.sched_on[i] = 11 * 60;  // 11:00
+        if (i < 4) {  // Mon-Thu
+            s_config.sched_off[i] = 19 * 60;  // 19:00
+        } else {  // Fri-Sun
+            s_config.sched_off[i] = 21 * 60;  // 21:00
+        }
+    }
 }
 
 void nvs_config_init(void) {
@@ -60,14 +66,20 @@ void nvs_config_init(void) {
             s_config.pid_kd = val / 100.0f;
 
         uint16_t u16;
-        if (nvs_get_u16(handle, NVS_KEY_SCHED_WD_ON, &u16) == ESP_OK)
-            s_config.sched_wd_on = u16;
-        if (nvs_get_u16(handle, NVS_KEY_SCHED_WD_OFF, &u16) == ESP_OK)
-            s_config.sched_wd_off = u16;
-        if (nvs_get_u16(handle, NVS_KEY_SCHED_WE_ON, &u16) == ESP_OK)
-            s_config.sched_we_on = u16;
-        if (nvs_get_u16(handle, NVS_KEY_SCHED_WE_OFF, &u16) == ESP_OK)
-            s_config.sched_we_off = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_MO_ON, &u16) == ESP_OK) s_config.sched_on[0] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_MO_OFF, &u16) == ESP_OK) s_config.sched_off[0] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_DI_ON, &u16) == ESP_OK) s_config.sched_on[1] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_DI_OFF, &u16) == ESP_OK) s_config.sched_off[1] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_MI_ON, &u16) == ESP_OK) s_config.sched_on[2] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_MI_OFF, &u16) == ESP_OK) s_config.sched_off[2] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_DO_ON, &u16) == ESP_OK) s_config.sched_on[3] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_DO_OFF, &u16) == ESP_OK) s_config.sched_off[3] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_FR_ON, &u16) == ESP_OK) s_config.sched_on[4] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_FR_OFF, &u16) == ESP_OK) s_config.sched_off[4] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_SA_ON, &u16) == ESP_OK) s_config.sched_on[5] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_SA_OFF, &u16) == ESP_OK) s_config.sched_off[5] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_ON, &u16) == ESP_OK) s_config.sched_on[6] = u16;
+        if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_OFF, &u16) == ESP_OK) s_config.sched_off[6] = u16;
 
         nvs_close(handle);
         ESP_LOGI(TAG, "Config loaded from NVS");
@@ -98,10 +110,20 @@ void nvs_config_save(void) {
     nvs_set_i32(handle, NVS_KEY_PID_KI, (int32_t)(s_config.pid_ki * 100));
     nvs_set_i32(handle, NVS_KEY_PID_KD, (int32_t)(s_config.pid_kd * 100));
 
-    nvs_set_u16(handle, NVS_KEY_SCHED_WD_ON, s_config.sched_wd_on);
-    nvs_set_u16(handle, NVS_KEY_SCHED_WD_OFF, s_config.sched_wd_off);
-    nvs_set_u16(handle, NVS_KEY_SCHED_WE_ON, s_config.sched_we_on);
-    nvs_set_u16(handle, NVS_KEY_SCHED_WE_OFF, s_config.sched_we_off);
+    nvs_set_u16(handle, NVS_KEY_SCHED_MO_ON, s_config.sched_on[0]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_MO_OFF, s_config.sched_off[0]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_DI_ON, s_config.sched_on[1]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_DI_OFF, s_config.sched_off[1]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_MI_ON, s_config.sched_on[2]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_MI_OFF, s_config.sched_off[2]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_DO_ON, s_config.sched_on[3]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_DO_OFF, s_config.sched_off[3]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_FR_ON, s_config.sched_on[4]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_FR_OFF, s_config.sched_off[4]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_SA_ON, s_config.sched_on[5]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_SA_OFF, s_config.sched_off[5]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_SO_ON, s_config.sched_on[6]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_SO_OFF, s_config.sched_off[6]);
 
     nvs_commit(handle);
     nvs_close(handle);
