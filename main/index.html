@@ -156,8 +156,8 @@ var chart=null;
 
 function loadGraph(){
 fetch('/api/graph').then(r=>r.json()).then(data=>{
-// Filter out uninitialized points (timestamp=0)
-var validData=data.filter(d=>d.timestamp>0);
+// Filter out uninitialized points (timestamp=0 or invalid data)
+var validData=data.filter(d=>d.timestamp>0 && !isNaN(d.indoor) && !isNaN(d.heatsink));
 if(validData.length===0){
 console.error('No valid data points');
 return;
