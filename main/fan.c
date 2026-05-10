@@ -25,7 +25,7 @@ static volatile uint64_t s_last_pulse_time = 0;
 #define TACHO_PULSES_PER_REV 2  // Standard Noctua: 2 pulses per revolution
 #define RPM_UPDATE_INTERVAL_MS 1000  // Update RPM every second
 #define TACHO_DEBOUNCE_US 1000  // 1ms debounce to filter noise
-#define TACHO_ENABLED false  // Disabled - hardware not connected
+#define TACHO_ENABLED true  // Enabled - Tacho connected
 
 // Tacho interrupt handler with debounce
 static void IRAM_ATTR tacho_isr_handler(void* arg) {
