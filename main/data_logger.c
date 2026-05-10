@@ -44,9 +44,12 @@ void task_data_logger(void *pvParameters) {
         uint8_t fan_duty = fan_get_duty();
         bool peltier_on = peltier_is_on();
         
+        // Use relative time (seconds since boot) instead of Unix timestamp
+        uint32_t relative_time = (uint32_t)(esp_timer_get_time() / 1000000ULL);
+        
         // Create data point
         data_point_t point = {
-            .timestamp = (uint32_t)(esp_timer_get_time() / 1000000ULL),  // Unix timestamp (seconds)
+            .timestamp = relative_time,  // Relative time in seconds since boot
             .temp_indoor = sd.indoor_valid ? sd.temp_indoor : 0.0f,
             .temp_heatsink = sd.heatsink_valid ? sd.temp_heatsink : 0.0f,
             .fan_duty = fan_duty,

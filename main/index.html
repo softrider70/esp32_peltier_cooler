@@ -150,10 +150,26 @@ var chart=null;
 
 function loadGraph(){
 fetch('/api/graph').then(r=>r.json()).then(data=>{
-var labels=data.map(d=>new Date(d.timestamp*1000).toLocaleTimeString());
-var indoor=data.map(d=>d.indoor);
-var heatsink=data.map(d=>d.heatsink);
-var fan=data.map(d=>d.fan/2.55);  // Convert to percentage
+// Filter out uninitialized points (timestamp=0)
+var validData=data.filter(d=>d.timestamp>0);
+if(validData.length===0){
+console.error('No valid data points');
+return;
+}
+
+// Format labels as MM:SS relative to first point
+var firstTime=validData[0].timestamp;
+var labels=validData.map(d=>{
+var relTime=d.timestamp-firstTime;
+var mins=Math.floor(relTime/60);
+var secs=relTime%60;
+return mins+':'+(secs<10?'0':'')+secs;
+});
+
+var indoor=validData.map(d=>d.indoor);
+var heatsink=validData.map(d=>d.heatsink);
+var fan=validData.map(d=>d.fan/2.55);  // Convert to percentage
+var peltier=validData.map(d=>d.peltier_on?1:0);  // Binary for visualization
 
 var ctx=document.getElementById('tempChart').getContext('2d');
 if(chart)chart.destroy();
@@ -183,6 +199,16 @@ borderColor:'#51cf66',
 backgroundColor:'rgba(81,207,102,0.1)',
 tension:0.1,
 yAxisID:'y1'
+},
+{
+label:'Peltier',
+data:peltier,
+borderColor:'#ff922b',
+backgroundColor:'rgba(255,146,43,0.2)',
+tension:0,
+stepped:true,
+pointRadius:0,
+yAxisID:'y2'
 }
 ]
 },
@@ -200,6 +226,11 @@ max:100,
 position:'right',
 title:{display:true,text:'Lüfter (%)'},
 grid:{drawOnChartArea:false}
+},
+y2:{
+display:false,
+min:0,
+max:1
 }
 },
 plugins:{
