@@ -210,6 +210,15 @@ void task_fan_pid(void *pvParameters) {
             // error = measurement - setpoint (positive when too hot)
             float p_term = s_fan_pid.kp * error;
             s_fan_pid.integral += error * dt;
+
+            // Anti-windup: Limit integral term
+            const float integral_max = 10.0f;  // Prevent integral windup
+            if (s_fan_pid.integral > integral_max) {
+                s_fan_pid.integral = integral_max;
+            } else if (s_fan_pid.integral < -integral_max) {
+                s_fan_pid.integral = -integral_max;
+            }
+
             float i_term = s_fan_pid.ki * s_fan_pid.integral;
 
             // Initialize prev_error on first run
@@ -223,7 +232,7 @@ void task_fan_pid(void *pvParameters) {
 
             // Scale PID output to PWM range (0-255)
             // Assuming max error ~5°C should give 100% PWM
-            fan_output = (p_term + i_term + d_term) * 50.0f;
+            fan_output = (p_term + i_term + d_term) * 20.0f;
 
             // Clamp output
             if (fan_output > PID_OUTPUT_MAX) {
