@@ -203,16 +203,19 @@ static esp_err_t handler_api_ota(httpd_req_t *req) {
     httpd_query_key_value(buf, "url", url, sizeof(url));
     
     // URL-decode the URL (httpd_query_key_value returns URL-encoded string)
-    for (int i = 0, j = 0; url[i] != '\0' && j < OTA_URL_MAX_LEN - 1; i++, j++) {
+    char decoded[OTA_URL_MAX_LEN] = {0};
+    int decoded_len = 0;
+    for (int i = 0; url[i] != '\0' && decoded_len < OTA_URL_MAX_LEN - 1; i++) {
         if (url[i] == '%' && url[i+1] != '\0' && url[i+2] != '\0') {
             char hex[3] = {url[i+1], url[i+2], '\0'};
-            url[j] = (char)strtol(hex, NULL, 16);
+            decoded[decoded_len++] = (char)strtol(hex, NULL, 16);
             i += 2;
         } else {
-            url[j] = url[i];
+            decoded[decoded_len++] = url[i];
         }
     }
-    url[strlen(url)] = '\0';  // Ensure null termination
+    decoded[decoded_len] = '\0';
+    strcpy(url, decoded);  // Copy decoded URL back
 
     // Save URL if provided
     if (strlen(url) > 0) {
