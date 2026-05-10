@@ -201,6 +201,18 @@ static esp_err_t handler_api_ota(httpd_req_t *req) {
 
     char url[OTA_URL_MAX_LEN] = {0};
     httpd_query_key_value(buf, "url", url, sizeof(url));
+    
+    // URL-decode the URL (httpd_query_key_value returns URL-encoded string)
+    for (int i = 0, j = 0; url[i] != '\0' && j < OTA_URL_MAX_LEN - 1; i++, j++) {
+        if (url[i] == '%' && url[i+1] != '\0' && url[i+2] != '\0') {
+            char hex[3] = {url[i+1], url[i+2], '\0'};
+            url[j] = (char)strtol(hex, NULL, 16);
+            i += 2;
+        } else {
+            url[j] = url[i];
+        }
+    }
+    url[strlen(url)] = '\0';  // Ensure null termination
 
     // Save URL if provided
     if (strlen(url) > 0) {
@@ -240,23 +252,23 @@ static esp_err_t handler_api_graph(httpd_req_t *req) {
     uint16_t count = 0;
     const data_point_t *data = data_logger_get_data(&count);
     
-    // Build JSON array (32KB buffer for 720 points)
-    char *json_buf = malloc(32768);
+    // Build JSON array (40KB buffer for 720 points ~36KB needed)
+    char *json_buf = malloc(40960);
     if (!json_buf) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
         return ESP_FAIL;
     }
     
-    int pos = snprintf(json_buf, 32768, "[");
+    int pos = snprintf(json_buf, 40960, "[");
     
     for (uint16_t i = 0; i < count; i++) {
         // Skip points with zero timestamp (uninitialized)
         if (data[i].timestamp == 0) continue;
         
         // Check buffer space
-        if (pos > 32000) break;  // Safety limit
+        if (pos > 40000) break;  // Safety limit
         
-        pos += snprintf(json_buf + pos, 32768 - pos,
+        pos += snprintf(json_buf + pos, 40960 - pos,
             "%s{\"timestamp\":%lu,\"indoor\":%.1f,\"heatsink\":%.1f,\"fan\":%u,\"peltier\":%s}",
             (pos > 1) ? "," : "",
             data[i].timestamp,
@@ -266,7 +278,7 @@ static esp_err_t handler_api_graph(httpd_req_t *req) {
             data[i].peltier_on ? "true" : "false");
     }
     
-    snprintf(json_buf + pos, 32768 - pos, "]");
+    snprintf(json_buf + pos, 40960 - pos, "]");
     
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, json_buf, strlen(json_buf));

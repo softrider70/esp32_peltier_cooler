@@ -175,7 +175,7 @@ return mins+':'+(secs<10?'0':'')+secs;
 var indoor=validData.map(d=>d.indoor);
 var heatsink=validData.map(d=>d.heatsink);
 var fan=validData.map(d=>d.fan/2.55);  // Convert to percentage
-var peltier=validData.map(d=>d.peltier_on?1:0);  // Binary for visualization
+var peltier=validData.map(d=>d.peltier_on?100:0);  // Scale to 0-100 for visibility
 
 var ctx=document.getElementById('tempChart').getContext('2d');
 if(chart)chart.destroy();
@@ -189,22 +189,23 @@ label:'Innenraum (°C)',
 data:indoor,
 borderColor:'#ff6b6b',
 backgroundColor:'rgba(255,107,107,0.1)',
-tension:0.1
+tension:0.1,
+yAxisID:'y2'
 },
 {
 label:'Kühlblock (°C)',
 data:heatsink,
 borderColor:'#0ff',
 backgroundColor:'rgba(0,255,255,0.1)',
-tension:0.1
+tension:0.1,
+yAxisID:'y2'
 },
 {
 label:'Lüfter (%)',
 data:fan,
 borderColor:'#51cf66',
 backgroundColor:'rgba(81,207,102,0.1)',
-tension:0.1,
-yAxisID:'y1'
+tension:0.1
 },
 {
 label:'Peltier',
@@ -214,7 +215,7 @@ backgroundColor:'rgba(255,146,43,0.2)',
 tension:0,
 stepped:true,
 pointRadius:0,
-yAxisID:'y2'
+yAxisID:'y1'
 }
 ]
 },
@@ -223,20 +224,24 @@ responsive:true,
 maintainAspectRatio:false,
 scales:{
 y:{
-beginAtZero:false,
-title:{display:true,text:'Temperatur (°C)'}
+beginAtZero:true,
+max:100,
+position:'left',
+title:{display:true,text:'Lüfter (%)'}
 },
 y1:{
 beginAtZero:true,
 max:100,
-position:'right',
-title:{display:true,text:'Lüfter (%)'},
-grid:{drawOnChartArea:false}
+position:'left',
+title:{display:true,text:'Peltier (%)'},
+grid:{drawOnChartArea:false},
+offset:true
 },
 y2:{
-display:false,
-min:0,
-max:1
+beginAtZero:false,
+position:'right',
+title:{display:true,text:'Temperatur (°C)'},
+grid:{drawOnChartArea:false}
 }
 },
 plugins:{
