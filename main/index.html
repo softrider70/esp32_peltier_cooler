@@ -44,7 +44,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div><div class="label">Lüfter Ist</div><div class="val" id="fan_rpm">-- RPM</div></div>
 <div><div class="label">Peltier</div><div class="val" id="peltier">--</div></div>
 </div>
-<p style="margin-top:.3rem;font-size:.75rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span> | Zeit: <span id="system_time">--</span></p>
+<p style="margin-top:.3rem;font-size:.75rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span> | Notmodus: <span class="status-dot" id="dot_emergency"></span> <span id="emergency_status">--</span> | Zeit: <span id="system_time">--</span></p>
 <div id="status_msg" class="status"></div>
 </div>
 
@@ -113,6 +113,9 @@ document.getElementById('peltier').className='val '+(d.peltier_on?'ok':'');
 var dot=document.getElementById('dot_active');
 dot.className='status-dot '+(d.active?'dot-on':'dot-off');
 document.getElementById('sched_status').textContent=d.active?'AKTIV':'INAKTIV';
+var dot_emergency=document.getElementById('dot_emergency');
+dot_emergency.className='status-dot '+(d.emergency?'dot-warn':'dot-off');
+document.getElementById('emergency_status').textContent=d.emergency?'AKTIV':'INAKTIV';
 document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Zeit-Sync';
 document.getElementById('build').textContent=d.build;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('t_heat').classList.add('warn');

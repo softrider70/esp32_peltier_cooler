@@ -140,6 +140,16 @@ void task_fan_pid(void *pvParameters) {
 
         bool active = scheduler_is_active();
 
+        // ---- Emergency mode: sensor errors → fan full, peltier off ----
+        if (sensor_get_emergency_mode()) {
+            peltier_off();
+            fan_set_duty(255);
+            ESP_LOGW(TAG, "EMERGENCY MODE: Fan full, Peltier off (sensor errors)");
+            pid_reset(&s_fan_pid);
+            vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+            continue;
+        }
+
         // ---- System inactive or no heatsink sensor: everything off ----
         if (!active || !sd.heatsink_valid) {
             fan_set_duty(0);

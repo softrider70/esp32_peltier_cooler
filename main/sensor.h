@@ -18,3 +18,6 @@ void task_sensor(void *pvParameters);
 
 // Get current sensor readings (thread-safe)
 sensor_data_t sensor_get_data(void);
+
+// Get emergency mode status (activated after 5 consecutive read errors)
+bool sensor_get_emergency_mode(void);

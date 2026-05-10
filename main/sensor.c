@@ -19,6 +19,10 @@ static uint8_t s_rom_indoor[8];
 static uint8_t s_rom_heatsink[8];
 static int s_sensor_count = 0;
 
+// Error handling
+static int s_error_count = 0;
+static bool s_emergency_mode = false;
+
 // OneWire timing (microseconds)
 static inline void ow_delay_us(uint32_t us) {
     ets_delay_us(us);
@@ -187,8 +191,8 @@ static float ds18b20_read_temp(const uint8_t *rom) {
     }
     ow_write_byte(DS18B20_CMD_CONVERT);
 
-    // Wait for conversion (750ms max at 12-bit)
-    vTaskDelay(pdMS_TO_TICKS(750));
+    // Wait for conversion (1000ms for reliable conversion)
+    vTaskDelay(pdMS_TO_TICKS(1000));
 
     if (!ow_reset()) return -127.0f;
 
@@ -264,6 +268,10 @@ sensor_data_t sensor_get_data(void) {
     return data;
 }
 
+bool sensor_get_emergency_mode(void) {
+    return s_emergency_mode;
+}
+
 void task_sensor(void *pvParameters) {
     (void)pvParameters;
     ESP_LOGI(TAG, "=== task_sensor() STARTED ===");
@@ -271,6 +279,7 @@ void task_sensor(void *pvParameters) {
 
     while (1) {
         sensor_data_t new_data = {0};
+        bool read_error = false;
 
         // Real sensor reading
         if (s_sensor_count >= 1) {
@@ -278,6 +287,11 @@ void task_sensor(void *pvParameters) {
             if (t > -126.0f) {
                 new_data.temp_indoor = t;
                 new_data.indoor_valid = true;
+            } else {
+                read_error = true;
+                // Keep previous value on error
+                new_data.temp_indoor = s_sensor_data.temp_indoor;
+                new_data.indoor_valid = s_sensor_data.indoor_valid;
             }
         }
 
@@ -286,6 +300,28 @@ void task_sensor(void *pvParameters) {
             if (t > -126.0f) {
                 new_data.temp_heatsink = t;
                 new_data.heatsink_valid = true;
+            } else {
+                read_error = true;
+                // Keep previous value on error
+                new_data.temp_heatsink = s_sensor_data.temp_heatsink;
+                new_data.heatsink_valid = s_sensor_data.heatsink_valid;
+            }
+        }
+
+        // Error counting and emergency mode
+        if (read_error) {
+            s_error_count++;
+            ESP_LOGW(TAG, "Sensor read error #%d", s_error_count);
+            
+            if (s_error_count >= 5) {
+                s_emergency_mode = true;
+                ESP_LOGE(TAG, "EMERGENCY MODE ACTIVATED: 5 consecutive errors!");
+            }
+        } else {
+            s_error_count = 0;
+            if (s_emergency_mode) {
+                s_emergency_mode = false;
+                ESP_LOGI(TAG, "EMERGENCY MODE DEACTIVATED: sensors recovered");
             }
         }
 

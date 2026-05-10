@@ -67,7 +67,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
         "\"indoor_valid\":%s,\"heatsink_valid\":%s,"
         "\"fan_duty\":%d,\"fan_rpm\":%d,\"peltier_on\":%s,"
-        "\"active\":%s,\"time_synced\":%s,\"time\":\"%s\","
+        "\"active\":%s,\"emergency\":%s,\"time_synced\":%s,\"time\":\"%s\","
         "\"temp_on\":%.1f,\"temp_off\":%.1f,"
         "\"temp_max\":%.1f,\"temp_target\":%.1f,"
         "\"pid_kp\":%.1f,\"pid_ki\":%.1f,\"pid_kd\":%.1f,"
@@ -80,6 +80,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         sd.heatsink_valid ? "true" : "false",
         fan_get_duty(), fan_get_rpm(), peltier_is_on() ? "true" : "false",
         scheduler_is_active() ? "true" : "false",
+        sensor_get_emergency_mode() ? "true" : "false",
         time_synced ? "true" : "false", time_str,
         cfg->temp_peltier_on, cfg->temp_peltier_off,
         cfg->temp_heatsink_max, cfg->temp_heatsink_target,
