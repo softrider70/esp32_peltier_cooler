@@ -1,10 +1,13 @@
 @echo off
-REM ESP32 Cooler Build Script with Embed Files Cache Clean
-REM Loescht nur .S Dateien (eingebettete Dateien), nicht gesamten Cache
+REM ESP32 Cooler Build Script
+REM Normaler Build - wenn index.html nicht aktualisiert wird: build-Verzeichnis manuell loeschen
 
 echo ========================================
 echo ESP32 Cooler Build Script
 echo ========================================
+echo.
+echo HINWEIS: Wenn index.html Aenderungen nicht uebernommen werden,
+echo           build-Verzeichnis manuell loeschen: rmdir /s /q build
 echo.
 
 REM ESP-IDF Umgebung aktivieren
@@ -14,13 +17,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo Schritt 1: Eingebettete Dateien (.S) loeschen...
-if exist build\*.S del /q build\*.S
-if exist build\esp-idf\main\CMakeFiles\__idf_main.dir\__\*.S.obj del /q build\esp-idf\main\CMakeFiles\__idf_main.dir\__\*.S.obj
-echo Eingebettete Dateien geloescht
-
-echo.
-echo Schritt 2: Build ausfuehren...
+echo Build ausfuehren...
 idf.py build
 if %errorlevel% neq 0 (
     echo Fehler: Build fehlgeschlagen
