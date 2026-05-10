@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        18      // Build counter - increment with each flash
+#define BUILD_NUMBER        19      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -54,10 +54,20 @@
 #define NVS_KEY_PID_KP       "pid_kp"
 #define NVS_KEY_PID_KI       "pid_ki"
 #define NVS_KEY_PID_KD       "pid_kd"
-#define NVS_KEY_SCHED_WD_ON  "sch_wd_on"   // Weekday on  (minutes from midnight)
-#define NVS_KEY_SCHED_WD_OFF "sch_wd_off"  // Weekday off
-#define NVS_KEY_SCHED_WE_ON  "sch_we_on"   // Weekend on
-#define NVS_KEY_SCHED_WE_OFF "sch_we_off"  // Weekend off
+#define NVS_KEY_SCHED_MO_ON  "sch_mo_on"   // Monday on (minutes from midnight)
+#define NVS_KEY_SCHED_MO_OFF "sch_mo_off"  // Monday off
+#define NVS_KEY_SCHED_DI_ON  "sch_di_on"   // Tuesday on
+#define NVS_KEY_SCHED_DI_OFF "sch_di_off"  // Tuesday off
+#define NVS_KEY_SCHED_MI_ON  "sch_mi_on"   // Wednesday on
+#define NVS_KEY_SCHED_MI_OFF "sch_mi_off"  // Wednesday off
+#define NVS_KEY_SCHED_DO_ON  "sch_do_on"   // Thursday on
+#define NVS_KEY_SCHED_DO_OFF "sch_do_off"  // Thursday off
+#define NVS_KEY_SCHED_FR_ON  "sch_fr_on"   // Friday on
+#define NVS_KEY_SCHED_FR_OFF "sch_fr_off"  // Friday off
+#define NVS_KEY_SCHED_SA_ON  "sch_sa_on"   // Saturday on
+#define NVS_KEY_SCHED_SA_OFF "sch_sa_off"  // Saturday off
+#define NVS_KEY_SCHED_SO_ON  "sch_so_on"   // Sunday on
+#define NVS_KEY_SCHED_SO_OFF "sch_so_off"  // Sunday off
 
 // ===== Task Priorities =====
 #define TASK_PRIO_SENSOR     5

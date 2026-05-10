@@ -71,11 +71,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <div class="card">
 <h2>Zeitfenster</h2>
-<p style="font-size:.7rem;color:#888;margin-bottom:.3rem">Format: HH:MM</p>
-<div class="row"><label>WD AN:</label><input type="time" id="cfg_wd_on"></div>
-<div class="row"><label>WD AUS:</label><input type="time" id="cfg_wd_off"></div>
-<div class="row"><label>WE AN:</label><input type="time" id="cfg_we_on"></div>
-<div class="row"><label>WE AUS:</label><input type="time" id="cfg_we_off"></div>
+<p style="font-size:.7rem;color:#888;margin-bottom:.3rem">Stundenwerte (0-23), Minuten auf 00</p>
+<table style="width:100%;font-size:.75rem;border-collapse:collapse">
+<tr style="background:#f0f0f0"><th>Tag</th><th>AN</th><th>AUS</th></tr>
+<tr><td>Mo</td><td><input type="number" id="sched_0_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_0_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Di</td><td><input type="number" id="sched_1_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_1_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Mi</td><td><input type="number" id="sched_2_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_2_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Do</td><td><input type="number" id="sched_3_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_3_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Fr</td><td><input type="number" id="sched_4_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_4_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>Sa</td><td><input type="number" id="sched_5_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_5_off" min="0" max="23" style="width:50px"></td></tr>
+<tr><td>So</td><td><input type="number" id="sched_6_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_6_off" min="0" max="23" style="width:50px"></td></tr>
+</table>
 </div>
 </div>
 
@@ -91,9 +97,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 
 <script>
-function minToTime(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
-function timeToMin(t){var p=t.split(':');return parseInt(p[0])*60+parseInt(p[1])}
-
 function showStatus(msg,type){
 var el=document.getElementById('status_msg');
 el.textContent=msg;
@@ -130,11 +133,11 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&temp_target='+document.getElementById('cfg_temp_target').value
 +'&pid_kp='+document.getElementById('cfg_kp').value
 +'&pid_ki='+document.getElementById('cfg_ki').value
-+'&pid_kd='+document.getElementById('cfg_kd').value
-+'&sched_wd_on='+timeToMin(document.getElementById('cfg_wd_on').value)
-+'&sched_wd_off='+timeToMin(document.getElementById('cfg_wd_off').value)
-+'&sched_we_on='+timeToMin(document.getElementById('cfg_we_on').value)
-+'&sched_we_off='+timeToMin(document.getElementById('cfg_we_off').value);
++'&pid_kd='+document.getElementById('cfg_kd').value;
+for(var i=0;i<7;i++){
+body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value;
+body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value;
+}
 fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
 .then(r=>r.json()).then(d=>{showStatus('Gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
@@ -176,10 +179,10 @@ document.getElementById('cfg_temp_target').value=d.temp_target;
 document.getElementById('cfg_kp').value=d.pid_kp;
 document.getElementById('cfg_ki').value=d.pid_ki;
 document.getElementById('cfg_kd').value=d.pid_kd;
-document.getElementById('cfg_wd_on').value=minToTime(d.sched_wd_on);
-document.getElementById('cfg_wd_off').value=minToTime(d.sched_wd_off);
-document.getElementById('cfg_we_on').value=minToTime(d.sched_we_on);
-document.getElementById('cfg_we_off').value=minToTime(d.sched_we_off);
+for(var i=0;i<7;i++){
+document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
+document.getElementById('sched_'+i+'_off').value=d.sched_off[i];
+}
 }).catch(e=>{});
 
 // Enter-Taste Event-Listener für Input-Felder
@@ -189,6 +192,7 @@ input.addEventListener('keydown',function(e){
 if(e.key==='Enter'){
 var id=input.id;
 if(id.startsWith('cfg_'))saveConfig();
+else if(id.startsWith('sched_'))saveConfig();
 else if(id==='ota_url')saveOtaUrl();
 }
 });

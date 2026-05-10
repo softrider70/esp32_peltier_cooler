@@ -21,10 +21,6 @@ void scheduler_init(void) {
     ESP_LOGI(TAG, "SNTP initialized, waiting for time sync");
 }
 
-static bool is_weekend(int wday) {
-    return (wday == 0 || wday == 6);  // Sunday=0, Saturday=6
-}
-
 static bool check_time_window(void) {
     time_t now;
     struct tm timeinfo;
@@ -43,20 +39,18 @@ static bool check_time_window(void) {
     app_config_t *cfg = nvs_config_get();
     uint16_t current_minute = timeinfo.tm_hour * 60 + timeinfo.tm_min;
 
-    schedule_window_t window;
-    if (is_weekend(timeinfo.tm_wday)) {
-        window.on_minute = cfg->sched_we_on;
-        window.off_minute = cfg->sched_we_off;
-    } else {
-        window.on_minute = cfg->sched_wd_on;
-        window.off_minute = cfg->sched_wd_off;
-    }
+    // tm_wday: 0=Sunday, 1=Monday, ..., 6=Saturday
+    // Map to array index: 0=Monday, 1=Tuesday, ..., 6=Sunday
+    int day_index = (timeinfo.tm_wday + 6) % 7;
+    
+    uint16_t on_minute = cfg->sched_on[day_index];
+    uint16_t off_minute = cfg->sched_off[day_index];
 
     // Handle overnight schedules (off < on means crossing midnight)
-    if (window.on_minute <= window.off_minute) {
-        return (current_minute >= window.on_minute && current_minute < window.off_minute);
+    if (on_minute <= off_minute) {
+        return (current_minute >= on_minute && current_minute < off_minute);
     } else {
-        return (current_minute >= window.on_minute || current_minute < window.off_minute);
+        return (current_minute >= on_minute || current_minute < off_minute);
     }
 }
 
