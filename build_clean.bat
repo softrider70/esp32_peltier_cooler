@@ -1,6 +1,6 @@
 @echo off
-REM ESP32 Cooler Build Script with Cache Clean
-REM Loescht build-Verzeichnis vor dem Build, um index.html Aenderungen zu erzwingen
+REM ESP32 Cooler Build Script with Embed Files Cache Clean
+REM Loescht nur .S Dateien (eingebettete Dateien), nicht gesamten Cache
 
 echo ========================================
 echo ESP32 Cooler Build Script
@@ -14,13 +14,10 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo Schritt 1: Build-Verzeichnis loeschen...
-if exist build (
-    rmdir /s /q build
-    echo Build-Verzeichnis geloescht
-) else (
-    echo Build-Verzeichnis existiert nicht (uebersprungen)
-)
+echo Schritt 1: Eingebettete Dateien (.S) loeschen...
+if exist build\*.S del /q build\*.S
+if exist build\esp-idf\main\CMakeFiles\__idf_main.dir\__\*.S.obj del /q build\esp-idf\main\CMakeFiles\__idf_main.dir\__\*.S.obj
+echo Eingebettete Dateien geloescht
 
 echo.
 echo Schritt 2: Build ausfuehren...
