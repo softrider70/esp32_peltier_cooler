@@ -176,8 +176,12 @@ void task_fan_pid(void *pvParameters) {
 #if TACHO_ENABLED
         if (s_current_duty > 127 && s_current_rpm == 0) {
             // Fan should be running (>50% PWM) but RPM = 0 → fan failure
-            ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0", s_current_duty);
-            // Could trigger emergency mode here
+            ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0 - SHUTTING DOWN PELTIER", s_current_duty);
+            peltier_off();
+            fan_set_duty(255);  // Keep fan at 100% to try to restart
+            pid_reset(&s_fan_pid);
+            vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+            continue;  // Skip normal PID loop
         }
 #endif
 
