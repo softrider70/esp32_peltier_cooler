@@ -23,19 +23,13 @@ void peltier_init(void) {
 }
 
 void peltier_on(void) {
-    if (!s_is_on) {
-        gpio_set_level(GPIO_PELTIER, 1);
-        s_is_on = true;
-        ESP_LOGI(TAG, "Peltier ON");
-    }
+    gpio_set_level(GPIO_PELTIER, 1);
+    s_is_on = true;
 }
 
 void peltier_off(void) {
-    if (s_is_on) {
-        gpio_set_level(GPIO_PELTIER, 0);
-        s_is_on = false;
-        ESP_LOGI(TAG, "Peltier OFF");
-    }
+    gpio_set_level(GPIO_PELTIER, 0);
+    s_is_on = false;
 }
 
 bool peltier_is_on(void) {
