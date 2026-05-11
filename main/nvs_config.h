@@ -16,11 +16,15 @@ typedef struct {
     uint16_t sched_on[7];           // Daily on times (hours 0-23, stored as minutes)
     uint16_t sched_off[7];          // Daily off times (hours 0-23, stored as minutes)
     uint16_t data_log_interval;     // Data logging interval in seconds (default: 10s)
-    float    energy_wh;             // Total energy consumption in Wh
-    float    energy_day;            // Energy consumption today in Wh
-    float    energy_week;           // Energy consumption this week in Wh
-    float    energy_month;          // Energy consumption this month in Wh
-    uint32_t last_date;             // Last saved date (YYYYMMDD)
+    float    energy_wh;             // Gesamtenergie in Wh
+    float    energy_day;            // Tagesenergie in Wh
+    float    energy_week;           // Wochenenergie in Wh
+    float    energy_month;          // Monatsenergie in Wh
+    uint32_t last_date;             // Zuletzt gespeichertes Datum (YYYYMMDD)
+    
+    // Peltier PWM (langsames PWM für Stromspar-Modus)
+    uint16_t peltier_pwm_period;  // PWM-Periode in Sekunden (z.B. 10s)
+    uint8_t peltier_pwm_duty;     // PWM-Duty-Cycle in % (0-100)
 } app_config_t;
 
 // Initialize NVS and load config (or set defaults)

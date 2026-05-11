@@ -20,9 +20,11 @@ static void load_defaults(void) {
     s_config.data_log_interval = 10;  // Default: 10 seconds
     s_config.energy_wh = 0.0f;  // Default: 0 Wh
     s_config.energy_day = 0.0f;  // Default: 0 Wh
-    s_config.energy_week = 0.0f;  // Default: 0 Wh
-    s_config.energy_month = 0.0f;  // Default: 0 Wh
-    s_config.last_date = 0;  // Default: 0 (not set)
+    s_config.energy_week = 0.0f;
+    s_config.energy_month = 0.0f;
+    s_config.last_date = 0;
+    s_config.peltier_pwm_period = 10;  // 10 Sekunden Periode
+    s_config.peltier_pwm_duty = 50;    // 50% Duty-Cycle
     
     // Default schedule: Mon-Thu 11-19, Fri 11-21, Sat-Sun 11-21
     for (int i = 0; i < 7; i++) {
@@ -103,6 +105,9 @@ void nvs_config_init(void) {
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_ON, &u16) == ESP_OK) s_config.sched_on[6] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_OFF, &u16) == ESP_OK) s_config.sched_off[6] = u16;
         if (nvs_get_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, &u16) == ESP_OK) s_config.data_log_interval = u16;
+        if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, &u16) == ESP_OK) s_config.peltier_pwm_period = u16;
+        uint8_t u8;
+        if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, &u8) == ESP_OK) s_config.peltier_pwm_duty = u8;
 
         nvs_close(handle);
         ESP_LOGI(TAG, "Config loaded from NVS");
@@ -156,6 +161,8 @@ void nvs_config_save(void) {
     nvs_set_u16(handle, NVS_KEY_SCHED_SO_ON, s_config.sched_on[6]);
     nvs_set_u16(handle, NVS_KEY_SCHED_SO_OFF, s_config.sched_off[6]);
     nvs_set_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, s_config.data_log_interval);
+    nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, s_config.peltier_pwm_period);
+    nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, s_config.peltier_pwm_duty);
 
     nvs_commit(handle);
     nvs_close(handle);

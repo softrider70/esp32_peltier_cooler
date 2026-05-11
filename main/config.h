@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        74      // Build counter - increment with each flash
+#define BUILD_NUMBER        75      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -57,37 +57,39 @@
 #define ENERGY_SAVE_INTERVAL_MS 900000  // Save energy data every 15 minutes (NVS protection)
 
 // ===== NVS Keys =====
-#define NVS_NAMESPACE        "cooler_cfg"
+#define NVS_NAMESPACE        "storage"
 #define NVS_KEY_WIFI_SSID    "wifi_ssid"
 #define NVS_KEY_WIFI_PASS    "wifi_pass"
 #define NVS_KEY_TEMP_ON      "temp_on"
 #define NVS_KEY_TEMP_OFF     "temp_off"
 #define NVS_KEY_TEMP_MAX     "temp_max"
-#define NVS_KEY_TEMP_TARGET  "temp_tgt"
+#define NVS_KEY_TEMP_TARGET  "temp_target"
+#define NVS_KEY_ENERGY_WH    "energy_wh"
+#define NVS_KEY_ENERGY_DAY   "energy_day"
+#define NVS_KEY_ENERGY_WEEK  "energy_week"
+#define NVS_KEY_ENERGY_MONTH "energy_month"
+#define NVS_KEY_LAST_DATE    "last_date"
 #define NVS_KEY_PID_KP       "pid_kp"
 #define NVS_KEY_PID_KI       "pid_ki"
 #define NVS_KEY_PID_KD       "pid_kd"
-#define NVS_KEY_SCHED_MO_ON  "sch_mo_on"   // Monday on (minutes from midnight)
-#define NVS_KEY_SCHED_MO_OFF "sch_mo_off"  // Monday off
-#define NVS_KEY_SCHED_DI_ON  "sch_di_on"   // Tuesday on
-#define NVS_KEY_SCHED_DI_OFF "sch_di_off"  // Tuesday off
-#define NVS_KEY_SCHED_MI_ON  "sch_mi_on"   // Wednesday on
-#define NVS_KEY_SCHED_MI_OFF "sch_mi_off"  // Wednesday off
-#define NVS_KEY_SCHED_DO_ON  "sch_do_on"   // Thursday on
-#define NVS_KEY_SCHED_DO_OFF "sch_do_off"  // Thursday off
-#define NVS_KEY_SCHED_FR_ON  "sch_fr_on"   // Friday on
-#define NVS_KEY_SCHED_FR_OFF "sch_fr_off"  // Friday off
-#define NVS_KEY_SCHED_SA_ON  "sch_sa_on"   // Saturday on
-#define NVS_KEY_SCHED_SA_OFF "sch_sa_off"  // Saturday off
-#define NVS_KEY_SCHED_SO_ON  "sch_so_on"   // Sunday on
-#define NVS_KEY_SCHED_SO_OFF  "sch_so_off"
+#define NVS_KEY_SCHED_MO_ON  "sched_mo_on"
+#define NVS_KEY_SCHED_MO_OFF "sched_mo_off"
+#define NVS_KEY_SCHED_DI_ON  "sched_di_on"
+#define NVS_KEY_SCHED_DI_OFF "sched_di_off"
+#define NVS_KEY_SCHED_MI_ON  "sched_mi_on"
+#define NVS_KEY_SCHED_MI_OFF "sched_mi_off"
+#define NVS_KEY_SCHED_DO_ON  "sched_do_on"
+#define NVS_KEY_SCHED_DO_OFF "sched_do_off"
+#define NVS_KEY_SCHED_FR_ON  "sched_fr_on"
+#define NVS_KEY_SCHED_FR_OFF "sched_fr_off"
+#define NVS_KEY_SCHED_SA_ON  "sched_sa_on"
+#define NVS_KEY_SCHED_SA_OFF "sched_sa_off"
+#define NVS_KEY_SCHED_SO_ON  "sched_so_on"
+#define NVS_KEY_SCHED_SO_OFF "sched_so_off"
 #define NVS_KEY_DATA_LOG_INTERVAL "data_log_interval"
-#define NVS_KEY_ENERGY_WH     "energy_wh"  // Total energy in Wh
-#define NVS_KEY_ENERGY_DAY    "energy_day"  // Energy today in Wh
-#define NVS_KEY_ENERGY_WEEK   "energy_week"  // Energy this week in Wh
-#define NVS_KEY_ENERGY_MONTH  "energy_month"  // Energy this month in Wh
-#define NVS_KEY_LAST_DATE     "last_date"  // Last saved date (YYYYMMDD)
-#define NVS_KEY_GRAPH_DATA   "graph_data"  // Graph data points
+#define NVS_KEY_PELTIER_PWM_PERIOD "peltier_pwm_period"
+#define NVS_KEY_PELTIER_PWM_DUTY   "peltier_pwm_duty"
+#define NVS_KEY_GRAPH_DATA         "graph_data"
 
 // ===== Task Priorities =====
 #define TASK_PRIO_SENSOR     5
