@@ -221,6 +221,15 @@ static esp_err_t handler_api_nvs_save(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t handler_api_reset(httpd_req_t *req) {
+    ESP_LOGW(TAG, "System reset triggered via web");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"ESP32 wird neugestartet\"}");
+    vTaskDelay(pdMS_TO_TICKS(100));  // Kurze Verzögerung für Antwort
+    esp_restart();
+    return ESP_OK;
+}
+
 static esp_err_t handler_api_wifi(httpd_req_t *req) {
     char buf[256];
     int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
@@ -442,7 +451,7 @@ static void dns_task(void *pvParameters) {
 
 void webserver_init(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 13;
+    config.max_uri_handlers = 14;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     if (httpd_start(&s_server, &config) != ESP_OK) {
@@ -481,6 +490,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_nvs_save = {
         .uri = "/api/nvs/save", .method = HTTP_POST, .handler = handler_api_nvs_save
     };
+    httpd_uri_t uri_api_reset = {
+        .uri = "/api/reset", .method = HTTP_POST, .handler = handler_api_reset
+    };
     // Catch-all for captive portal (must be last)
     httpd_uri_t uri_catchall = {
         .uri = "/*", .method = HTTP_GET, .handler = handler_captive_redirect
@@ -496,6 +508,7 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_graph_save);
     httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
     httpd_register_uri_handler(s_server, &uri_api_nvs_save);
+    httpd_register_uri_handler(s_server, &uri_api_reset);
     httpd_register_uri_handler(s_server, &uri_catchall);
 
     ESP_LOGI(TAG, "HTTP server started");

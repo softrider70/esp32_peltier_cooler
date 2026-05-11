@@ -56,6 +56,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Live Status <span style="font-size:.7rem;color:#888;font-weight:normal">Build <span id="build">--</span></span></h2>
 <div class="card-grid">
 <div class="card">
+<h2>System</h2>
+<div class="row"><label>Build:</label><span id="build">--</span></div>
+<div class="row"><label>Zeit:</label><span id="time">--</span></div>
+<div class="row"><button onclick="systemReset()" style="width:100%;margin-top:.5rem;padding:.5rem;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold">ESP32 Reset</button></div>
+</div>
+<div class="card">
 <h2>Temperaturen</h2>
 <div class="row"><label>Innen:</label><span id="st_indoor">--°C</span> <span id="trend_indoor"></span></div>
 <div class="row"><label>Kuehlblock:</label><span id="st_heatsink">--°C</span> <span id="trend_heatsink"></span></div>
@@ -431,6 +437,17 @@ else if(id==='ota_url')saveOtaUrl();
 }
 });
 });
+
+// System Reset Funktion
+function systemReset(){
+if(confirm('ESP32 wirklich neustarten?')){
+fetch('/api/reset',{method:'POST'}).then(r=>r.json()).then(d=>{
+alert('ESP32 wird neugestartet...');
+}).catch(e=>{
+alert('Fehler: '+e);
+});
+}
+}
 
 refresh();
 setInterval(refresh,3000);
