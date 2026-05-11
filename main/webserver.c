@@ -108,7 +108,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
 }
 
 static esp_err_t handler_api_config(httpd_req_t *req) {
-    char buf[1024];
+    char buf[2048];
     int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (received <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "No data");
