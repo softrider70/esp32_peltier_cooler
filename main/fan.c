@@ -353,15 +353,21 @@ void task_fan_pid(void *pvParameters) {
             // Einfache P-Steuerung ohne Deadband oder Glättung
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
             
-            // Fan = 50% + (error * 10%) pro °C
-            float fan_output_percent = 50.0f + (error * 10.0f);
+            // Fan = 40% + (error * 8%) pro °C
+            float fan_output_percent = 40.0f + (error * 8.0f);
             
-            // Clamp zwischen 30% und 80%
-            if (fan_output_percent > 80.0f) fan_output_percent = 80.0f;
+            // Clamp zwischen 30% und 69% (leiser Betrieb)
+            float max_fan = 69.0f;
+            // Bei sehr hohen Temperaturen (>45°C) höherer Lüfter erlaubt
+            if (sd.temp_heatsink > 45.0f) {
+                max_fan = 80.0f;
+            }
+            
+            if (fan_output_percent > max_fan) fan_output_percent = max_fan;
             if (fan_output_percent < 30.0f) fan_output_percent = 30.0f;
             
-            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, fan=%.0f%%", 
-                     sd.temp_heatsink, error, fan_output_percent);
+            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, fan=%.0f%%, max=%.0f%%", 
+                     sd.temp_heatsink, error, fan_output_percent, max_fan);
             
             fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
