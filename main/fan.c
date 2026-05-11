@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <time.h>
+#include <math.h>
 
 static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
@@ -24,6 +25,7 @@ static int s_peltier_off_counter = 0;  // Counter for fan cooldown after peltier
 // ===== Energy Consumption Tracking =====
 static uint32_t s_peltier_run_time_sec = 0;  // Total Peltier run time in seconds
 static uint32_t s_last_energy_save_time = 0;  // Last time energy was saved (ms)
+static float s_last_energy_wh = 0.0f;  // Last saved energy value (for change detection)
 
 // ===== Fan Control Parameters =====
 #define FAN_START_DUTY_WHEN_PELTIER_ON  127.0f  // 50% PWM when Peltier turns on (under 70%)
@@ -52,30 +54,33 @@ static void IRAM_ATTR tacho_isr_handler(void* arg) {
 }
 
 void fan_init(void) {
+    // Init LEDC for fan PWM
     ledc_timer_config_t timer_conf = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = FAN_PWM_RESOLUTION,
+        .duty_resolution = LEDC_TIMER_8_BIT,
         .timer_num = FAN_PWM_TIMER,
         .freq_hz = FAN_PWM_FREQ_HZ,
         .clk_cfg = LEDC_AUTO_CLK,
     };
     ledc_timer_config(&timer_conf);
 
-    ledc_channel_config_t ch_conf = {
+    ledc_channel_config_t ledc_conf = {
+        .channel = FAN_PWM_CHANNEL,
+        .duty = 0,
         .gpio_num = GPIO_FAN_PWM,
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = FAN_PWM_CHANNEL,
         .timer_sel = FAN_PWM_TIMER,
-        .duty = 0,
-        .hpoint = 0,
     };
-    ledc_channel_config(&ch_conf);
+    ledc_channel_config(&ledc_conf);
 
     // Init PID — setpoint is heatsink_target, output drives fan PWM
     // PID error = measurement - setpoint (positive when too hot → more fan)
     app_config_t *cfg = nvs_config_get();
     pid_init(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
              PID_OUTPUT_MIN, PID_OUTPUT_MAX);
+
+    // Initialize last energy value with loaded value
+    s_last_energy_wh = cfg->energy_wh;
 
 #if TACHO_ENABLED
     // Configure tacho GPIO for interrupt with pull-up (Noctua is open-collector)
@@ -333,10 +338,16 @@ void task_fan_pid(void *pvParameters) {
             update_energy_stats(energy_increment);  // Update stats only when Peltier is on
         }
 
-        // Save energy data every 15 minutes (NVS protection)
-        if (current_time - s_last_energy_save_time >= ENERGY_SAVE_INTERVAL_MS) {
+        // Save energy data only if changed OR 15 minutes elapsed (failsafe)
+        cfg = nvs_config_get();
+        bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.01f;  // Changed by >0.01 Wh
+        bool time_elapsed = (current_time - s_last_energy_save_time >= ENERGY_SAVE_INTERVAL_MS);
+        
+        if (energy_changed || time_elapsed) {
             nvs_config_save_energy();
             s_last_energy_save_time = current_time;
+            s_last_energy_wh = cfg->energy_wh;
+            ESP_LOGI(TAG, "Energy saved: changed=%d, time_elapsed=%d", energy_changed, time_elapsed);
         }
 
         // Clamp output
