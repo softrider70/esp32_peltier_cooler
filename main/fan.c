@@ -300,8 +300,8 @@ void task_fan_pid(void *pvParameters) {
                     float temp_error = sd.temp_indoor - cfg->temp_peltier_on;  // Fehler zum Ziel (13°C)
 
                     // Formfaktor: Je größer der Fehler, desto mehr Duty wird benötigt
-                    // Faktor 0.2 bedeutet: Bei 1°C über Ziel → 20% mehr Duty (erhöht für stärkere Reaktion)
-                    float duty_factor = 1.0f + (temp_error * 0.2f);
+                    // Faktor 0.1 bedeutet: Bei 1°C über Ziel → 10% mehr Duty
+                    float duty_factor = 1.0f + (temp_error * 0.1f);
 
                     // Begrenzung des Formfaktors auf sinnvolle Werte (0.5 bis 3.0)
                     if (duty_factor < 0.5f) duty_factor = 0.5f;
@@ -314,11 +314,11 @@ void task_fan_pid(void *pvParameters) {
                     ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Target=%.1f°C, Error=%.1f°C, Factor=%.2f, Base=%u%%, Target=%u%%",
                              sd.temp_indoor, cfg->temp_peltier_on, temp_error, duty_factor, base_duty, target_duty);
                     
-                    // Sanfte Annäherung an Ziel-Duty (max ±10% pro Schritt für schnellere Reaktion)
-                    if (target_duty > new_duty + 10) {
-                        new_duty += 10;
-                    } else if (target_duty < new_duty - 10) {
-                        new_duty -= 10;
+                    // Sanfte Annäherung an Ziel-Duty (max ±5% pro Schritt)
+                    if (target_duty > new_duty + 5) {
+                        new_duty += 5;
+                    } else if (target_duty < new_duty - 5) {
+                        new_duty -= 5;
                     } else {
                         new_duty = target_duty;
                     }
@@ -354,23 +354,23 @@ void task_fan_pid(void *pvParameters) {
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
             float temp_diff_to_max = cfg->temp_heatsink_max - sd.temp_heatsink;
 
-            float fan_output_percent = 50.0f;  // Höhere Basis-Duty für bessere Kühlung
+            float fan_output_percent = 40.0f;
 
-            // Bis 3 Grad unter max: Linear bis 80%
+            // Bis 3 Grad unter max: Linear bis 68%
             if (temp_diff_to_max > 3.0f) {
-                // Linearer Bereich: 50% + (error * 8%) pro °C
-                fan_output_percent = 50.0f + (error * 8.0f);
-                if (fan_output_percent > 80.0f) fan_output_percent = 80.0f;
+                // Linearer Bereich: 40% + (error * 8%) pro °C
+                fan_output_percent = 40.0f + (error * 8.0f);
+                if (fan_output_percent > 68.0f) fan_output_percent = 68.0f;
             } else {
                 // Exponentieller Bereich bei Temperaturen nahe max
-                // Exponentialfunktion: 80% * exp((3 - temp_diff) * 0.5)
+                // Exponentialfunktion: 68% * exp((3 - temp_diff) * 0.5)
                 float exp_factor = expf((3.0f - temp_diff_to_max) * 0.5f);
-                fan_output_percent = 80.0f * exp_factor;
+                fan_output_percent = 68.0f * exp_factor;
                 if (fan_output_percent > 100.0f) fan_output_percent = 100.0f;
             }
 
-            // Clamp zwischen 40% und 100%
-            if (fan_output_percent < 40.0f) fan_output_percent = 40.0f;
+            // Clamp zwischen 30% und 100%
+            if (fan_output_percent < 30.0f) fan_output_percent = 30.0f;
             
             ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, diff_to_max=%.1f°C, fan=%.0f%%", 
                      sd.temp_heatsink, error, temp_diff_to_max, fan_output_percent);
