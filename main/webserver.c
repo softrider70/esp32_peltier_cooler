@@ -10,6 +10,7 @@
 #include "data_logger.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
 #include "freertos/FreeRTOS.h"
