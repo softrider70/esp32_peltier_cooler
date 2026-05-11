@@ -201,9 +201,6 @@ void task_fan_pid(void *pvParameters) {
         s_current_rpm = 0;  // Tacho disabled - always return 0
 #endif
 
-        // Update PID tunings if changed at runtime
-        pid_set_tunings(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd);
-
         bool active = scheduler_is_active();
 
         // Save graph data when transitioning from active to inactive
@@ -218,7 +215,6 @@ void task_fan_pid(void *pvParameters) {
             peltier_off();
             fan_set_duty(255);
             ESP_LOGW(TAG, "EMERGENCY MODE: Fan full, Peltier off (sensor errors)");
-            pid_reset(&s_fan_pid);
             vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
             continue;
         }
@@ -227,7 +223,6 @@ void task_fan_pid(void *pvParameters) {
         if (!active || !sd.heatsink_valid) {
             fan_set_duty(0);
             peltier_off();
-            pid_reset(&s_fan_pid);
             vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
             continue;
         }
@@ -238,7 +233,6 @@ void task_fan_pid(void *pvParameters) {
             fan_set_duty(255);
             ESP_LOGW(TAG, "SAFETY: Heatsink %.1f°C >= max %.1f°C",
                      sd.temp_heatsink, cfg->temp_heatsink_max);
-            pid_reset(&s_fan_pid);
             vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
             continue;
         }
@@ -250,7 +244,6 @@ void task_fan_pid(void *pvParameters) {
             ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0 - SHUTTING DOWN PELTIER", s_current_duty);
             peltier_off();
             fan_set_duty(255);  // Keep fan at 100% to try to restart
-            pid_reset(&s_fan_pid);
             vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
             continue;  // Skip normal PID loop
         }
@@ -356,46 +349,28 @@ void task_fan_pid(void *pvParameters) {
             // PID: regulate fan to keep heatsink at target
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
 
+            // Einfache lineare Steuerung mit Glättung (keine PID mehr)
+            static float smoothed_fan_output = 50.0f;  // Start bei 50%
+            
             if (error <= 0.0f) {
-                // Heatsink below target → minimale Lüfterdrehzahl (nicht ganz aus, da Peltier Wärme erzeugt)
-                fan_output = FAN_START_DUTY_WHEN_PELTIER_ON * 0.5f;  // 25% als Minimum
-                s_fan_pid.integral = 0.0f;
-            } else if (error < PID_DEADBAND) {
-                // Fehler im Deadband → keine Änderung (sanfte Regelung)
-                fan_output = FAN_START_DUTY_WHEN_PELTIER_ON;  // 50% als Minimum
-                ESP_LOGD(TAG, "PID: error=%.1f in deadband, fan_output=%.0f", error, fan_output);
+                // Heatsink unter Ziel → minimaler Lüfter
+                smoothed_fan_output = 25.0f;
             } else {
-                // Heatsink über Ziel → PID regelt hoch
-                float dt = PID_SAMPLE_TIME_MS / 1000.0f;
-
-                float p_term = s_fan_pid.kp * error;
-                s_fan_pid.integral += error * dt;
-
-                // Anti-windup
-                const float integral_max = 10.0f;
-                if (s_fan_pid.integral > integral_max) {
-                    s_fan_pid.integral = integral_max;
-                } else if (s_fan_pid.integral < -integral_max) {
-                    s_fan_pid.integral = -integral_max;
-                }
-
-                float i_term = s_fan_pid.ki * s_fan_pid.integral;
-
-                if (s_fan_pid.prev_error == 0.0f && error != 0.0f) {
-                    s_fan_pid.prev_error = error;
-                }
-
-                float derivative = (error - s_fan_pid.prev_error) / dt;
-                float d_term = s_fan_pid.kd * derivative;
-                s_fan_pid.prev_error = error;
-
-                fan_output = (p_term + i_term + d_term) * 20.0f;
-
-                // Mindestens Start-Drehzahl, wenn Peltier an ist
-                if (fan_output < FAN_START_DUTY_WHEN_PELTIER_ON) {
-                    fan_output = FAN_START_DUTY_WHEN_PELTIER_ON;
-                }
+                // Heatsink über Ziel → linear erhöhen
+                // Gain: 15% pro °C über Ziel
+                float target_fan = 50.0f + (error * 15.0f);
+                
+                // Clamp auf 100%
+                if (target_fan > 100.0f) target_fan = 100.0f;
+                
+                // Exponentielle Glättung (alpha = 0.1 für sehr sanfte Übergänge)
+                smoothed_fan_output = (smoothed_fan_output * 0.9f) + (target_fan * 0.1f);
+                
+                ESP_LOGI(TAG, "Fan control: error=%.1f°C, target=%.0f%%, smoothed=%.0f%%",
+                         error, target_fan, smoothed_fan_output);
             }
+            
+            fan_output = smoothed_fan_output * 2.55f;  // 0-100% → 0-255
         } else {
             // Peltier ist AUS → Lüfter nachlaufen für Restwärme
             if (s_peltier_off_counter < FAN_COOLDOWN_SECONDS) {
@@ -406,7 +381,6 @@ void task_fan_pid(void *pvParameters) {
             } else {
                 // Cooldown vorbei → Lüfter aus
                 fan_output = 0.0f;
-                s_fan_pid.integral = 0.0f;
             }
         }
 

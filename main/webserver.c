@@ -144,10 +144,16 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->peltier_pwm_period = (uint16_t)atoi(value);
     if (httpd_query_key_value(buf, "peltier_pwm_duty", value, sizeof(value)) == ESP_OK)
         cfg->peltier_pwm_duty = (uint8_t)atoi(value);
-    if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK)
-        cfg->peltier_pwm_auto = (atoi(value) != 0);
-    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK)
-        cfg->peltier_pwm_interval = (uint16_t)atoi(value);
+    if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK) {
+        bool new_auto = (atoi(value) != 0);
+        ESP_LOGI(TAG, "Config update: peltier_pwm_auto = %d (was %d)", new_auto, cfg->peltier_pwm_auto);
+        cfg->peltier_pwm_auto = new_auto;
+    }
+    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK) {
+        uint16_t new_interval = (uint16_t)atoi(value);
+        ESP_LOGI(TAG, "Config update: peltier_pwm_interval = %u (was %u)", new_interval, cfg->peltier_pwm_interval);
+        cfg->peltier_pwm_interval = new_interval;
+    }
 
     // Parse daily schedule (7 days, 2 values each)
     for (int i = 0; i < 7; i++) {

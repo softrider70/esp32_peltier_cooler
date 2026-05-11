@@ -349,7 +349,6 @@ fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-fo
 }
 
 function startOta(){
-if(!confirm('OTA-Update starten? ESP wird neu gestartet.'))return;
 fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='})
 .then(r=>r.json()).then(d=>{showStatus('OTA gestartet!','success');pollOta()}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
