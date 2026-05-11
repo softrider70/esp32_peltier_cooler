@@ -294,40 +294,43 @@ void task_fan_pid(void *pvParameters) {
                 if (sd.indoor_valid && cfg->peltier_pwm_auto) {
                     uint8_t new_duty = cfg->peltier_pwm_duty;
                     
-                    // Logik basierend auf absoluter Temperatur (nicht auf Änderung)
-                    // Ziel: Temperatur im Bereich 11-13°C halten
+                    // Logik basierend auf absoluter Temperatur mit Formfaktor
+                    // Peltier-Kühlleistung sinkt bei größerer Temperaturdifferenz
+                    // Daher: Mehr Duty bei größerer Differenz zum Ziel
                     float temp_error = sd.temp_indoor - cfg->temp_peltier_on;  // Fehler zum Ziel (13°C)
                     
-                    ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Target=%.1f°C, Error=%.1f°C, Current_Duty=%u%%",
-                             sd.temp_indoor, cfg->temp_peltier_on, temp_error, new_duty);
+                    // Formfaktor: Je größer der Fehler, desto mehr Duty wird benötigt
+                    // Faktor 0.1 bedeutet: Bei 1°C über Ziel → 10% mehr Duty
+                    float duty_factor = 1.0f + (temp_error * 0.1f);
                     
-                    bool duty_changed = false;
+                    // Begrenzung des Formfaktors auf sinnvolle Werte (0.5 bis 2.0)
+                    if (duty_factor < 0.5f) duty_factor = 0.5f;
+                    if (duty_factor > 2.0f) duty_factor = 2.0f;
                     
-                    if (temp_error > 0.3f) {
-                        // Temperatur > 13.3°C (zu warm) → Duty erhöhen
-                        if (new_duty < 100) {
-                            new_duty += 5;
-                            if (new_duty > 100) new_duty = 100;
-                            duty_changed = true;
-                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f°C > %.1f°C (zu warm), increasing duty to %u%%",
-                                     sd.temp_indoor, cfg->temp_peltier_on, new_duty);
-                        }
-                    } else if (temp_error < -0.3f) {
-                        // Temperatur < 12.7°C (zu kalt) → Duty verringern
-                        if (new_duty > 10) {
-                            new_duty -= 5;
-                            if (new_duty < 10) new_duty = 10;
-                            duty_changed = true;
-                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f°C < %.1f°C (zu kalt), decreasing duty to %u%%",
-                                     sd.temp_indoor, cfg->temp_peltier_on, new_duty);
-                        }
+                    // Basis-Duty berechnen (30% bei genauem Ziel, angepasst durch Formfaktor)
+                    uint8_t base_duty = 30;
+                    uint8_t target_duty = (uint8_t)(base_duty * duty_factor);
+                    
+                    ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Target=%.1f°C, Error=%.1f°C, Factor=%.2f, Base=%u%%, Target=%u%%",
+                             sd.temp_indoor, cfg->temp_peltier_on, temp_error, duty_factor, base_duty, target_duty);
+                    
+                    // Sanfte Annäherung an Ziel-Duty (max ±5% pro Schritt)
+                    if (target_duty > new_duty + 5) {
+                        new_duty += 5;
+                    } else if (target_duty < new_duty - 5) {
+                        new_duty -= 5;
                     } else {
-                        ESP_LOGI(TAG, "Auto-Duty: Temp %.1f°C im Zielbereich %.1f±0.3°C, Duty stabil bei %u%%",
-                                 sd.temp_indoor, cfg->temp_peltier_on, new_duty);
+                        new_duty = target_duty;
                     }
                     
+                    // Begrenzung auf 10-100%
+                    if (new_duty < 10) new_duty = 10;
+                    if (new_duty > 100) new_duty = 100;
+                    
+                    ESP_LOGI(TAG, "Auto-Duty: Adjusting duty to %u%% (target was %u%%)", new_duty, target_duty);
+                    
                     // Duty speichern, wenn geändert
-                    if (duty_changed && new_duty != cfg->peltier_pwm_duty) {
+                    if (new_duty != cfg->peltier_pwm_duty) {
                         cfg->peltier_pwm_duty = new_duty;
                         nvs_config_save();
                     }
