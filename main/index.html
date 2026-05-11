@@ -335,9 +335,11 @@ fetch('/api/graph/save',{method:'POST'})
 function startOta(){
 var url=document.getElementById('ota_url').value;
 if(!url){showStatus('Bitte URL eingeben','error');return}
-if(!confirm('Firmware-Update starten von:\\n'+url+'\\n\\nBei Fehler wird automatisch zurueckgerollt.'))return;
+if(!confirm('Firmware-Update starten von:\n'+url+'\n\nBei Fehler wird automatisch zurueckgerollt.'))return;
 document.getElementById('ota_status').textContent='Update wird gestartet...';
-fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
+var formData=new FormData();
+formData.append('url',url);
+fetch('/api/ota',{method:'POST',body:formData})
 .then(r=>r.json()).then(d=>{pollOta()}).catch(e=>{document.getElementById('ota_status').textContent='Fehler: '+e});
 }
 function pollOta(){
