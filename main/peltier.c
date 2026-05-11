@@ -5,8 +5,7 @@
 #include <stdbool.h>
 
 static const char *TAG = "peltier";
-static bool s_is_on = false;        // Hardware-Zustand (PWM)
-static bool s_main_state = false;   // Hauptzustand (Temperatursteuerung)
+static bool s_is_on = false;
 
 void peltier_init(void) {
     gpio_config_t io_conf = {
@@ -24,25 +23,21 @@ void peltier_init(void) {
 }
 
 void peltier_on(void) {
-    gpio_set_level(GPIO_PELTIER, 1);
-    s_is_on = true;
-    ESP_LOGD(TAG, "Peltier ON (GPIO=%d)", GPIO_PELTIER);
+    if (!s_is_on) {
+        gpio_set_level(GPIO_PELTIER, 1);
+        s_is_on = true;
+        ESP_LOGI(TAG, "Peltier ON");
+    }
 }
 
 void peltier_off(void) {
-    gpio_set_level(GPIO_PELTIER, 0);
-    s_is_on = false;
-    ESP_LOGD(TAG, "Peltier OFF (GPIO=%d)", GPIO_PELTIER);
+    if (s_is_on) {
+        gpio_set_level(GPIO_PELTIER, 0);
+        s_is_on = false;
+        ESP_LOGI(TAG, "Peltier OFF");
+    }
 }
 
 bool peltier_is_on(void) {
     return s_is_on;
-}
-
-void peltier_set_main_state(bool state) {
-    s_main_state = state;
-}
-
-bool peltier_get_main_state(void) {
-    return s_main_state;
 }

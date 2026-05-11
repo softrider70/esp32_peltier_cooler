@@ -119,7 +119,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
         sd.heatsink_valid ? "true" : "false",
-        fan_get_duty(), fan_get_rpm(), peltier_get_main_state() ? "true" : "false",
+        fan_get_duty(), fan_get_rpm(), peltier_is_on() ? "true" : "false",
         scheduler_is_active() ? "true" : "false",
         sensor_get_emergency_mode() ? "true" : "false",
         time_synced ? "true" : "false", time_str,
