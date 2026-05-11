@@ -297,7 +297,7 @@ void task_fan_pid(void *pvParameters) {
             if (s_duty_adjust_timer >= 180) {  // Alle 3 Minuten anpassen (180 Sekunden)
                 s_duty_adjust_timer = 0;
                 
-                if (sd.indoor_valid) {
+                if (sd.indoor_valid && cfg->peltier_pwm_auto) {
                     uint8_t new_duty = cfg->peltier_pwm_duty;
                     
                     if (sd.temp_indoor > cfg->temp_peltier_on + 1.0f) {

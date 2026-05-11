@@ -61,12 +61,9 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         time_synced = true;
     }
 
-    // Get OTA URL
-    const char *ota_url = ota_get_url();
-    
     // Calculate ring buffer duration in hours
     uint32_t interval_sec = data_logger_get_interval() / 1000;
-    float duration_hours = (DATA_POINTS_MAX * interval_sec) / 3600.0f;
+    float duration_hours = (720.0f * interval_sec) / 3600.0f;
 
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
@@ -78,10 +75,10 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"pid_kp\":%.1f,\"pid_ki\":%.1f,\"pid_kd\":%.1f,"
         "\"sched_on\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
-        "\"wifi_mode\":\"%s\",\"ota_url\":\"%s\","
+        "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
-        "\"peltier_pwm_period\":%u,\"peltier_pwm_duty\":%u,"
+        "\"peltier_pwm_period\":%u,\"peltier_pwm_duty\":%u,\"peltier_pwm_auto\":%s,"
         "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
@@ -96,10 +93,9 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->sched_on[0]/60, cfg->sched_on[1]/60, cfg->sched_on[2]/60, cfg->sched_on[3]/60, cfg->sched_on[4]/60, cfg->sched_on[5]/60, cfg->sched_on[6]/60,
         cfg->sched_off[0]/60, cfg->sched_off[1]/60, cfg->sched_off[2]/60, cfg->sched_off[3]/60, cfg->sched_off[4]/60, cfg->sched_off[5]/60, cfg->sched_off[6]/60,
         wifi_is_connected() ? "STA" : "AP",
-        ota_url,
         interval_sec, duration_hours,
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
-        cfg->peltier_pwm_period, cfg->peltier_pwm_duty,
+        cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false",
         BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");
@@ -146,6 +142,8 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->peltier_pwm_period = (uint16_t)atoi(value);
     if (httpd_query_key_value(buf, "peltier_pwm_duty", value, sizeof(value)) == ESP_OK)
         cfg->peltier_pwm_duty = (uint8_t)atoi(value);
+    if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK)
+        cfg->peltier_pwm_auto = (atoi(value) != 0);
 
     // Parse daily schedule (7 days, 2 values each)
     for (int i = 0; i < 7; i++) {
