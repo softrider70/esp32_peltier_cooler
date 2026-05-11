@@ -352,23 +352,27 @@ void task_fan_pid(void *pvParameters) {
             // Einfache lineare Steuerung mit Glättung (keine PID mehr)
             static float smoothed_fan_output = 45.0f;  // Start bei 45%
             
-            if (error <= 0.0f) {
-                // Heatsink unter Ziel → minimaler Lüfter
-                smoothed_fan_output = 30.0f;
-            } else {
-                // Heatsink über Ziel → linear erhöhen
-                // Gain: 8% pro °C über Ziel (sanfter)
-                float target_fan = 45.0f + (error * 8.0f);
-                
-                // Clamp auf 65% (nicht zu laut)
-                if (target_fan > 65.0f) target_fan = 65.0f;
-                
-                // Exponentielle Glättung (alpha = 0.1 für sehr sanfte Übergänge)
-                smoothed_fan_output = (smoothed_fan_output * 0.9f) + (target_fan * 0.1f);
-                
-                ESP_LOGI(TAG, "Fan control: error=%.1f°C, target=%.0f%%, smoothed=%.0f%%",
-                         error, target_fan, smoothed_fan_output);
+            // Lineare Steuerung ohne harte Schwelle
+            // Gain: 8% pro °C über Ziel
+            float target_fan = 45.0f + (error * 8.0f);
+            
+            // Deadband: -1°C bis 0°C → 30-45% (sanfter Übergang)
+            if (error < -1.0f) {
+                target_fan = 30.0f;  // Minimum
+            } else if (error < 0.0f) {
+                // Interpolieren zwischen 30% und 45% im Deadband
+                float ratio = (error + 1.0f) / 1.0f;  // 0 bis 1
+                target_fan = 30.0f + (ratio * 15.0f);
             }
+            
+            // Clamp auf 65% (nicht zu laut)
+            if (target_fan > 65.0f) target_fan = 65.0f;
+            
+            // Exponentielle Glättung (alpha = 0.1 für sehr sanfte Übergänge)
+            smoothed_fan_output = (smoothed_fan_output * 0.9f) + (target_fan * 0.1f);
+            
+            ESP_LOGI(TAG, "Fan control: error=%.1f°C, target=%.0f%%, smoothed=%.0f%%",
+                     error, target_fan, smoothed_fan_output);
             
             fan_output = smoothed_fan_output * 2.55f;  // 0-100% → 0-255
         } else {
