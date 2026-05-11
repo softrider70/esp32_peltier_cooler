@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        101     // Build counter - increment with each flash
+#define BUILD_NUMBER        102     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -30,15 +30,6 @@
 #define PELTIER_PWM_PERIOD_DEFAULT  10      // PWM period in seconds
 #define PELTIER_PWM_DUTY_DEFAULT   30      // PWM duty cycle % (30 = start value, conservative)
 #define PELTIER_PWM_INTERVAL_DEFAULT 60    // Auto-duty adjustment interval in seconds (1 min, faster)
-
-// ===== PID Defaults =====
-#define PID_KP_DEFAULT      0.3f    // Scaled by 20 in code → effective 6 (very reduced for very smooth response)
-#define PID_KI_DEFAULT      0.1f    // Scaled by 20 in code → effective 2 (kept very low)
-#define PID_KD_DEFAULT      5.0f    // Scaled by 20 in code → effective 100 (strongly increased for heavy damping)
-#define PID_OUTPUT_MIN      0.0f    // Fan off
-#define PID_OUTPUT_MAX      255.0f  // Fan full speed
-#define PID_SAMPLE_TIME_MS  1000    // 1 second
-#define PID_DEADBAND        2.0f    // Deadband in °C (ignore small temp changes)
 
 // ===== Sensor Configuration =====
 #define SENSOR_READ_INTERVAL_MS  2000   // Read sensors every 2s
@@ -75,9 +66,6 @@
 #define NVS_KEY_ENERGY_WEEK  "energy_week"
 #define NVS_KEY_ENERGY_MONTH "energy_month"
 #define NVS_KEY_LAST_DATE    "last_date"
-#define NVS_KEY_PID_KP       "pid_kp"
-#define NVS_KEY_PID_KI       "pid_ki"
-#define NVS_KEY_PID_KD       "pid_kd"
 #define NVS_KEY_SCHED_MO_ON  "sched_mo_on"
 #define NVS_KEY_SCHED_MO_OFF "sched_mo_off"
 #define NVS_KEY_SCHED_DI_ON  "sched_di_on"

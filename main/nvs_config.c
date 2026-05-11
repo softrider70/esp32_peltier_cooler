@@ -14,9 +14,6 @@ static void load_defaults(void) {
     s_config.temp_peltier_off = TEMP_PELTIER_OFF_DEFAULT;
     s_config.temp_heatsink_max = TEMP_HEATSINK_MAX;
     s_config.temp_heatsink_target = TEMP_HEATSINK_TARGET;
-    s_config.pid_kp = PID_KP_DEFAULT;
-    s_config.pid_ki = PID_KI_DEFAULT;
-    s_config.pid_kd = PID_KD_DEFAULT;
     s_config.data_log_interval = 300;  // Default: 300 seconds (5 minutes)
     s_config.energy_wh = 0.0f;  // Default: 0 Wh
     s_config.energy_day = 0.0f;  // Default: 0 Wh
@@ -84,12 +81,6 @@ void nvs_config_init(void) {
             s_config.last_date = 0;
         ESP_LOGI(TAG, "Loaded from NVS: day=%.2f Wh, week=%.2f Wh, month=%.2f Wh",
                  s_config.energy_day, s_config.energy_week, s_config.energy_month);
-        if (nvs_get_i32(handle, NVS_KEY_PID_KP, &val) == ESP_OK)
-            s_config.pid_kp = val / 100.0f;
-        if (nvs_get_i32(handle, NVS_KEY_PID_KI, &val) == ESP_OK)
-            s_config.pid_ki = val / 100.0f;
-        if (nvs_get_i32(handle, NVS_KEY_PID_KD, &val) == ESP_OK)
-            s_config.pid_kd = val / 100.0f;
 
         uint16_t u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_MO_ON, &u16) == ESP_OK) s_config.sched_on[0] = u16;
@@ -150,9 +141,6 @@ void nvs_config_save(void) {
     nvs_set_i32(handle, NVS_KEY_ENERGY_WEEK, (int32_t)(s_config.energy_week * 100));
     nvs_set_i32(handle, NVS_KEY_ENERGY_MONTH, (int32_t)(s_config.energy_month * 100));
     nvs_set_u32(handle, NVS_KEY_LAST_DATE, s_config.last_date);
-    nvs_set_i32(handle, NVS_KEY_PID_KP, (int32_t)(s_config.pid_kp * 100));
-    nvs_set_i32(handle, NVS_KEY_PID_KI, (int32_t)(s_config.pid_ki * 100));
-    nvs_set_i32(handle, NVS_KEY_PID_KD, (int32_t)(s_config.pid_kd * 100));
 
     nvs_set_u16(handle, NVS_KEY_SCHED_MO_ON, s_config.sched_on[0]);
     nvs_set_u16(handle, NVS_KEY_SCHED_MO_OFF, s_config.sched_off[0]);

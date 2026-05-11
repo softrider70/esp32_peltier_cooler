@@ -9,10 +9,7 @@ typedef struct {
     float    temp_peltier_on;       // Indoor temp: peltier ON above this
     float    temp_peltier_off;      // Indoor temp: peltier OFF below this
     float    temp_heatsink_max;     // Safety cutoff temperature
-    float    temp_heatsink_target;  // PID target for heatsink
-    float    pid_kp;
-    float    pid_ki;
-    float    pid_kd;
+    float    temp_heatsink_target;  // Target temperature for heatsink
     uint16_t sched_on[7];           // Daily on times (hours 0-23, stored as minutes)
     uint16_t sched_off[7];          // Daily off times (hours 0-23, stored as minutes)
     uint16_t data_log_interval;     // Data logging interval in seconds (default: 10s)

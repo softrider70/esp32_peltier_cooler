@@ -120,13 +120,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 
 <div class="card">
-<h2>PID Parameter</h2>
-<div class="row"><label>Kp:</label><input type="number" id="cfg_kp" step="0.1" min="0" max="20"></div>
-<div class="row"><label>Ki:</label><input type="number" id="cfg_ki" step="0.1" min="0" max="10"></div>
-<div class="row"><label>Kd:</label><input type="number" id="cfg_kd" step="0.1" min="0" max="10"></div>
-</div>
-
-<div class="card">
 <h2>Datenaufzeichnung</h2>
 <div class="row"><label>Daten-Log Intervall (s):</label><input type="number" id="cfg_data_log_interval" min="1" max="3600" value="300"></div>
 <p style="font-size:.7rem;color:#888;margin-top:.2rem">Ringspeicher: <span id="ring_buffer_hours">--</span> Stunden</p>
@@ -311,9 +304,6 @@ document.getElementById('cfg_temp_on').value=d.temp_on;
 document.getElementById('cfg_temp_off').value=d.temp_off;
 document.getElementById('cfg_temp_max').value=d.temp_max;
 document.getElementById('cfg_temp_target').value=d.temp_target;
-document.getElementById('cfg_kp').value=d.pid_kp;
-document.getElementById('cfg_ki').value=d.pid_ki;
-document.getElementById('cfg_kd').value=d.pid_kd;
 document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
 document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
 document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
@@ -332,9 +322,6 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&temp_off='+document.getElementById('cfg_temp_off').value
 +'&temp_max='+document.getElementById('cfg_temp_max').value
 +'&temp_target='+document.getElementById('cfg_temp_target').value
-+'&pid_kp='+document.getElementById('cfg_kp').value
-+'&pid_ki='+document.getElementById('cfg_ki').value
-+'&pid_kd='+document.getElementById('cfg_kd').value
 +'&data_log_interval='+document.getElementById('cfg_data_log_interval').value
 +'&peltier_pwm_period='+document.getElementById('cfg_peltier_pwm_period').value
 +'&peltier_pwm_duty='+document.getElementById('cfg_peltier_pwm_duty').value
@@ -385,9 +372,6 @@ document.getElementById('cfg_temp_on').value=d.temp_on;
 document.getElementById('cfg_temp_off').value=d.temp_off;
 document.getElementById('cfg_temp_max').value=d.temp_max;
 document.getElementById('cfg_temp_target').value=d.temp_target;
-document.getElementById('cfg_kp').value=d.pid_kp;
-document.getElementById('cfg_ki').value=d.pid_ki;
-document.getElementById('cfg_kd').value=d.pid_kd;
 document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
 document.getElementById('ring_buffer_hours').textContent=d.ring_buffer_hours.toFixed(1);
 for(var i=0;i<7;i++){

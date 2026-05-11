@@ -72,7 +72,6 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"active\":%s,\"emergency\":%s,\"time_synced\":%s,\"time\":\"%s\","
         "\"temp_on\":%.1f,\"temp_off\":%.1f,"
         "\"temp_max\":%.1f,\"temp_target\":%.1f,"
-        "\"pid_kp\":%.1f,\"pid_ki\":%.1f,\"pid_kd\":%.1f,"
         "\"sched_on\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"wifi_mode\":\"%s\","
@@ -90,7 +89,6 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         time_synced ? "true" : "false", time_str,
         cfg->temp_peltier_on, cfg->temp_peltier_off,
         cfg->temp_heatsink_max, cfg->temp_heatsink_target,
-        cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
         cfg->sched_on[0]/60, cfg->sched_on[1]/60, cfg->sched_on[2]/60, cfg->sched_on[3]/60, cfg->sched_on[4]/60, cfg->sched_on[5]/60, cfg->sched_on[6]/60,
         cfg->sched_off[0]/60, cfg->sched_off[1]/60, cfg->sched_off[2]/60, cfg->sched_off[3]/60, cfg->sched_off[4]/60, cfg->sched_off[5]/60, cfg->sched_off[6]/60,
         wifi_is_connected() ? "STA" : "AP",
@@ -132,12 +130,6 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->temp_heatsink_max = strtof(value, NULL);
     if (httpd_query_key_value(buf, "temp_target", value, sizeof(value)) == ESP_OK)
         cfg->temp_heatsink_target = strtof(value, NULL);
-    if (httpd_query_key_value(buf, "pid_kp", value, sizeof(value)) == ESP_OK)
-        cfg->pid_kp = strtof(value, NULL);
-    if (httpd_query_key_value(buf, "pid_ki", value, sizeof(value)) == ESP_OK)
-        cfg->pid_ki = strtof(value, NULL);
-    if (httpd_query_key_value(buf, "pid_kd", value, sizeof(value)) == ESP_OK)
-        cfg->pid_kd = strtof(value, NULL);
     if (httpd_query_key_value(buf, "data_log_interval", value, sizeof(value)) == ESP_OK)
         cfg->data_log_interval = (uint16_t)atoi(value);
     if (httpd_query_key_value(buf, "peltier_pwm_period", value, sizeof(value)) == ESP_OK)

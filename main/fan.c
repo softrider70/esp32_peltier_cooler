@@ -2,7 +2,6 @@
 #include "config.h"
 #include "sensor.h"
 #include "peltier.h"
-#include "pid.h"
 #include "scheduler.h"
 #include "nvs_config.h"
 #include "data_logger.h"
@@ -17,7 +16,6 @@
 
 static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
-static pid_controller_t s_fan_pid;
 static bool s_was_active = false;  // Track previous active state for NVS save
 static bool s_peltier_was_on = false;  // Track Peltier state for fan control
 static bool s_peltier_main_was_on = false;  // Track Peltier main state for NVS save
@@ -78,13 +76,8 @@ void fan_init(void) {
     };
     ledc_channel_config(&ledc_conf);
 
-    // Init PID — setpoint is heatsink_target, output drives fan PWM
-    // PID error = measurement - setpoint (positive when too hot → more fan)
-    app_config_t *cfg = nvs_config_get();
-    pid_init(&s_fan_pid, cfg->pid_kp, cfg->pid_ki, cfg->pid_kd,
-             PID_OUTPUT_MIN, PID_OUTPUT_MAX);
-
     // Initialize last energy value with loaded value
+    app_config_t *cfg = nvs_config_get();
     s_last_energy_wh = cfg->energy_wh;
 
 #if TACHO_ENABLED
@@ -215,7 +208,7 @@ void task_fan_pid(void *pvParameters) {
             peltier_off();
             fan_set_duty(255);
             ESP_LOGW(TAG, "EMERGENCY MODE: Fan full, Peltier off (sensor errors)");
-            vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+            vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
 
@@ -223,7 +216,7 @@ void task_fan_pid(void *pvParameters) {
         if (!active || !sd.heatsink_valid) {
             fan_set_duty(0);
             peltier_off();
-            vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+            vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
 
@@ -233,7 +226,7 @@ void task_fan_pid(void *pvParameters) {
             fan_set_duty(255);
             ESP_LOGW(TAG, "SAFETY: Heatsink %.1f°C >= max %.1f°C",
                      sd.temp_heatsink, cfg->temp_heatsink_max);
-            vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+            vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
 
@@ -244,7 +237,7 @@ void task_fan_pid(void *pvParameters) {
             ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0 - SHUTTING DOWN PELTIER", s_current_duty);
             peltier_off();
             fan_set_duty(255);  // Keep fan at 100% to try to restart
-            vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+            vTaskDelay(pdMS_TO_TICKS(1000));
             continue;  // Skip normal PID loop
         }
 #endif
@@ -418,10 +411,10 @@ void task_fan_pid(void *pvParameters) {
         s_peltier_main_was_on = peltier_main_state;
 
         // Clamp output
-        if (fan_output > PID_OUTPUT_MAX) {
-            fan_output = PID_OUTPUT_MAX;
-        } else if (fan_output < PID_OUTPUT_MIN) {
-            fan_output = PID_OUTPUT_MIN;
+        if (fan_output > 255.0f) {
+            fan_output = 255.0f;
+        } else if (fan_output < 0.0f) {
+            fan_output = 0.0f;
         }
 
         // RPM Feedback: Increase PWM if RPM is lower than expected
@@ -439,6 +432,6 @@ void task_fan_pid(void *pvParameters) {
                  sd.temp_indoor, sd.temp_heatsink, s_current_duty,
                  peltier_hw_on ? "ON" : "OFF");
 
-        vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
