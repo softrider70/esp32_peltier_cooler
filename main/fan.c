@@ -30,6 +30,7 @@ static float s_last_energy_wh = 0.0f;  // Last saved energy value (for change de
 // ===== Peltier PWM (langsames PWM für Stromspar-Modus) =====
 static uint32_t s_peltier_pwm_timer = 0;  // PWM-Timer in Sekunden
 static bool s_peltier_pwm_state = false;  // Aktueller PWM-Zustand (AN/AUS)
+static uint32_t s_duty_adjust_timer = 0;  // Timer für Duty-Anpassung
 
 // ===== Fan Control Parameters =====
 #define FAN_START_DUTY_WHEN_PELTIER_ON  127.0f  // 50% PWM when Peltier turns on (under 70%)
@@ -290,6 +291,41 @@ void task_fan_pid(void *pvParameters) {
                 peltier_is_on = false;  // PWM-AUS-Phase
                 s_peltier_pwm_state = false;
             }
+            
+            // ---- Automatische Duty-Anpassung basierend auf Innentemperatur ----
+            s_duty_adjust_timer++;
+            if (s_duty_adjust_timer >= 30) {  // Alle 30 Sekunden anpassen
+                s_duty_adjust_timer = 0;
+                
+                if (sd.indoor_valid) {
+                    uint8_t new_duty = cfg->peltier_pwm_duty;
+                    
+                    if (sd.temp_indoor > cfg->temp_peltier_on + 0.5f) {
+                        // Zu warm → Duty erhöhen
+                        if (new_duty < 100) {
+                            new_duty += 5;  // +5%
+                            if (new_duty > 100) new_duty = 100;
+                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f > %.1f, increasing duty to %u%%",
+                                     sd.temp_indoor, cfg->temp_peltier_on, new_duty);
+                        }
+                    } else if (sd.temp_indoor < cfg->temp_peltier_off - 0.5f) {
+                        // Zu kalt → Duty verringern
+                        if (new_duty > 10) {  // Minimum 10%
+                            new_duty -= 5;  // -5%
+                            if (new_duty < 10) new_duty = 10;
+                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f < %.1f, decreasing duty to %u%%",
+                                     sd.temp_indoor, cfg->temp_peltier_off, new_duty);
+                        }
+                    }
+                    
+                    // Duty speichern, wenn geändert
+                    if (new_duty != cfg->peltier_pwm_duty) {
+                        cfg->peltier_pwm_duty = new_duty;
+                        nvs_config_save();
+                    }
+                }
+            }
+            
             ESP_LOGD(TAG, "Peltier PWM: timer=%u/%u, on_time=%u, pwm_state=%d, hw_state=%d",
                      s_peltier_pwm_timer, cfg->peltier_pwm_period, on_time, s_peltier_pwm_state, peltier_is_on);
         } else {
