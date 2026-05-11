@@ -105,7 +105,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Peltier Kühlbereich</h2>
 <div class="row"><label>AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40"></div>
 <div class="row"><label>AUS ab:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35"></div>
-<p style="font-size:.7rem;color:#888;margin-top:.2rem">Hysterese: Peltier bleibt an zwischen AUS und AN</p>
+<div class="row"><label>PWM Periode (s):</label><input type="number" id="cfg_peltier_pwm_period" min="1" max="60" value="10"></div>
+<div class="row"><label>PWM Duty (%):</label><input type="number" id="cfg_peltier_pwm_duty" min="10" max="100" value="50"></div>
+<p style="font-size:.7rem;color:#888;margin-top:.2rem">Hysterese: Peltier bleibt an zwischen AUS und AN<br>Auto-Duty: alle 3 Min. an Temp anpassen</p>
 </div>
 
 <div class="card">
@@ -123,9 +125,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <div class="card">
 <h2>Datenaufzeichnung</h2>
-<div class="row"><label>Daten-Log Intervall (s):</label><input type="number" id="cfg_data_log_interval" min="1" max="60" value="10"></div>
-<div class="row"><label>Peltier PWM Periode (s):</label><input type="number" id="cfg_peltier_pwm_period" min="1" max="60" value="10"></div>
-<div class="row"><label>Peltier PWM Duty (%):</label><input type="number" id="cfg_peltier_pwm_duty" min="10" max="100" value="50"></div>
+<div class="row"><label>Daten-Log Intervall (s):</label><input type="number" id="cfg_data_log_interval" min="1" max="3600" value="300"></div>
 <p style="font-size:.7rem;color:#888;margin-top:.2rem">Ringspeicher: <span id="ring_buffer_hours">--</span> Stunden</p>
 </div>
 
