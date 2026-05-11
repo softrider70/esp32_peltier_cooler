@@ -54,19 +54,33 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div id="tab-status" class="tab-content active">
 <div class="card">
 <h2>Live Status <span style="font-size:.7rem;color:#888;font-weight:normal">Build <span id="build">--</span></span></h2>
+<div class="card-grid">
 <div class="card">
-<h2>Status</h2>
+<h2>Temperaturen</h2>
 <div class="row"><label>Innen:</label><span id="st_indoor">--°C</span></div>
 <div class="row"><label>Kuehlblock:</label><span id="st_heatsink">--°C</span></div>
-<div class="row"><label>Luefter:</label><span id="st_fan">--%</span></div>
+</div>
+<div class="card">
+<h2>Luefter</h2>
+<div class="row"><label>PWM:</label><span id="st_fan">--%</span></div>
 <div class="row"><label>RPM:</label><span id="st_rpm">--</span></div>
-<div class="row"><label>Peltier:</label><span id="st_peltier">--</span></div>
-<div class="row"><label>Verbrauch:</label><span id="st_energy">-- Wh</span></div>
+</div>
+<div class="card">
+<h2>Peltier</h2>
+<div class="row"><label>Status:</label><span id="st_peltier">--</span></div>
+</div>
+<div class="card">
+<h2>Verbrauch</h2>
+<div class="row"><label>Gesamt:</label><span id="st_energy">-- Wh</span></div>
 <div class="row"><label>Heute:</label><span id="st_energy_day">-- Wh</span></div>
-<div class="row"><label>Diese Woche:</label><span id="st_energy_week">-- Wh</span></div>
-<div class="row"><label>Dieser Monat:</label><span id="st_energy_month">-- Wh</span></div>
+<div class="row"><label>Woche:</label><span id="st_energy_week">-- Wh</span></div>
+<div class="row"><label>Monat:</label><span id="st_energy_month">-- Wh</span></div>
+</div>
+<div class="card">
+<h2>System</h2>
 <div class="row"><label>Zeit:</label><span id="st_time">--</span></div>
 <div class="row"><label>Betrieb:</label><span id="st_active">--</span></div>
+</div>
 </div>
 <p style="margin-top:.3rem;font-size:.75rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span> | Notmodus: <span class="status-dot" id="dot_emergency"></span> <span id="emergency_status">--</span> | Zeit: <span id="system_time">--</span></p>
 <div id="status_msg" class="status"></div>
