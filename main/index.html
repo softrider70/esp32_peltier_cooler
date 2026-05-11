@@ -69,6 +69,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Peltier</h2>
 <div class="row"><label>Status:</label><span id="st_peltier">--</span></div>
 <div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span></div>
+<div class="row"><label>Nächste Duty-Messung:</label><span id="st_duty_timer">--s</span></div>
 </div>
 <div class="card">
 <h2>Verbrauch</h2>
@@ -282,6 +283,7 @@ document.getElementById('st_fan').textContent=Math.round(d.fan_duty/2.55)+'%';
 document.getElementById('st_rpm').textContent=d.fan_rpm+' RPM';
 document.getElementById('st_peltier').textContent=d.peltier_on?'AN':'AUS';
 document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
+document.getElementById('st_duty_timer').textContent=d.duty_timer_remaining+'s';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
 document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
 document.getElementById('st_energy_week').textContent=d.energy_week.toFixed(2)+' Wh';

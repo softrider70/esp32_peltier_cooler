@@ -119,6 +119,15 @@ uint16_t fan_get_rpm(void) {
     return s_current_rpm;
 }
 
+// Get remaining seconds until next auto-duty adjustment
+uint16_t fan_get_duty_timer_remaining(void) {
+    app_config_t *cfg = nvs_config_get();
+    if (cfg->peltier_pwm_interval > s_duty_adjust_timer) {
+        return cfg->peltier_pwm_interval - s_duty_adjust_timer;
+    }
+    return 0;
+}
+
 // Aktualisiere Tages-/Wochen-/Monats-Statistiken basierend auf Datum
 static void update_energy_stats(float energy_increment) {
     app_config_t *cfg = nvs_config_get();
