@@ -55,6 +55,9 @@ void nvs_config_init(void) {
             s_config.temp_peltier_on = val / 100.0f;
         if (nvs_get_i32(handle, NVS_KEY_TEMP_OFF, &val) == ESP_OK)
             s_config.temp_peltier_off = val / 100.0f;
+
+        ESP_LOGI(TAG, "Loaded from NVS: temp_peltier_on=%.1f, temp_peltier_off=%.1f",
+                 s_config.temp_peltier_on, s_config.temp_peltier_off);
         if (nvs_get_i32(handle, NVS_KEY_TEMP_MAX, &val) == ESP_OK)
             s_config.temp_heatsink_max = val / 100.0f;
         if (nvs_get_i32(handle, NVS_KEY_TEMP_TARGET, &val) == ESP_OK)
@@ -103,6 +106,9 @@ void nvs_config_save(void) {
 
     nvs_set_str(handle, NVS_KEY_WIFI_SSID, s_config.wifi_ssid);
     nvs_set_str(handle, NVS_KEY_WIFI_PASS, s_config.wifi_pass);
+
+    ESP_LOGI(TAG, "Saving to NVS: temp_peltier_on=%.1f, temp_peltier_off=%.1f",
+             s_config.temp_peltier_on, s_config.temp_peltier_off);
 
     nvs_set_i32(handle, NVS_KEY_TEMP_ON, (int32_t)(s_config.temp_peltier_on * 100));
     nvs_set_i32(handle, NVS_KEY_TEMP_OFF, (int32_t)(s_config.temp_peltier_off * 100));

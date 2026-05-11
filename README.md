@@ -7,12 +7,13 @@ Temperaturgeregelte Kuehlung eines Innenraums mittels Peltier-Element, gesteuert
 **Wichtiges Konzept:**
 - **Peltier-Element:** Kuehlelement (erzeugt Kaelte auf der kalten Seite, Waerme auf der heissen Seite)
 - **Luefter:** Wärmeabfuhr (fuehrt die Waerme vom Peltier/Kuehlblock an die Umgebung ab)
-- **Zusammenwirken:** Wenn die Temperatur steigt, muss der Luefter FRUEHER loslegen, um die Waerme vom Peltier effizient abzufuehren, bevor der Kuehlblock ueberhitzt wird
+- **Zusammenwirken:** Wenn das Peltier aktiviert wird, muss der Luefter sofort starten, um die Waerme effizient abzufuehren
 
-**Predictive Trendanalyse:**
-- Das System berechnet die Temperaturänderungsrate (dT/dt)
-- Wenn vorhergesagt wird, dass das Ziel in < 60 Sekunden erreicht wird, wird der Luefter proportional geboostet
-- Ziel: Fruehzeitige Wärmeabfuhr, damit der Lüfter nicht auf 80-100% laufen muss
+**Lüftersteuerung:**
+- Der Lüfter ist direkt an den Peltier-Zustand gekoppelt
+- **Peltier AN →** Lüfter startet sofort (min. 50% PWM), PID übernimmt Feinregulierung
+- **Peltier AUS →** Lüfter läuft 30 Sekunden nach (Cooldown bei 30% PWM), dann aus
+- Ziel: Vermeidung von Temperaturüberschreitung und Lärmreduktion (unter 70% PWM)
 
 ## Aufgabe
 
@@ -34,6 +35,7 @@ Ein geschlossener Raum (z.B. Schrank, Gehaeuse) soll aktiv gekuehlt werden. Ein 
 | Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: D5 (GPIO5), Tacho: D18 (GPIO18) |
 | DS18B20 #1 | Temperatursensor Innenraum | D4 (GPIO4, OneWire) |
 | DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | D4 (GPIO4, OneWire) |
+| BOOT-Button | WiFi-Reset (3 Sekunden langdrücken) | GPIO0 (integrierter Button) |
 
 ### Verdrahtung OneWire
 
@@ -102,11 +104,18 @@ Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
 
 ### Luefter-PID-Regelung
 
-Der Luefter haelt die Kuehlblock-Temperatur am Zielwert (Default: 45°C):
+Der Lüfter ist direkt an den Peltier-Zustand gekoppelt:
 
-- Kuehlblock unter Ziel → Luefter aus
-- Kuehlblock ueber Ziel → PID regelt PWM hoch (proportional zur Uebertemperatur)
-- Kuehlblock >= Max → Volle Drehzahl + Peltier aus
+**Wenn Peltier AN:**
+- Lüfter startet sofort mit min. 50% PWM
+- PID-Regelung übernimmt Feinregulierung (Ziel: Kuehlblock-Temperatur)
+- Minimale Drehzahl: 50% PWM (wenn Kuehlblock unter Ziel)
+- Maximale Drehzahl: 100% PWM (bei hoher Uebertemperatur)
+
+**Wenn Peltier AUS:**
+- Lüfter läuft 30 Sekunden nach (Cooldown) bei 30% PWM
+- Nach Cooldown: Lüfter aus
+- Ziel: Restwärme abführen
 
 PID-Startwerte: Kp=2.0, Ki=0.5, Kd=1.0 — ueber Webinterface live anpassbar.
 
@@ -119,6 +128,7 @@ PID-Startwerte: Kp=2.0, Ki=0.5, Kd=1.0 — ueber Webinterface live anpassbar.
 | `sensor` | 5 | 2s | Liest beide DS18B20 per OneWire |
 | `fan_pid` | 4 | 1s | PID-Regelung Luefter + Peltier Ein/Aus |
 | `scheduler` | 3 | 30s | Prueft Zeitfenster (SNTP/CET) |
+| `reset_btn` | 5 | 100ms | Ueberwacht BOOT-Button für WiFi-Reset |
 | `dns_captive` | 2 | - | DNS-Redirect im AP-Modus |
 
 ### Module
@@ -145,8 +155,9 @@ main/
 
 - Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status
 - Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
+- WiFi-Reset: Rot markierter Button zum Löschen der WiFi-Credentials und Starten des AP-Modus
 - Auto-Refresh alle 3 Sekunden
-- REST API: `GET /api/status`, `POST /api/config`
+- REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`
 
 ### Captive Portal (AP-Modus)
 
@@ -154,6 +165,21 @@ main/
 - WiFi-SSID und Passwort eingeben → ESP32 verbindet sich mit Router
 - AP-SSID: `ESP32-Cooler-Setup` (offen, kein Passwort)
 - DNS-Server leitet alle Anfragen auf 10.1.1.1 → Captive-Detection der Clients greift
+
+### WiFi Reset
+
+Der ESP32 bietet zwei Möglichkeiten zum Zurücksetzen der WiFi-Credentials:
+
+**Physischer Button:**
+- BOOT-Button auf dem ESP32-Board 3 Sekunden langdrücken
+- Löscht WiFi-Credentials aus NVS
+- Startet AP-Modus für neue Konfiguration
+
+**Web-Button:**
+- Im Settings-Tab unter "Firmware Update (OTA)"
+- Rot markierter "WiFi Reset" Button
+- Bestätigungsdialog vor dem Reset
+- Gleiche Funktion wie physischer Button
 
 ## Konfiguration (NVS)
 

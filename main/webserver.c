@@ -117,10 +117,14 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
 
     char value[65];
 
-    if (httpd_query_key_value(buf, "temp_on", value, sizeof(value)) == ESP_OK)
+    if (httpd_query_key_value(buf, "temp_on", value, sizeof(value)) == ESP_OK) {
         cfg->temp_peltier_on = strtof(value, NULL);
-    if (httpd_query_key_value(buf, "temp_off", value, sizeof(value)) == ESP_OK)
+        ESP_LOGI(TAG, "Config update: temp_peltier_on = %.1f", cfg->temp_peltier_on);
+    }
+    if (httpd_query_key_value(buf, "temp_off", value, sizeof(value)) == ESP_OK) {
         cfg->temp_peltier_off = strtof(value, NULL);
+        ESP_LOGI(TAG, "Config update: temp_peltier_off = %.1f", cfg->temp_peltier_off);
+    }
     if (httpd_query_key_value(buf, "temp_max", value, sizeof(value)) == ESP_OK)
         cfg->temp_heatsink_max = strtof(value, NULL);
     if (httpd_query_key_value(buf, "temp_target", value, sizeof(value)) == ESP_OK)
