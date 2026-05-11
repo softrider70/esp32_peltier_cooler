@@ -353,24 +353,24 @@ void task_fan_pid(void *pvParameters) {
             // Einfache P-Steuerung ohne Deadband oder Glättung
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
             float temp_diff_to_max = cfg->temp_heatsink_max - sd.temp_heatsink;
-            
-            float fan_output_percent = 40.0f;
-            
-            // Bis 3 Grad unter max: Linear bis 68%
+
+            float fan_output_percent = 50.0f;  // Höhere Basis-Duty für bessere Kühlung
+
+            // Bis 3 Grad unter max: Linear bis 80%
             if (temp_diff_to_max > 3.0f) {
-                // Linearer Bereich: 40% + (error * 8%) pro °C
-                fan_output_percent = 40.0f + (error * 8.0f);
-                if (fan_output_percent > 68.0f) fan_output_percent = 68.0f;
+                // Linearer Bereich: 50% + (error * 8%) pro °C
+                fan_output_percent = 50.0f + (error * 8.0f);
+                if (fan_output_percent > 80.0f) fan_output_percent = 80.0f;
             } else {
                 // Exponentieller Bereich bei Temperaturen nahe max
-                // Exponentialfunktion: 68% * exp((3 - temp_diff) * 0.5)
+                // Exponentialfunktion: 80% * exp((3 - temp_diff) * 0.5)
                 float exp_factor = expf((3.0f - temp_diff_to_max) * 0.5f);
-                fan_output_percent = 68.0f * exp_factor;
+                fan_output_percent = 80.0f * exp_factor;
                 if (fan_output_percent > 100.0f) fan_output_percent = 100.0f;
             }
-            
-            // Clamp zwischen 30% und 100%
-            if (fan_output_percent < 30.0f) fan_output_percent = 30.0f;
+
+            // Clamp zwischen 40% und 100%
+            if (fan_output_percent < 40.0f) fan_output_percent = 40.0f;
             
             ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, diff_to_max=%.1f°C, fan=%.0f%%", 
                      sd.temp_heatsink, error, temp_diff_to_max, fan_output_percent);
