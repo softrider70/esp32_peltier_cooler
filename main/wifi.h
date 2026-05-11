@@ -21,3 +21,6 @@ void wifi_start_ap(void);
 
 // Force reconnect STA with current credentials
 void wifi_reconnect_sta(void);
+
+// Reset WiFi credentials and switch to AP mode
+void wifi_reset_credentials(void);

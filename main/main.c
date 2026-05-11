@@ -2,6 +2,8 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
 
 #include "config.h"
 #include "nvs_config.h"
@@ -15,6 +17,53 @@
 #include "data_logger.h"
 
 static const char *TAG = "main";
+
+// Reset button monitoring task
+void reset_button_task(void *pvParameters) {
+    (void)pvParameters;
+
+    // Configure reset button (GPIO0 = BOOT button)
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << GPIO_RESET_BUTTON),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io_conf);
+
+    ESP_LOGI(TAG, "Reset button monitoring started (GPIO %d)", GPIO_RESET_BUTTON);
+
+    uint64_t press_start_time = 0;
+    bool button_pressed = false;
+
+    while (1) {
+        int button_level = gpio_get_level(GPIO_RESET_BUTTON);
+        uint64_t current_time = esp_timer_get_time() / 1000;  // ms
+
+        if (button_level == 0) {  // Button pressed (active low)
+            if (!button_pressed) {
+                press_start_time = current_time;
+                button_pressed = true;
+                ESP_LOGI(TAG, "Reset button pressed");
+            } else if (current_time - press_start_time >= RESET_BUTTON_HOLD_MS) {
+                // Button held for required time → reset WiFi
+                ESP_LOGW(TAG, "Reset button held for %d ms → resetting WiFi credentials", RESET_BUTTON_HOLD_MS);
+                wifi_reset_credentials();
+                
+                // Wait for button release
+                while (gpio_get_level(GPIO_RESET_BUTTON) == 0) {
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                }
+                button_pressed = false;
+            }
+        } else {
+            button_pressed = false;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(100));  // Check every 100ms
+    }
+}
 
 void app_main(void) {
     ESP_LOGI(TAG, "=== ESP32 Peltier Cooler Starting ===");
@@ -64,11 +113,11 @@ void app_main(void) {
     xTaskCreate(task_data_logger, "data_logger", 4096,
                 NULL, 3, NULL);
 
-    // 7. OTA: validate firmware after stable boot (all tasks running)
-    //    If this is first boot after OTA, mark as valid → cancels rollback
-    //    If firmware crashes before this point, bootloader auto-rolls back
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    // 5. Start OTA task
     ota_init();
 
-    ESP_LOGI(TAG, "=== All tasks started ===");
+    // 6. Start reset button monitoring task
+    xTaskCreate(reset_button_task, "reset_btn", 2048, NULL, 5, NULL);
+
+    ESP_LOGI(TAG, "=== System Ready ===");
 }

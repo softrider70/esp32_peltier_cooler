@@ -297,6 +297,15 @@ static esp_err_t handler_api_graph_save(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t handler_api_wifi_reset(httpd_req_t *req) {
+    ESP_LOGW(TAG, "WiFi reset requested via web interface");
+    wifi_reset_credentials();
+    
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"WiFi-Credentials gelöscht, AP-Modus gestartet\"}");
+    return ESP_OK;
+}
+
 // Catch-all handler for captive portal redirect
 static esp_err_t handler_captive_redirect(httpd_req_t *req) {
     httpd_resp_set_status(req, "302 Found");
@@ -401,6 +410,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_graph_save = {
         .uri = "/api/graph/save", .method = HTTP_POST, .handler = handler_api_graph_save
     };
+    httpd_uri_t uri_api_wifi_reset = {
+        .uri = "/api/wifi/reset", .method = HTTP_POST, .handler = handler_api_wifi_reset
+    };
     // Catch-all for captive portal (must be last)
     httpd_uri_t uri_catchall = {
         .uri = "/*", .method = HTTP_GET, .handler = handler_captive_redirect
@@ -414,6 +426,7 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_ota_status);
     httpd_register_uri_handler(s_server, &uri_api_graph);
     httpd_register_uri_handler(s_server, &uri_api_graph_save);
+    httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
     httpd_register_uri_handler(s_server, &uri_catchall);
 
     ESP_LOGI(TAG, "HTTP server started");

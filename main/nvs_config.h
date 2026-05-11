@@ -29,3 +29,6 @@ void nvs_config_save(void);
 
 // Update WiFi credentials and save
 void nvs_config_set_wifi(const char *ssid, const char *password);
+
+// Delete WiFi credentials from NVS
+void nvs_config_delete_wifi_credentials(void);

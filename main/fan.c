@@ -17,7 +17,13 @@ static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
 static pid_controller_t s_fan_pid;
 static bool s_was_active = false;  // Track previous active state for NVS save
-static bool s_peltier_was_on = false;  // Track Peltier state for pre-emptive fan start
+static bool s_peltier_was_on = false;  // Track Peltier state for fan control
+static int s_peltier_off_counter = 0;  // Counter for fan cooldown after peltier off
+
+// ===== Fan Control Parameters =====
+#define FAN_START_DUTY_WHEN_PELTIER_ON  127.0f  // 50% PWM when Peltier turns on (under 70%)
+#define FAN_COOLDOWN_DUTY              76.0f   // 30% PWM during cooldown
+#define FAN_COOLDOWN_SECONDS            30      // Cooldown time after Peltier off
 
 // RPM measurement variables
 static volatile uint32_t s_tacho_pulses = 0;
@@ -108,7 +114,6 @@ uint16_t fan_get_rpm(void) {
 void task_fan_pid(void *pvParameters) {
     (void)pvParameters;
 
-    const float dt = (float)PID_SAMPLE_TIME_MS / 1000.0f;
 #if TACHO_ENABLED
     s_last_rpm_time = esp_timer_get_time() / 1000;  // Initial time
 #endif
@@ -209,76 +214,83 @@ void task_fan_pid(void *pvParameters) {
             // Between off and on: keep current state (hysteresis band)
         }
 
-        // ---- Pre-emptive Fan Start: Lüfter sofort starten, wenn Peltier aktiviert wird ----
-        float fan_prestart_duty = 0.0f;
-        if (peltier_is_on && !s_peltier_was_on) {
-            // Peltier wurde gerade eingeschaltet → Lüfter sofort auf moderate Drehzahl
-            fan_prestart_duty = 102.0f;  // 40% PWM (unter 60% Ziel)
-            ESP_LOGI(TAG, "Pre-emptive fan start: Peltier ON → fan at 40%");
+        // ---- Lüftersteuerung basierend auf Peltier-Zustand ----
+        float fan_output = 0.0f;
+
+        if (peltier_is_on) {
+            // Peltier ist AN → Lüfter läuft, PID übernimmt
+            s_peltier_off_counter = 0;  // Cooldown-Counter zurücksetzen
+
+            // PID: regulate fan to keep heatsink at target
+            float error = sd.temp_heatsink - cfg->temp_heatsink_target;
+
+            if (error <= 0.0f) {
+                // Heatsink below target → minimale Lüfterdrehzahl (nicht ganz aus, da Peltier Wärme erzeugt)
+                fan_output = FAN_START_DUTY_WHEN_PELTIER_ON * 0.5f;  // 25% als Minimum
+                s_fan_pid.integral = 0.0f;
+            } else {
+                // Heatsink über Ziel → PID regelt hoch
+                float dt = PID_SAMPLE_TIME_MS / 1000.0f;
+
+                float p_term = s_fan_pid.kp * error;
+                s_fan_pid.integral += error * dt;
+
+                // Anti-windup
+                const float integral_max = 10.0f;
+                if (s_fan_pid.integral > integral_max) {
+                    s_fan_pid.integral = integral_max;
+                } else if (s_fan_pid.integral < -integral_max) {
+                    s_fan_pid.integral = -integral_max;
+                }
+
+                float i_term = s_fan_pid.ki * s_fan_pid.integral;
+
+                if (s_fan_pid.prev_error == 0.0f && error != 0.0f) {
+                    s_fan_pid.prev_error = error;
+                }
+
+                float derivative = (error - s_fan_pid.prev_error) / dt;
+                float d_term = s_fan_pid.kd * derivative;
+                s_fan_pid.prev_error = error;
+
+                fan_output = (p_term + i_term + d_term) * 20.0f;
+
+                // Mindestens Start-Drehzahl, wenn Peltier an ist
+                if (fan_output < FAN_START_DUTY_WHEN_PELTIER_ON) {
+                    fan_output = FAN_START_DUTY_WHEN_PELTIER_ON;
+                }
+            }
+        } else {
+            // Peltier ist AUS → Lüfter nachlaufen für Restwärme
+            if (s_peltier_off_counter < FAN_COOLDOWN_SECONDS) {
+                // Cooldown-Phase
+                fan_output = FAN_COOLDOWN_DUTY;
+                s_peltier_off_counter++;
+                ESP_LOGI(TAG, "Cooldown: %d/%d seconds", s_peltier_off_counter, FAN_COOLDOWN_SECONDS);
+            } else {
+                // Cooldown vorbei → Lüfter aus
+                fan_output = 0.0f;
+                s_fan_pid.integral = 0.0f;
+            }
         }
+
         s_peltier_was_on = peltier_is_on;
 
-        // ---- PID: regulate fan to keep heatsink at target ----
-        // For cooling: error = measurement - setpoint (positive when too hot → more fan)
-        // This is an inverted PID compared to standard (where error = setpoint - measurement)
-        float error = sd.temp_heatsink - cfg->temp_heatsink_target;
-        float fan_output;
-
-        if (error <= 0.0f) {
-            // Heatsink below target — fan off
-            fan_output = 0.0f;
-            s_fan_pid.integral = 0.0f;  // Reset only integral, keep prev_error
-        } else {
-            // Manual PID computation with inverted error for cooling
-            // error = measurement - setpoint (positive when too hot)
-            float p_term = s_fan_pid.kp * error;
-            s_fan_pid.integral += error * dt;
-
-            // Anti-windup: Limit integral term
-            const float integral_max = 10.0f;  // Prevent integral windup
-            if (s_fan_pid.integral > integral_max) {
-                s_fan_pid.integral = integral_max;
-            } else if (s_fan_pid.integral < -integral_max) {
-                s_fan_pid.integral = -integral_max;
-            }
-
-            float i_term = s_fan_pid.ki * s_fan_pid.integral;
-
-            // Initialize prev_error on first run
-            if (s_fan_pid.prev_error == 0.0f && error != 0.0f) {
-                s_fan_pid.prev_error = error;
-            }
-
-            float derivative = (error - s_fan_pid.prev_error) / dt;
-            float d_term = s_fan_pid.kd * derivative;
-            s_fan_pid.prev_error = error;
-
-            // Scale PID output to PWM range (0-255)
-            // Assuming max error ~5°C should give 100% PWM
-            fan_output = (p_term + i_term + d_term) * 20.0f;
-
-            // Apply pre-emptive fan start (override if prestart is higher)
-            if (fan_prestart_duty > fan_output) {
-                fan_output = fan_prestart_duty;
-            }
-
-            // Clamp output
-            if (fan_output > PID_OUTPUT_MAX) {
-                fan_output = PID_OUTPUT_MAX;
-            } else if (fan_output < PID_OUTPUT_MIN) {
-                fan_output = PID_OUTPUT_MIN;
-            }
-
-            // RPM Feedback: Increase PWM if RPM is lower than expected
-#if TACHO_ENABLED
-            uint16_t expected_rpm = (uint16_t)((fan_output / 255.0f) * 1700.0f);  // Expected RPM at this PWM
-            if (s_current_rpm > 0 && s_current_rpm < expected_rpm * 0.8f && fan_output < 250.0f) {
-                // RPM is < 80% of expected, increase PWM by 10%
-                fan_output *= 1.1f;
-                ESP_LOGI(TAG, "RPM feedback: expected=%u, actual=%u, boosting PWM", expected_rpm, s_current_rpm);
-            }
-#endif
+        // Clamp output
+        if (fan_output > PID_OUTPUT_MAX) {
+            fan_output = PID_OUTPUT_MAX;
+        } else if (fan_output < PID_OUTPUT_MIN) {
+            fan_output = PID_OUTPUT_MIN;
         }
+
+        // RPM Feedback: Increase PWM if RPM is lower than expected
+#if TACHO_ENABLED
+        uint16_t expected_rpm = (uint16_t)((fan_output / 255.0f) * 1700.0f);
+        if (s_current_rpm > 0 && s_current_rpm < expected_rpm * 0.8f && fan_output < 250.0f) {
+            fan_output *= 1.1f;
+            ESP_LOGI(TAG, "RPM feedback: expected=%u, actual=%u, boosting PWM", expected_rpm, s_current_rpm);
+        }
+#endif
 
         fan_set_duty((uint8_t)fan_output);
 

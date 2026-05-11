@@ -132,6 +132,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <p style="margin-top:.3rem;font-size:.7rem" id="ota_status"></p>
 <p style="font-size:.65rem;color:#888;margin-top:.2rem">Bei Fehler wird automatisch zurueckgerollt.</p>
 </div>
+
+<div class="card" style="margin-top:.5rem;border-color:#ff4444">
+<h2 style="color:#ff4444">WiFi Reset</h2>
+<p style="font-size:.7rem;color:#888;margin-bottom:.3rem">WiFi-Credentials löschen und AP-Modus starten</p>
+<button onclick="resetWifi()" style="background:#ff4444">WiFi Reset</button>
+<p style="margin-top:.3rem;font-size:.7rem" id="wifi_reset_status"></p>
+<p style="font-size:.65rem;color:#888;margin-top:.2rem">Alternativ: BOOT-Button 3 Sekunden lang drücken</p>
+</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -314,6 +322,14 @@ else if(d.status==='success'){el.textContent='Erfolg! Neustart...';el.style.colo
 else if(d.status==='failed'){el.textContent='Fehler: '+d.error;el.style.color='#ff6b6b'}
 else{el.textContent='';el.style.color=''}
 }).catch(e=>{document.getElementById('ota_status').textContent='Verbindung verloren (Neustart?)'});
+}
+
+function resetWifi(){
+if(!confirm('Wirklich WiFi-Credentials löschen?\\n\\nDer ESP32 startet dann in den AP-Modus.\\nSie müssen sich neu mit dem WiFi verbinden.'))return;
+document.getElementById('wifi_reset_status').textContent='Reset wird ausgeführt...';
+fetch('/api/wifi/reset',{method:'POST'})
+.then(r=>r.json()).then(d=>{document.getElementById('wifi_reset_status').textContent=d.msg;document.getElementById('wifi_reset_status').style.color='#51cf66'})
+.catch(e=>{document.getElementById('wifi_reset_status').textContent='Fehler: '+e;document.getElementById('wifi_reset_status').style.color='#ff6b6b'});
 }
 
 function init(){

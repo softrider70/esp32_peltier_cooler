@@ -140,3 +140,22 @@ void nvs_config_set_wifi(const char *ssid, const char *password) {
     s_config.wifi_pass[sizeof(s_config.wifi_pass) - 1] = '\0';
     nvs_config_save();
 }
+
+void nvs_config_delete_wifi_credentials(void) {
+    nvs_handle_t handle;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for deletion");
+        return;
+    }
+
+    nvs_erase_key(handle, NVS_KEY_WIFI_SSID);
+    nvs_erase_key(handle, NVS_KEY_WIFI_PASS);
+    nvs_commit(handle);
+    nvs_close(handle);
+
+    // Clear local config
+    memset(s_config.wifi_ssid, 0, sizeof(s_config.wifi_ssid));
+    memset(s_config.wifi_pass, 0, sizeof(s_config.wifi_pass));
+
+    ESP_LOGI(TAG, "WiFi credentials deleted from NVS");
+}

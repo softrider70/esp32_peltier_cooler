@@ -1,13 +1,14 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        64      // Build counter - increment with each flash
+#define BUILD_NUMBER        66      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
 #define GPIO_FAN_TACHO      18      // Noctua 4-pin tachometer input (D18/GPIO18)
 #define GPIO_ONEWIRE_BUS    4       // DS18B20 OneWire data line (D4/GPIO4)
 #define GPIO_PELTIER        16      // MOSFET gate for Peltier element (D16/GPIO16)
+#define GPIO_RESET_BUTTON   0       // BOOT/RESET button (GPIO0) for WiFi reset
 
 // ===== PWM Configuration (NPN Transistor Inverter) =====
 #define FAN_PWM_FREQ_HZ     25000   // Noctua spec: 25 kHz PWM
@@ -45,6 +46,9 @@
 #define WIFI_AP_GW           "10.1.1.1"
 #define WIFI_AP_NETMASK      "255.255.255.0"
 #define WIFI_AP_MAX_CONN     4
+
+// ===== Reset Button Configuration =====
+#define RESET_BUTTON_HOLD_MS 3000     // Button must be held for 3 seconds to reset WiFi
 
 // ===== NVS Keys =====
 #define NVS_NAMESPACE        "cooler_cfg"

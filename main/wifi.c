@@ -157,3 +157,17 @@ void wifi_reconnect_sta(void) {
         start_ap_mode();
     }
 }
+
+void wifi_reset_credentials(void) {
+    ESP_LOGW(TAG, "Resetting WiFi credentials and switching to AP mode");
+    
+    // Delete WiFi credentials from NVS
+    nvs_config_delete_wifi_credentials();
+    
+    // Stop WiFi and switch to AP mode
+    esp_wifi_stop();
+    xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
+    start_ap_mode();
+    
+    ESP_LOGI(TAG, "WiFi credentials reset, AP mode started");
+}
