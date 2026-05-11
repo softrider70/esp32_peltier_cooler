@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        89      // Build counter - increment with each flash
+#define BUILD_NUMBER        90      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -32,12 +32,13 @@
 #define PELTIER_PWM_INTERVAL_DEFAULT 180   // Auto-duty adjustment interval in seconds (3 min)
 
 // ===== PID Defaults =====
-#define PID_KP_DEFAULT      0.5f    // Scaled by 20 in code → effective 10 (very reduced for smooth response)
-#define PID_KI_DEFAULT      0.2f    // Scaled by 20 in code → effective 4 (kept low)
-#define PID_KD_DEFAULT      3.0f    // Scaled by 20 in code → effective 60 (increased for strong damping)
+#define PID_KP_DEFAULT      0.3f    // Scaled by 20 in code → effective 6 (very reduced for very smooth response)
+#define PID_KI_DEFAULT      0.1f    // Scaled by 20 in code → effective 2 (kept very low)
+#define PID_KD_DEFAULT      5.0f    // Scaled by 20 in code → effective 100 (strongly increased for heavy damping)
 #define PID_OUTPUT_MIN      0.0f    // Fan off
 #define PID_OUTPUT_MAX      255.0f  // Fan full speed
 #define PID_SAMPLE_TIME_MS  1000    // 1 second
+#define PID_DEADBAND        2.0f    // Deadband in °C (ignore small temp changes)
 
 // ===== Sensor Configuration =====
 #define SENSOR_READ_INTERVAL_MS  2000   // Read sensors every 2s

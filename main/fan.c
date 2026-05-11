@@ -360,6 +360,10 @@ void task_fan_pid(void *pvParameters) {
                 // Heatsink below target → minimale Lüfterdrehzahl (nicht ganz aus, da Peltier Wärme erzeugt)
                 fan_output = FAN_START_DUTY_WHEN_PELTIER_ON * 0.5f;  // 25% als Minimum
                 s_fan_pid.integral = 0.0f;
+            } else if (error < PID_DEADBAND) {
+                // Fehler im Deadband → keine Änderung (sanfte Regelung)
+                fan_output = FAN_START_DUTY_WHEN_PELTIER_ON;  // 50% als Minimum
+                ESP_LOGD(TAG, "PID: error=%.1f in deadband, fan_output=%.0f", error, fan_output);
             } else {
                 // Heatsink über Ziel → PID regelt hoch
                 float dt = PID_SAMPLE_TIME_MS / 1000.0f;
