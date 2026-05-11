@@ -18,6 +18,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Statische Variablen für Trend-Berechnung
+static float s_last_indoor_temp = 0.0f;
+static float s_last_heatsink_temp = 0.0f;
+static uint8_t s_last_fan_duty = 0;
+static uint8_t s_last_pwm_duty = 0;
+static bool s_first_trend_check = true;
+
 static const char *TAG = "webserver";
 static httpd_handle_t s_server = NULL;
 static TaskHandle_t s_dns_task = NULL;
@@ -27,6 +34,14 @@ extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 extern const uint8_t captive_html_start[] asm("_binary_captive_html_start");
 extern const uint8_t captive_html_end[]   asm("_binary_captive_html_end");
+
+// Trend-Berechnung: 1=steigend, -1=fallend, 0=stabil
+static int calculate_trend(float current, float last, float threshold) {
+    if (s_first_trend_check) return 0;
+    if (current > last + threshold) return 1;
+    if (current < last - threshold) return -1;
+    return 0;
+}
 
 // ===== Handlers =====
 
@@ -65,6 +80,19 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     uint32_t interval_sec = data_logger_get_interval() / 1000;
     float duration_hours = (720.0f * interval_sec) / 3600.0f;
 
+    // Calculate trends
+    int trend_indoor = calculate_trend(sd.temp_indoor, s_last_indoor_temp, 0.1f);
+    int trend_heatsink = calculate_trend(sd.temp_heatsink, s_last_heatsink_temp, 0.1f);
+    int trend_fan_duty = calculate_trend((float)fan_get_duty(), (float)s_last_fan_duty, 2.0f);
+    int trend_pwm_duty = calculate_trend((float)cfg->peltier_pwm_duty, (float)s_last_pwm_duty, 2.0f);
+    
+    // Update last values
+    s_last_indoor_temp = sd.temp_indoor;
+    s_last_heatsink_temp = sd.temp_heatsink;
+    s_last_fan_duty = fan_get_duty();
+    s_last_pwm_duty = cfg->peltier_pwm_duty;
+    s_first_trend_check = false;
+
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
         "\"indoor_valid\":%s,\"heatsink_valid\":%s,"
@@ -79,6 +107,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"peltier_pwm_period\":%u,\"peltier_pwm_duty\":%u,\"peltier_pwm_auto\":%s,"
         "\"peltier_pwm_interval\":%u,\"duty_timer_remaining\":%u,"
+        "\"trend_indoor\":%d,\"trend_heatsink\":%d,\"trend_fan_duty\":%d,\"trend_pwm_duty\":%d,"
         "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
@@ -96,6 +125,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false",
         cfg->peltier_pwm_interval, fan_get_duty_timer_remaining(),
+        trend_indoor, trend_heatsink, trend_fan_duty, trend_pwm_duty,
         BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");
@@ -172,6 +202,14 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
+    return ESP_OK;
+}
+
+static esp_err_t handler_api_nvs_save(httpd_req_t *req) {
+    nvs_config_save();
+    ESP_LOGI(TAG, "Manual NVS save triggered via web");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"NVS gespeichert\"}");
     return ESP_OK;
 }
 
@@ -432,6 +470,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_wifi_reset = {
         .uri = "/api/wifi/reset", .method = HTTP_POST, .handler = handler_api_wifi_reset
     };
+    httpd_uri_t uri_api_nvs_save = {
+        .uri = "/api/nvs/save", .method = HTTP_POST, .handler = handler_api_nvs_save
+    };
     // Catch-all for captive portal (must be last)
     httpd_uri_t uri_catchall = {
         .uri = "/*", .method = HTTP_GET, .handler = handler_captive_redirect
@@ -446,6 +487,7 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_graph);
     httpd_register_uri_handler(s_server, &uri_api_graph_save);
     httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
+    httpd_register_uri_handler(s_server, &uri_api_nvs_save);
     httpd_register_uri_handler(s_server, &uri_catchall);
 
     ESP_LOGI(TAG, "HTTP server started");

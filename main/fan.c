@@ -352,22 +352,28 @@ void task_fan_pid(void *pvParameters) {
             
             // Einfache P-Steuerung ohne Deadband oder Glättung
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
+            float temp_diff_to_max = cfg->temp_heatsink_max - sd.temp_heatsink;
             
-            // Fan = 40% + (error * 8%) pro °C
-            float fan_output_percent = 40.0f + (error * 8.0f);
+            float fan_output_percent = 40.0f;
             
-            // Clamp zwischen 30% und 69% (leiser Betrieb)
-            float max_fan = 69.0f;
-            // Bei sehr hohen Temperaturen (>45°C) höherer Lüfter erlaubt
-            if (sd.temp_heatsink > 45.0f) {
-                max_fan = 80.0f;
+            // Bis 3 Grad unter max: Linear bis 68%
+            if (temp_diff_to_max > 3.0f) {
+                // Linearer Bereich: 40% + (error * 8%) pro °C
+                fan_output_percent = 40.0f + (error * 8.0f);
+                if (fan_output_percent > 68.0f) fan_output_percent = 68.0f;
+            } else {
+                // Exponentieller Bereich bei Temperaturen nahe max
+                // Exponentialfunktion: 68% * exp((3 - temp_diff) * 0.5)
+                float exp_factor = expf((3.0f - temp_diff_to_max) * 0.5f);
+                fan_output_percent = 68.0f * exp_factor;
+                if (fan_output_percent > 100.0f) fan_output_percent = 100.0f;
             }
             
-            if (fan_output_percent > max_fan) fan_output_percent = max_fan;
+            // Clamp zwischen 30% und 100%
             if (fan_output_percent < 30.0f) fan_output_percent = 30.0f;
             
-            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, fan=%.0f%%, max=%.0f%%", 
-                     sd.temp_heatsink, error, fan_output_percent, max_fan);
+            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, diff_to_max=%.1f°C, fan=%.0f%%", 
+                     sd.temp_heatsink, error, temp_diff_to_max, fan_output_percent);
             
             fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
