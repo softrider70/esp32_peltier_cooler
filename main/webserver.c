@@ -129,6 +129,7 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->temp_peltier_off = strtof(value, NULL);
         ESP_LOGI(TAG, "Config update: temp_peltier_off = %.1f", cfg->temp_peltier_off);
     }
+    ESP_LOGI(TAG, "Before save: temp_on=%.1f, temp_off=%.1f", cfg->temp_peltier_on, cfg->temp_peltier_off);
     if (httpd_query_key_value(buf, "temp_max", value, sizeof(value)) == ESP_OK)
         cfg->temp_heatsink_max = strtof(value, NULL);
     if (httpd_query_key_value(buf, "temp_target", value, sizeof(value)) == ESP_OK)
@@ -159,6 +160,8 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     }
 
     nvs_config_save();
+    
+    ESP_LOGI(TAG, "After save: temp_on=%.1f, temp_off=%.1f", cfg->temp_peltier_on, cfg->temp_peltier_off);
     
     // Update data logger interval if changed
     data_logger_set_interval(cfg->data_log_interval * 1000);  // Convert seconds to ms
