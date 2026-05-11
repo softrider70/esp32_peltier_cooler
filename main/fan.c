@@ -294,28 +294,36 @@ void task_fan_pid(void *pvParameters) {
             
             // ---- Automatische Duty-Anpassung basierend auf Innentemperatur ----
             s_duty_adjust_timer++;
-            if (s_duty_adjust_timer >= 180) {  // Alle 3 Minuten anpassen (180 Sekunden)
+            if (s_duty_adjust_timer >= cfg->peltier_pwm_interval) {  // Konfigurierbares Intervall
                 s_duty_adjust_timer = 0;
                 
                 if (sd.indoor_valid && cfg->peltier_pwm_auto) {
                     uint8_t new_duty = cfg->peltier_pwm_duty;
+                    float temp_on_thresh = cfg->temp_peltier_on + 1.0f;
+                    float temp_off_thresh = cfg->temp_peltier_off - 1.0f;
                     
-                    if (sd.temp_indoor > cfg->temp_peltier_on + 1.0f) {
+                    ESP_LOGI(TAG, "Auto-Duty check: Temp=%.1f°C, ON_thresh=%.1f°C, OFF_thresh=%.1f°C, Current_Duty=%u%%",
+                             sd.temp_indoor, temp_on_thresh, temp_off_thresh, new_duty);
+                    
+                    if (sd.temp_indoor > temp_on_thresh) {
                         // Zu warm → Duty erhöhen
                         if (new_duty < 100) {
                             new_duty += 2;  // +2% (feiner)
                             if (new_duty > 100) new_duty = 100;
-                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f > %.1f, increasing duty to %u%%",
-                                     sd.temp_indoor, cfg->temp_peltier_on, new_duty);
+                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f > %.1f (zu warm), increasing duty to %u%%",
+                                     sd.temp_indoor, temp_on_thresh, new_duty);
                         }
-                    } else if (sd.temp_indoor < cfg->temp_peltier_off - 1.0f) {
+                    } else if (sd.temp_indoor < temp_off_thresh) {
                         // Zu kalt → Duty verringern
                         if (new_duty > 10) {  // Minimum 10%
                             new_duty -= 2;  // -2% (feiner)
                             if (new_duty < 10) new_duty = 10;
-                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f < %.1f, decreasing duty to %u%%",
-                                     sd.temp_indoor, cfg->temp_peltier_off, new_duty);
+                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f < %.1f (zu kalt), decreasing duty to %u%%",
+                                     sd.temp_indoor, temp_off_thresh, new_duty);
                         }
+                    } else {
+                        ESP_LOGI(TAG, "Auto-Duty: Temp %.1f in Bereich %.1f-%.1f, keine Änderung",
+                                 sd.temp_indoor, temp_off_thresh, temp_on_thresh);
                     }
                     
                     // Duty speichern, wenn geändert

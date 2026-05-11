@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        88      // Build counter - increment with each flash
+#define BUILD_NUMBER        89      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -29,6 +29,7 @@
 // ===== Peltier PWM Defaults =====
 #define PELTIER_PWM_PERIOD_DEFAULT  10      // PWM period in seconds
 #define PELTIER_PWM_DUTY_DEFAULT   50      // PWM duty cycle % (50 = start value, auto-adjusts)
+#define PELTIER_PWM_INTERVAL_DEFAULT 180   // Auto-duty adjustment interval in seconds (3 min)
 
 // ===== PID Defaults =====
 #define PID_KP_DEFAULT      0.5f    // Scaled by 20 in code → effective 10 (very reduced for smooth response)
@@ -94,6 +95,7 @@
 #define NVS_KEY_PELTIER_PWM_PERIOD "peltier_pwm_period"
 #define NVS_KEY_PELTIER_PWM_DUTY   "peltier_pwm_duty"
 #define NVS_KEY_PELTIER_PWM_AUTO   "peltier_pwm_auto"
+#define NVS_KEY_PELTIER_PWM_INTERVAL "peltier_pwm_interval"
 #define NVS_KEY_GRAPH_DATA         "graph_data"
 
 // ===== Task Priorities =====

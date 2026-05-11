@@ -79,6 +79,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"peltier_pwm_period\":%u,\"peltier_pwm_duty\":%u,\"peltier_pwm_auto\":%s,"
+        "\"peltier_pwm_interval\":%u,"
         "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
@@ -96,6 +97,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         interval_sec, duration_hours,
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false",
+        cfg->peltier_pwm_interval,
         BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");
@@ -144,6 +146,8 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->peltier_pwm_duty = (uint8_t)atoi(value);
     if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK)
         cfg->peltier_pwm_auto = (atoi(value) != 0);
+    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK)
+        cfg->peltier_pwm_interval = (uint16_t)atoi(value);
 
     // Parse daily schedule (7 days, 2 values each)
     for (int i = 0; i < 7; i++) {

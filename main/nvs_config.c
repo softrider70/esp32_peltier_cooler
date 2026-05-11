@@ -26,6 +26,7 @@ static void load_defaults(void) {
     s_config.peltier_pwm_period = PELTIER_PWM_PERIOD_DEFAULT;
     s_config.peltier_pwm_duty = PELTIER_PWM_DUTY_DEFAULT;
     s_config.peltier_pwm_auto = true;  // Auto-Duty standardmäßig aktiviert
+    s_config.peltier_pwm_interval = PELTIER_PWM_INTERVAL_DEFAULT;  // 3 Minuten
     
     // Default schedule: Mon-Thu 11-19, Fri 11-21, Sat-Sun 11-21
     for (int i = 0; i < 7; i++) {
@@ -111,8 +112,10 @@ void nvs_config_init(void) {
         if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, &u8) == ESP_OK) s_config.peltier_pwm_duty = u8;
         uint8_t auto_val;
         if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, &auto_val) == ESP_OK) s_config.peltier_pwm_auto = auto_val;
-        ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u, pwm_auto=%d",
-                 s_config.peltier_pwm_period, s_config.peltier_pwm_duty, s_config.peltier_pwm_auto);
+        uint16_t interval_val;
+        if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, &interval_val) == ESP_OK) s_config.peltier_pwm_interval = interval_val;
+        ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u, pwm_auto=%d, pwm_interval=%u",
+                 s_config.peltier_pwm_period, s_config.peltier_pwm_duty, s_config.peltier_pwm_auto, s_config.peltier_pwm_interval);
 
         nvs_close(handle);
         ESP_LOGI(TAG, "Config loaded from NVS");
@@ -169,6 +172,7 @@ void nvs_config_save(void) {
     nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, s_config.peltier_pwm_period);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, s_config.peltier_pwm_duty);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, s_config.peltier_pwm_auto);
+    nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, s_config.peltier_pwm_interval);
 
     nvs_commit(handle);
     nvs_close(handle);

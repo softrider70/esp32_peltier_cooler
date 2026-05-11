@@ -26,6 +26,7 @@ typedef struct {
     uint16_t peltier_pwm_period;  // PWM-Periode in Sekunden (z.B. 10s)
     uint8_t peltier_pwm_duty;     // PWM-Duty-Cycle in % (0-100)
     bool peltier_pwm_auto;        // Auto-Duty-Anpassung ein/aus
+    uint16_t peltier_pwm_interval; // Auto-Duty-Intervall in Sekunden (z.B. 180 = 3 min)
 } app_config_t;
 
 // Initialize NVS and load config (or set defaults)
