@@ -350,18 +350,18 @@ void task_fan_pid(void *pvParameters) {
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
 
             // Einfache lineare Steuerung mit Glättung (keine PID mehr)
-            static float smoothed_fan_output = 50.0f;  // Start bei 50%
+            static float smoothed_fan_output = 45.0f;  // Start bei 45%
             
             if (error <= 0.0f) {
                 // Heatsink unter Ziel → minimaler Lüfter
-                smoothed_fan_output = 25.0f;
+                smoothed_fan_output = 30.0f;
             } else {
                 // Heatsink über Ziel → linear erhöhen
-                // Gain: 15% pro °C über Ziel
-                float target_fan = 50.0f + (error * 15.0f);
+                // Gain: 8% pro °C über Ziel (sanfter)
+                float target_fan = 45.0f + (error * 8.0f);
                 
-                // Clamp auf 100%
-                if (target_fan > 100.0f) target_fan = 100.0f;
+                // Clamp auf 65% (nicht zu laut)
+                if (target_fan > 65.0f) target_fan = 65.0f;
                 
                 // Exponentielle Glättung (alpha = 0.1 für sehr sanfte Übergänge)
                 smoothed_fan_output = (smoothed_fan_output * 0.9f) + (target_fan * 0.1f);
