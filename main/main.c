@@ -1,18 +1,17 @@
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_system.h"
-#include "driver/gpio.h"
-#include "esp_timer.h"
-
 #include "config.h"
 #include "nvs_config.h"
+#include "wifi.h"
 #include "sensor.h"
 #include "fan.h"
 #include "peltier.h"
-#include "scheduler.h"
-#include "wifi.h"
 #include "webserver.h"
+#include "scheduler.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
+#include "esp_system.h"
 #include "ota.h"
 #include "data_logger.h"
 
@@ -32,7 +31,7 @@ void reset_button_task(void *pvParameters) {
     };
     gpio_config(&io_conf);
 
-    ESP_LOGI(TAG, "Reset button monitoring started (GPIO %d)", GPIO_RESET_BUTTON);
+    ESP_LOGI(TAG, "Reset button monitoring started (GPIO %d): Short press = ESP32 reset, Long press = WiFi reset", GPIO_RESET_BUTTON);
 
     uint64_t press_start_time = 0;
     bool button_pressed = false;
@@ -47,10 +46,10 @@ void reset_button_task(void *pvParameters) {
                 button_pressed = true;
                 ESP_LOGI(TAG, "Reset button pressed");
             } else if (current_time - press_start_time >= RESET_BUTTON_HOLD_MS) {
-                // Button held for required time → reset WiFi
+                // Button held for 3 seconds → reset WiFi
                 ESP_LOGW(TAG, "Reset button held for %d ms → resetting WiFi credentials", RESET_BUTTON_HOLD_MS);
                 wifi_reset_credentials();
-                
+
                 // Wait for button release
                 while (gpio_get_level(GPIO_RESET_BUTTON) == 0) {
                     vTaskDelay(pdMS_TO_TICKS(100));
@@ -58,7 +57,16 @@ void reset_button_task(void *pvParameters) {
                 button_pressed = false;
             }
         } else {
-            button_pressed = false;
+            // Button released
+            if (button_pressed) {
+                uint64_t press_duration = current_time - press_start_time;
+                if (press_duration < RESET_BUTTON_HOLD_MS && press_duration >= 100) {
+                    // Short press (100ms to 3s) → ESP32 reset
+                    ESP_LOGW(TAG, "Reset button short press (%llu ms) → restarting ESP32", press_duration);
+                    esp_restart();
+                }
+                button_pressed = false;
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));  // Check every 100ms
