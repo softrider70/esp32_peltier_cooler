@@ -346,26 +346,18 @@ void task_fan_pid(void *pvParameters) {
             // Lüfter läuft, PID übernimmt
             s_peltier_off_counter = 0;  // Cooldown-Counter zurücksetzen
 
-            // Direkte lineare Steuerung ohne Glättung (für schnellere Reaktion)
+            // Einfache P-Steuerung ohne Deadband oder Glättung
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
             
-            // Gain: 12% pro °C über Ziel (höher für mehr Kühlung)
-            float fan_output_percent = 45.0f + (error * 12.0f);
+            // Fan = 50% + (error * 10%) pro °C
+            float fan_output_percent = 50.0f + (error * 10.0f);
             
-            // Deadband: -0.5°C bis 0°C → 35-45% (kleinerer Deadband)
-            if (error < -0.5f) {
-                fan_output_percent = 35.0f;  // Minimum (höher für mehr Kühlung)
-            } else if (error < 0.0f) {
-                // Interpolieren zwischen 35% und 45% im Deadband
-                float ratio = (error + 0.5f) / 0.5f;  // 0 bis 1
-                fan_output_percent = 35.0f + (ratio * 10.0f);
-            }
+            // Clamp zwischen 30% und 80%
+            if (fan_output_percent > 80.0f) fan_output_percent = 80.0f;
+            if (fan_output_percent < 30.0f) fan_output_percent = 30.0f;
             
-            // Clamp auf 75% (etwas höher für mehr Kühlung)
-            if (fan_output_percent > 75.0f) fan_output_percent = 75.0f;
-            if (fan_output_percent < 35.0f) fan_output_percent = 35.0f;
-            
-            ESP_LOGI(TAG, "Fan control: error=%.1f°C, fan=%.0f%%", error, fan_output_percent);
+            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, fan=%.0f%%", 
+                     sd.temp_heatsink, error, fan_output_percent);
             
             fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
