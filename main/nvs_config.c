@@ -25,8 +25,8 @@ static void load_defaults(void) {
     s_config.last_date = 0;
     s_config.peltier_pwm_period = PELTIER_PWM_PERIOD_DEFAULT;
     s_config.peltier_pwm_duty = PELTIER_PWM_DUTY_DEFAULT;
-    s_config.peltier_pwm_auto = false;  // Auto-Duty standardmäßig deaktiviert
-    s_config.peltier_pwm_interval = PELTIER_PWM_INTERVAL_DEFAULT;  // 3 Minuten
+    s_config.peltier_pwm_auto = true;  // Auto-Duty standardmäßig aktiviert (verbesserte Logik)
+    s_config.peltier_pwm_interval = PELTIER_PWM_INTERVAL_DEFAULT;  // 1 Minute
     
     // Default schedule: Mon-Thu 11-19, Fri 11-21, Sat-Sun 11-21
     for (int i = 0; i < 7; i++) {
