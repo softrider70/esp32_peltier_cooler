@@ -23,8 +23,8 @@ static void load_defaults(void) {
     s_config.energy_week = 0.0f;
     s_config.energy_month = 0.0f;
     s_config.last_date = 0;
-    s_config.peltier_pwm_period = 10;  // 10 Sekunden Periode
-    s_config.peltier_pwm_duty = 50;    // 50% Duty-Cycle
+    s_config.peltier_pwm_period = PELTIER_PWM_PERIOD_DEFAULT;
+    s_config.peltier_pwm_duty = PELTIER_PWM_DUTY_DEFAULT;
     
     // Default schedule: Mon-Thu 11-19, Fri 11-21, Sat-Sun 11-21
     for (int i = 0; i < 7; i++) {
