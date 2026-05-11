@@ -346,35 +346,28 @@ void task_fan_pid(void *pvParameters) {
             // Lüfter läuft, PID übernimmt
             s_peltier_off_counter = 0;  // Cooldown-Counter zurücksetzen
 
-            // PID: regulate fan to keep heatsink at target
+            // Direkte lineare Steuerung ohne Glättung (für schnellere Reaktion)
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
-
-            // Einfache lineare Steuerung mit Glättung (keine PID mehr)
-            static float smoothed_fan_output = 45.0f;  // Start bei 45%
             
-            // Lineare Steuerung ohne harte Schwelle
-            // Gain: 8% pro °C über Ziel
-            float target_fan = 45.0f + (error * 8.0f);
+            // Gain: 12% pro °C über Ziel (höher für mehr Kühlung)
+            float fan_output_percent = 45.0f + (error * 12.0f);
             
-            // Deadband: -1°C bis 0°C → 30-45% (sanfter Übergang)
-            if (error < -1.0f) {
-                target_fan = 30.0f;  // Minimum
+            // Deadband: -0.5°C bis 0°C → 35-45% (kleinerer Deadband)
+            if (error < -0.5f) {
+                fan_output_percent = 35.0f;  // Minimum (höher für mehr Kühlung)
             } else if (error < 0.0f) {
-                // Interpolieren zwischen 30% und 45% im Deadband
-                float ratio = (error + 1.0f) / 1.0f;  // 0 bis 1
-                target_fan = 30.0f + (ratio * 15.0f);
+                // Interpolieren zwischen 35% und 45% im Deadband
+                float ratio = (error + 0.5f) / 0.5f;  // 0 bis 1
+                fan_output_percent = 35.0f + (ratio * 10.0f);
             }
             
-            // Clamp auf 65% (nicht zu laut)
-            if (target_fan > 65.0f) target_fan = 65.0f;
+            // Clamp auf 75% (etwas höher für mehr Kühlung)
+            if (fan_output_percent > 75.0f) fan_output_percent = 75.0f;
+            if (fan_output_percent < 35.0f) fan_output_percent = 35.0f;
             
-            // Exponentielle Glättung (alpha = 0.1 für sehr sanfte Übergänge)
-            smoothed_fan_output = (smoothed_fan_output * 0.9f) + (target_fan * 0.1f);
+            ESP_LOGI(TAG, "Fan control: error=%.1f°C, fan=%.0f%%", error, fan_output_percent);
             
-            ESP_LOGI(TAG, "Fan control: error=%.1f°C, target=%.0f%%, smoothed=%.0f%%",
-                     error, target_fan, smoothed_fan_output);
-            
-            fan_output = smoothed_fan_output * 2.55f;  // 0-100% → 0-255
+            fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
             // Peltier ist AUS → Lüfter nachlaufen für Restwärme
             if (s_peltier_off_counter < FAN_COOLDOWN_SECONDS) {
