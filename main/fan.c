@@ -267,6 +267,9 @@ void task_fan_pid(void *pvParameters) {
             ESP_LOGW(TAG, "Peltier: indoor sensor invalid");
         }
 
+        // Hauptzustand an peltier-Modul übergeben (für Anzeige)
+        peltier_set_main_state(peltier_main_state);
+
         // ---- Peltier PWM (langsames PWM für Stromspar-Modus) ----
         bool peltier_hw_on = false;  // Hardware-Zustand
 
