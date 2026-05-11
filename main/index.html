@@ -62,6 +62,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label>RPM:</label><span id="st_rpm">--</span></div>
 <div class="row"><label>Peltier:</label><span id="st_peltier">--</span></div>
 <div class="row"><label>Verbrauch:</label><span id="st_energy">-- Wh</span></div>
+<div class="row"><label>Heute:</label><span id="st_energy_day">-- Wh</span></div>
+<div class="row"><label>Diese Woche:</label><span id="st_energy_week">-- Wh</span></div>
+<div class="row"><label>Dieser Monat:</label><span id="st_energy_month">-- Wh</span></div>
 <div class="row"><label>Zeit:</label><span id="st_time">--</span></div>
 <div class="row"><label>Betrieb:</label><span id="st_active">--</span></div>
 </div>
@@ -268,6 +271,9 @@ document.getElementById('st_fan').textContent=Math.round(d.fan_duty/2.55)+'%';
 document.getElementById('st_rpm').textContent=d.fan_rpm+' RPM';
 document.getElementById('st_peltier').textContent=d.peltier_on?'AN':'AUS';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
+document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
+document.getElementById('st_energy_week').textContent=d.energy_week.toFixed(2)+' Wh';
+document.getElementById('st_energy_month').textContent=d.energy_month.toFixed(2)+' Wh';
 document.getElementById('st_time').textContent=d.time;
 document.getElementById('st_active').textContent=d.active?'AKTIV':'INAKTIV';
 var dot=document.getElementById('dot_active');

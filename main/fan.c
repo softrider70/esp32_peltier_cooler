@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <time.h>
 
 static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
@@ -113,6 +114,47 @@ uint8_t fan_get_duty(void) {
 
 uint16_t fan_get_rpm(void) {
     return s_current_rpm;
+}
+
+// Aktualisiere Tages-/Wochen-/Monats-Statistiken basierend auf Datum
+static void update_energy_stats(float energy_increment) {
+    app_config_t *cfg = nvs_config_get();
+    
+    // Hole aktuelle Zeit
+    time_t now = 0;
+    struct tm timeinfo = {0};
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    // Berechne aktuelles Datum als YYYYMMDD
+    uint32_t current_date = (timeinfo.tm_year + 1900) * 10000 + 
+                           (timeinfo.tm_mon + 1) * 100 + 
+                           timeinfo.tm_mday;
+    
+    // Wenn Datum geändert hat → Tageszähler zurücksetzen
+    if (cfg->last_date != 0 && current_date != cfg->last_date) {
+        // Prüfe ob sich Woche geändert hat (Montag ist Tag 1)
+        if (timeinfo.tm_wday == 1) {
+            cfg->energy_week = 0.0f;
+            ESP_LOGI(TAG, "New week - weekly energy reset");
+        }
+        
+        // Prüfe ob sich Monat geändert hat
+        if (timeinfo.tm_mday == 1) {
+            cfg->energy_month = 0.0f;
+            ESP_LOGI(TAG, "New month - monthly energy reset");
+        }
+        
+        cfg->energy_day = 0.0f;
+        ESP_LOGI(TAG, "New day - daily energy reset");
+    }
+    
+    // Aktualisiere alle Zähler
+    cfg->energy_wh += energy_increment;
+    cfg->energy_day += energy_increment;
+    cfg->energy_week += energy_increment;
+    cfg->energy_month += energy_increment;
+    cfg->last_date = current_date;
 }
 
 void task_fan_pid(void *pvParameters) {
@@ -285,10 +327,13 @@ void task_fan_pid(void *pvParameters) {
             s_peltier_run_time_sec++;  // Increment run time
         }
 
-        // Calculate energy: Wh = (hours) * power = (seconds / 3600) * 36W
-        cfg->energy_wh = (s_peltier_run_time_sec / 3600.0f) * PELTIER_POWER;
+        // Calculate energy increment for this interval (1 second)
+        float energy_increment = (1.0f / 3600.0f) * PELTIER_POWER;  // Wh per second
+        if (peltier_is_on) {
+            update_energy_stats(energy_increment);  // Update stats only when Peltier is on
+        }
 
-        // Save energy data every 60 seconds (NVS protection)
+        // Save energy data every 15 minutes (NVS protection)
         if (current_time - s_last_energy_save_time >= ENERGY_SAVE_INTERVAL_MS) {
             nvs_config_save_energy();
             s_last_energy_save_time = current_time;

@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        69      // Build counter - increment with each flash
+#define BUILD_NUMBER        70      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -54,7 +54,7 @@
 #define PELTIER_VOLTAGE       12.0f   // Peltier voltage in Volts
 #define PELTIER_CURRENT       3.0f    // Peltier current in Amps
 #define PELTIER_POWER         (PELTIER_VOLTAGE * PELTIER_CURRENT)  // 36W
-#define ENERGY_SAVE_INTERVAL_MS 60000  // Save energy data every 60 seconds (NVS protection)
+#define ENERGY_SAVE_INTERVAL_MS 900000  // Save energy data every 15 minutes (NVS protection)
 
 // ===== NVS Keys =====
 #define NVS_NAMESPACE        "cooler_cfg"
@@ -83,6 +83,10 @@
 #define NVS_KEY_SCHED_SO_OFF  "sch_so_off"
 #define NVS_KEY_DATA_LOG_INTERVAL "data_log_interval"
 #define NVS_KEY_ENERGY_WH     "energy_wh"  // Total energy in Wh
+#define NVS_KEY_ENERGY_DAY    "energy_day"  // Energy today in Wh
+#define NVS_KEY_ENERGY_WEEK   "energy_week"  // Energy this week in Wh
+#define NVS_KEY_ENERGY_MONTH  "energy_month"  // Energy this month in Wh
+#define NVS_KEY_LAST_DATE     "last_date"  // Last saved date (YYYYMMDD)
 #define NVS_KEY_GRAPH_DATA   "graph_data"  // Graph data points
 
 // ===== Task Priorities =====

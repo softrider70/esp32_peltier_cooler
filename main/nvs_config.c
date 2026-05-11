@@ -19,6 +19,10 @@ static void load_defaults(void) {
     s_config.pid_kd = PID_KD_DEFAULT;
     s_config.data_log_interval = 10;  // Default: 10 seconds
     s_config.energy_wh = 0.0f;  // Default: 0 Wh
+    s_config.energy_day = 0.0f;  // Default: 0 Wh
+    s_config.energy_week = 0.0f;  // Default: 0 Wh
+    s_config.energy_month = 0.0f;  // Default: 0 Wh
+    s_config.last_date = 0;  // Default: 0 (not set)
     
     // Default schedule: Mon-Thu 11-19, Fri 11-21, Sat-Sun 11-21
     for (int i = 0; i < 7; i++) {
@@ -66,6 +70,16 @@ void nvs_config_init(void) {
         if (nvs_get_i32(handle, NVS_KEY_ENERGY_WH, &val) == ESP_OK)
             s_config.energy_wh = val / 100.0f;
         ESP_LOGI(TAG, "Loaded from NVS: energy_wh=%.2f Wh", s_config.energy_wh);
+        if (nvs_get_i32(handle, NVS_KEY_ENERGY_DAY, &val) == ESP_OK)
+            s_config.energy_day = val / 100.0f;
+        if (nvs_get_i32(handle, NVS_KEY_ENERGY_WEEK, &val) == ESP_OK)
+            s_config.energy_week = val / 100.0f;
+        if (nvs_get_i32(handle, NVS_KEY_ENERGY_MONTH, &val) == ESP_OK)
+            s_config.energy_month = val / 100.0f;
+        if (nvs_get_u32(handle, NVS_KEY_LAST_DATE, &s_config.last_date) != ESP_OK)
+            s_config.last_date = 0;
+        ESP_LOGI(TAG, "Loaded from NVS: day=%.2f Wh, week=%.2f Wh, month=%.2f Wh",
+                 s_config.energy_day, s_config.energy_week, s_config.energy_month);
         if (nvs_get_i32(handle, NVS_KEY_PID_KP, &val) == ESP_OK)
             s_config.pid_kp = val / 100.0f;
         if (nvs_get_i32(handle, NVS_KEY_PID_KI, &val) == ESP_OK)
@@ -119,6 +133,10 @@ void nvs_config_save(void) {
     nvs_set_i32(handle, NVS_KEY_TEMP_MAX, (int32_t)(s_config.temp_heatsink_max * 100));
     nvs_set_i32(handle, NVS_KEY_TEMP_TARGET, (int32_t)(s_config.temp_heatsink_target * 100));
     nvs_set_i32(handle, NVS_KEY_ENERGY_WH, (int32_t)(s_config.energy_wh * 100));
+    nvs_set_i32(handle, NVS_KEY_ENERGY_DAY, (int32_t)(s_config.energy_day * 100));
+    nvs_set_i32(handle, NVS_KEY_ENERGY_WEEK, (int32_t)(s_config.energy_week * 100));
+    nvs_set_i32(handle, NVS_KEY_ENERGY_MONTH, (int32_t)(s_config.energy_month * 100));
+    nvs_set_u32(handle, NVS_KEY_LAST_DATE, s_config.last_date);
     nvs_set_i32(handle, NVS_KEY_PID_KP, (int32_t)(s_config.pid_kp * 100));
     nvs_set_i32(handle, NVS_KEY_PID_KI, (int32_t)(s_config.pid_ki * 100));
     nvs_set_i32(handle, NVS_KEY_PID_KD, (int32_t)(s_config.pid_kd * 100));
@@ -179,8 +197,13 @@ void nvs_config_save_energy(void) {
     }
 
     nvs_set_i32(handle, NVS_KEY_ENERGY_WH, (int32_t)(s_config.energy_wh * 100));
+    nvs_set_i32(handle, NVS_KEY_ENERGY_DAY, (int32_t)(s_config.energy_day * 100));
+    nvs_set_i32(handle, NVS_KEY_ENERGY_WEEK, (int32_t)(s_config.energy_week * 100));
+    nvs_set_i32(handle, NVS_KEY_ENERGY_MONTH, (int32_t)(s_config.energy_month * 100));
+    nvs_set_u32(handle, NVS_KEY_LAST_DATE, s_config.last_date);
     nvs_commit(handle);
     nvs_close(handle);
 
-    ESP_LOGI(TAG, "Energy data saved to NVS: %.2f Wh", s_config.energy_wh);
+    ESP_LOGI(TAG, "Energy data saved to NVS: total=%.2f Wh, day=%.2f Wh, week=%.2f Wh, month=%.2f Wh",
+             s_config.energy_wh, s_config.energy_day, s_config.energy_week, s_config.energy_month);
 }
