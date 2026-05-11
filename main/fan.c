@@ -24,7 +24,6 @@ static int s_peltier_off_counter = 0;  // Counter for fan cooldown after peltier
 
 // ===== Energy Consumption Tracking =====
 static uint32_t s_peltier_run_time_sec = 0;  // Total Peltier run time in seconds
-static uint32_t s_last_energy_save_time = 0;  // Last time energy was saved (ms)
 static float s_last_energy_wh = 0.0f;  // Last saved energy value (for change detection)
 
 // ===== Fan Control Parameters =====
@@ -338,16 +337,16 @@ void task_fan_pid(void *pvParameters) {
             update_energy_stats(energy_increment);  // Update stats only when Peltier is on
         }
 
-        // Save energy data only if changed OR 15 minutes elapsed (failsafe)
-        cfg = nvs_config_get();
-        bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.01f;  // Changed by >0.01 Wh
-        bool time_elapsed = (current_time - s_last_energy_save_time >= ENERGY_SAVE_INTERVAL_MS);
-        
-        if (energy_changed || time_elapsed) {
-            nvs_config_save_energy();
-            s_last_energy_save_time = current_time;
-            s_last_energy_wh = cfg->energy_wh;
-            ESP_LOGI(TAG, "Energy saved: changed=%d, time_elapsed=%d", energy_changed, time_elapsed);
+        // Save energy data only when Peltier turns OFF and value changed
+        if (s_peltier_was_on && !peltier_is_on) {
+            cfg = nvs_config_get();
+            bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.01f;  // Changed by >0.01 Wh
+            
+            if (energy_changed) {
+                nvs_config_save_energy();
+                s_last_energy_wh = cfg->energy_wh;
+                ESP_LOGI(TAG, "Energy saved on Peltier OFF: %.2f Wh", cfg->energy_wh);
+            }
         }
 
         // Clamp output
