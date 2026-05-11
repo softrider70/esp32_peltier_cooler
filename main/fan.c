@@ -267,6 +267,9 @@ void task_fan_pid(void *pvParameters) {
             ESP_LOGW(TAG, "Peltier: indoor sensor invalid");
         }
 
+        // Hauptzustand an peltier-Modul übergeben (für Anzeige)
+        peltier_set_main_state(peltier_main_state);
+
         // ---- Peltier PWM (langsames PWM für Stromspar-Modus) ----
         bool peltier_hw_on = false;  // Hardware-Zustand
 
@@ -410,18 +413,19 @@ void task_fan_pid(void *pvParameters) {
             update_energy_stats(energy_increment);  // Update stats only when Peltier is on
         }
 
-        // Save energy data only when Peltier main state turns OFF and value changed
-        if (s_peltier_main_was_on && !peltier_main_state) {
+        // Save energy data only when target temperature is reached (temp <= off threshold)
+        if (sd.indoor_valid && sd.temp_indoor <= cfg->temp_peltier_off) {
             cfg = nvs_config_get();
             bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.01f;  // Changed by >0.01 Wh
-            
+
             if (energy_changed) {
                 nvs_config_save_energy();
                 s_last_energy_wh = cfg->energy_wh;
-                ESP_LOGI(TAG, "Energy saved on Peltier main OFF: %.2f Wh", cfg->energy_wh);
+                ESP_LOGI(TAG, "Energy saved on target reached (%.1f°C <= %.1f°C): %.2f Wh",
+                         sd.temp_indoor, cfg->temp_peltier_off, cfg->energy_wh);
             }
         }
-        
+
         // Track previous main state
         s_peltier_main_was_on = peltier_main_state;
 
