@@ -266,10 +266,10 @@ void task_fan_pid(void *pvParameters) {
         }
 
         // ---- Peltier PWM (langsames PWM für Stromspar-Modus) ----
-        bool peltier_is_on = false;  // Tatsächlicher Zustand (für Hardware)
+        bool peltier_hw_on = false;  // Hardware-Zustand
         
         if (peltier_main_state) {
-            // PWM anwenden, wenn Hauptzustand AN ist
+            // Hauptzustand AN → Hardware immer AN, PWM steuert Duty
             uint32_t on_time = (cfg->peltier_pwm_period * cfg->peltier_pwm_duty) / 100;
             
             s_peltier_pwm_timer++;
@@ -277,13 +277,12 @@ void task_fan_pid(void *pvParameters) {
                 s_peltier_pwm_timer = 0;  // Periode zurücksetzen
             }
             
-            if (s_peltier_pwm_timer < on_time) {
-                peltier_is_on = true;  // PWM-AN-Phase
-                s_peltier_pwm_state = true;
-            } else {
-                peltier_is_on = false;  // PWM-AUS-Phase
-                s_peltier_pwm_state = false;
-            }
+            // Hardware immer AN bei Hauptzustand AN
+            peltier_hw_on = true;
+            s_peltier_pwm_state = (s_peltier_pwm_timer < on_time);
+            
+            ESP_LOGD(TAG, "Peltier PWM: timer=%u/%u, on_time=%u, pwm_state=%d, hw_state=%d",
+                     s_peltier_pwm_timer, cfg->peltier_pwm_period, on_time, s_peltier_pwm_state, peltier_hw_on);
             
             // ---- Automatische Duty-Anpassung basierend auf Innentemperatur ----
             s_duty_adjust_timer++;
@@ -326,12 +325,9 @@ void task_fan_pid(void *pvParameters) {
                     }
                 }
             }
-            
-            ESP_LOGD(TAG, "Peltier PWM: timer=%u/%u, on_time=%u, pwm_state=%d, hw_state=%d",
-                     s_peltier_pwm_timer, cfg->peltier_pwm_period, on_time, s_peltier_pwm_state, peltier_is_on);
         } else {
-            // PWM aus, wenn Hauptzustand AUS ist
-            peltier_is_on = false;
+            // Hauptzustand AUS → Hardware AUS
+            peltier_hw_on = false;
             s_peltier_pwm_timer = 0;
             s_peltier_pwm_state = false;
         }
@@ -370,24 +366,24 @@ void task_fan_pid(void *pvParameters) {
             }
         }
 
-        // ---- Hardware-Steuerung basierend auf PWM-Zustand ----
-        if (peltier_is_on) {
+        // ---- Hardware-Steuerung basierend auf Hauptzustand ----
+        if (peltier_hw_on) {
             peltier_on();  // Hardware einschalten
             s_peltier_off_counter = 0;  // Cooldown-Counter zurücksetzen
         } else {
             peltier_off();  // Hardware ausschalten
         }
 
-        s_peltier_was_on = peltier_is_on;
+        s_peltier_was_on = peltier_hw_on;
 
         // ---- Energy Consumption Calculation ----
-        if (peltier_is_on) {
+        if (peltier_hw_on) {
             s_peltier_run_time_sec++;  // Increment run time
         }
 
         // Calculate energy increment for this interval (1 second)
         float energy_increment = (1.0f / 3600.0f) * PELTIER_POWER;  // Wh per second
-        if (peltier_is_on) {
+        if (peltier_hw_on) {
             update_energy_stats(energy_increment);  // Update stats only when Peltier is on
         }
 
@@ -426,7 +422,7 @@ void task_fan_pid(void *pvParameters) {
 
         ESP_LOGD(TAG, "Indoor=%.1f Heatsink=%.1f fan=%d peltier=%s",
                  sd.temp_indoor, sd.temp_heatsink, s_current_duty,
-                 peltier_is_on ? "ON" : "OFF");
+                 peltier_hw_on ? "ON" : "OFF");
 
         vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
     }
