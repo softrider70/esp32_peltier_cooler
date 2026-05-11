@@ -17,7 +17,7 @@ static void load_defaults(void) {
     s_config.pid_kp = PID_KP_DEFAULT;
     s_config.pid_ki = PID_KI_DEFAULT;
     s_config.pid_kd = PID_KD_DEFAULT;
-    s_config.data_log_interval = 10;  // Default: 10 seconds
+    s_config.data_log_interval = 300;  // Default: 300 seconds (5 minutes)
     s_config.energy_wh = 0.0f;  // Default: 0 Wh
     s_config.energy_day = 0.0f;  // Default: 0 Wh
     s_config.energy_week = 0.0f;

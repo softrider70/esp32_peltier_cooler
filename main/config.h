@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        81      // Build counter - increment with each flash
+#define BUILD_NUMBER        82      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -23,17 +23,17 @@
 // ===== Temperature Thresholds =====
 #define TEMP_PELTIER_ON_DEFAULT     13.0f   // Peltier ON when indoor above this
 #define TEMP_PELTIER_OFF_DEFAULT    11.0f   // Peltier OFF when indoor below this
-#define TEMP_HEATSINK_MAX           60.0f   // Max heatsink temp (safety cutoff)
-#define TEMP_HEATSINK_TARGET        45.0f   // PID target for heatsink
+#define TEMP_HEATSINK_MAX           52.0f   // Max heatsink temp (safety cutoff)
+#define TEMP_HEATSINK_TARGET        46.0f   // PID target for heatsink
 
 // ===== Peltier PWM Defaults =====
 #define PELTIER_PWM_PERIOD_DEFAULT  10      // PWM period in seconds
 #define PELTIER_PWM_DUTY_DEFAULT   100     // PWM duty cycle % (100 = always on)
 
 // ===== PID Defaults =====
-#define PID_KP_DEFAULT      2.0f    // Scaled by 20 in code → effective 40
-#define PID_KI_DEFAULT      0.2f    // Scaled by 20 in code → effective 4
-#define PID_KD_DEFAULT      1.0f    // Scaled by 20 in code → effective 20
+#define PID_KP_DEFAULT      1.0f    // Scaled by 20 in code → effective 20 (reduced for smoother response)
+#define PID_KI_DEFAULT      0.3f    // Scaled by 20 in code → effective 6 (slightly increased for steady-state)
+#define PID_KD_DEFAULT      2.0f    // Scaled by 20 in code → effective 40 (increased for damping/less overshoot)
 #define PID_OUTPUT_MIN      0.0f    // Fan off
 #define PID_OUTPUT_MAX      255.0f  // Fan full speed
 #define PID_SAMPLE_TIME_MS  1000    // 1 second
