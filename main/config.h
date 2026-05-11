@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        86      // Build counter - increment with each flash
+#define BUILD_NUMBER        87      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -31,9 +31,9 @@
 #define PELTIER_PWM_DUTY_DEFAULT   50      // PWM duty cycle % (50 = start value, auto-adjusts)
 
 // ===== PID Defaults =====
-#define PID_KP_DEFAULT      1.0f    // Scaled by 20 in code → effective 20 (reduced for smoother response)
-#define PID_KI_DEFAULT      0.3f    // Scaled by 20 in code → effective 6 (slightly increased for steady-state)
-#define PID_KD_DEFAULT      2.0f    // Scaled by 20 in code → effective 40 (increased for damping/less overshoot)
+#define PID_KP_DEFAULT      0.5f    // Scaled by 20 in code → effective 10 (very reduced for smooth response)
+#define PID_KI_DEFAULT      0.2f    // Scaled by 20 in code → effective 4 (kept low)
+#define PID_KD_DEFAULT      3.0f    // Scaled by 20 in code → effective 60 (increased for strong damping)
 #define PID_OUTPUT_MIN      0.0f    // Fan off
 #define PID_OUTPUT_MAX      255.0f  // Fan full speed
 #define PID_SAMPLE_TIME_MS  1000    // 1 second

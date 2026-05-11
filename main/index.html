@@ -150,9 +150,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <div class="card" style="margin-top:.5rem;border-color:#ff922b">
 <h2 style="color:#ff922b">Firmware Update (OTA)</h2>
-<div class="row"><label>URL:</label><input type="text" class="ota-input" id="ota_url" value="http://192.168.1.191:8080/firmware.bin" placeholder="http://192.168.1.191:8080/firmware.bin"></div>
-<button onclick="saveOtaUrl()" style="background:#ff922b;margin-right:.3rem">URL speichern</button>
-<button onclick="startOta()" style="background:#ff922b">Update</button>
+<p style="font-size:.7rem;color:#888;margin-bottom:.3rem">Standard-URL: http://192.168.1.191:8080/firmware.bin</p>
+<button onclick="startOta()" style="background:#ff922b">Update starten</button>
 <p style="margin-top:.3rem;font-size:.7rem" id="ota_status"></p>
 <p style="font-size:.65rem;color:#888;margin-top:.2rem">Bei Fehler wird automatisch zurueckgerollt.</p>
 </div>
@@ -344,11 +343,10 @@ fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-fo
 .then(r=>r.json()).then(d=>{showStatus('Gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
-function saveOtaUrl(){
-var url=document.getElementById('ota_url').value;
-if(!url){showStatus('Bitte URL eingeben','error');return}
-fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='+encodeURIComponent(url)})
-.then(r=>r.json()).then(d=>{showStatus('OTA-URL gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
+function startOta(){
+if(!confirm('OTA-Update starten? ESP wird neu gestartet.'))return;
+fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='})
+.then(r=>r.json()).then(d=>{showStatus('OTA gestartet!','success');pollOta()}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
 function saveGraphToNVS(){
@@ -356,16 +354,6 @@ fetch('/api/graph/save',{method:'POST'})
 .then(r=>r.json()).then(d=>{showStatus('Graph-Daten in NVS gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
-function startOta(){
-var url=document.getElementById('ota_url').value;
-if(!url){showStatus('Bitte URL eingeben','error');return}
-if(!confirm('Firmware-Update starten von:\n'+url+'\n\nBei Fehler wird automatisch zurueckgerollt.'))return;
-document.getElementById('ota_status').textContent='Update wird gestartet...';
-var formData=new FormData();
-formData.append('url',url);
-fetch('/api/ota',{method:'POST',body:formData})
-.then(r=>r.json()).then(d=>{pollOta()}).catch(e=>{document.getElementById('ota_status').textContent='Fehler: '+e});
-}
 function pollOta(){
 fetch('/api/ota/status').then(r=>r.json()).then(d=>{
 var el=document.getElementById('ota_status');
