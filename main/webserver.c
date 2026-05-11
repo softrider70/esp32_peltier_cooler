@@ -148,11 +148,15 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         bool new_auto = (atoi(value) != 0);
         ESP_LOGI(TAG, "Config update: peltier_pwm_auto = %d (was %d)", new_auto, cfg->peltier_pwm_auto);
         cfg->peltier_pwm_auto = new_auto;
+        // Sofort speichern für Persistenz
+        nvs_config_save();
     }
     if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK) {
         uint16_t new_interval = (uint16_t)atoi(value);
         ESP_LOGI(TAG, "Config update: peltier_pwm_interval = %u (was %u)", new_interval, cfg->peltier_pwm_interval);
         cfg->peltier_pwm_interval = new_interval;
+        // Sofort speichern für Persistenz
+        nvs_config_save();
     }
 
     // Parse daily schedule (7 days, 2 values each)

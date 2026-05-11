@@ -336,16 +336,13 @@ void task_fan_pid(void *pvParameters) {
             s_peltier_pwm_state = false;
         }
 
-        // ---- Lüftersteuerung basierend auf Peltier-Zustand ----
+        // ---- Lüftersteuerung basierend auf Peltier-Hauptzustand (nicht PWM-Zustand) ----
         float fan_output = 0.0f;
 
-        if (peltier_is_on) {
-            // Peltier ist AN → Hardware einschalten
-            peltier_on();
+        if (peltier_main_state) {
+            // Peltier-Hauptzustand ist AN → Lüfter regelt basierend auf Kühlblock-Temp
+            // Hardware wird separat gesteuert (siehe unten)
             
-            // Lüfter läuft, PID übernimmt
-            s_peltier_off_counter = 0;  // Cooldown-Counter zurücksetzen
-
             // Einfache P-Steuerung ohne Deadband oder Glättung
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
             
@@ -361,7 +358,7 @@ void task_fan_pid(void *pvParameters) {
             
             fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
-            // Peltier ist AUS → Lüfter nachlaufen für Restwärme
+            // Peltier-Hauptzustand ist AUS → Lüfter nachlaufen für Restwärme
             if (s_peltier_off_counter < FAN_COOLDOWN_SECONDS) {
                 // Cooldown-Phase
                 fan_output = FAN_COOLDOWN_DUTY;
@@ -371,6 +368,14 @@ void task_fan_pid(void *pvParameters) {
                 // Cooldown vorbei → Lüfter aus
                 fan_output = 0.0f;
             }
+        }
+
+        // ---- Hardware-Steuerung basierend auf PWM-Zustand ----
+        if (peltier_is_on) {
+            peltier_on();  // Hardware einschalten
+            s_peltier_off_counter = 0;  // Cooldown-Counter zurücksetzen
+        } else {
+            peltier_off();  // Hardware ausschalten
         }
 
         s_peltier_was_on = peltier_is_on;
