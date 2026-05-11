@@ -19,12 +19,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Statische Variablen für Trend-Berechnung
-static float s_last_indoor_temp = 0.0f;
-static float s_last_heatsink_temp = 0.0f;
-static uint8_t s_last_fan_duty = 0;
-static uint8_t s_last_pwm_duty = 0;
-static bool s_first_trend_check = true;
+// Statische Variablen für Trend-Berechnung (3 Messwerte)
+static float s_indoor_history[3] = {0};
+static float s_heatsink_history[3] = {0};
+static float s_fan_duty_history[3] = {0};
+static float s_pwm_duty_history[3] = {0};
+static int s_history_index = 0;
+static bool s_history_filled = false;
 
 static const char *TAG = "webserver";
 static httpd_handle_t s_server = NULL;
@@ -36,12 +37,20 @@ extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 extern const uint8_t captive_html_start[] asm("_binary_captive_html_start");
 extern const uint8_t captive_html_end[]   asm("_binary_captive_html_end");
 
-// Trend-Berechnung: 1=steigend, -1=fallend, 0=stabil
-static int calculate_trend(float current, float last, float threshold) {
-    if (s_first_trend_check) return 0;
-    if (current > last + threshold) return 1;
-    if (current < last - threshold) return -1;
-    return 0;
+// Trend-Berechnung über 3 Messwerte: 1=steigend, -1=fallend, 0=stabil
+static int calculate_trend(float current, float history[], int size, float threshold) {
+if (!s_history_filled) return 0;
+    
+// Berechne Durchschnitt der letzten 3 Werte
+float avg = 0;
+for (int i = 0; i < size; i++) {
+avg += history[i];
+}
+avg /= size;
+    
+if (current > avg + threshold) return 1;   // Steigend
+if (current < avg - threshold) return -1;  // Fallend
+return 0;                                   // Stabil
 }
 
 // ===== Handlers =====
@@ -88,17 +97,19 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     float cost_month = cfg->energy_month * PELTIER_COST_PER_KWH / 1000.0f;
 
     // Calculate trends
-    int trend_indoor = calculate_trend(sd.temp_indoor, s_last_indoor_temp, 0.1f);
-    int trend_heatsink = calculate_trend(sd.temp_heatsink, s_last_heatsink_temp, 0.1f);
-    int trend_fan_duty = calculate_trend((float)fan_get_duty(), (float)s_last_fan_duty, 2.0f);
-    int trend_pwm_duty = calculate_trend((float)cfg->peltier_pwm_duty, (float)s_last_pwm_duty, 2.0f);
+    int trend_indoor = calculate_trend(sd.temp_indoor, s_indoor_history, 3, 0.1f);
+    int trend_heatsink = calculate_trend(sd.temp_heatsink, s_heatsink_history, 3, 0.1f);
+    int trend_fan_duty = calculate_trend((float)fan_get_duty(), s_fan_duty_history, 3, 2.0f);
+    int trend_pwm_duty = calculate_trend((float)cfg->peltier_pwm_duty, s_pwm_duty_history, 3, 2.0f);
     
-    // Update last values
-    s_last_indoor_temp = sd.temp_indoor;
-    s_last_heatsink_temp = sd.temp_heatsink;
-    s_last_fan_duty = fan_get_duty();
-    s_last_pwm_duty = cfg->peltier_pwm_duty;
-    s_first_trend_check = false;
+    // Update history (Ring Buffer mit 3 Werten)
+    s_indoor_history[s_history_index] = sd.temp_indoor;
+    s_heatsink_history[s_history_index] = sd.temp_heatsink;
+    s_fan_duty_history[s_history_index] = fan_get_duty();
+    s_pwm_duty_history[s_history_index] = cfg->peltier_pwm_duty;
+    
+    s_history_index = (s_history_index + 1) % 3;
+    if (s_history_index == 0) s_history_filled = true;
 
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
