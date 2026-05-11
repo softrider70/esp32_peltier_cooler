@@ -302,7 +302,8 @@ document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Z
 document.getElementById('build').textContent=d.build;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('st_heatsink').classList.add('warn');
 else document.getElementById('st_heatsink').classList.remove('warn');
-// Load config values
+// Load config values only once (on first load)
+if(typeof window.configLoaded==='undefined'){
 document.getElementById('cfg_temp_on').value=d.temp_on;
 document.getElementById('cfg_temp_off').value=d.temp_off;
 document.getElementById('cfg_temp_max').value=d.temp_max;
@@ -314,6 +315,8 @@ document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
 document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
 document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
 document.getElementById('ota_url').value=d.ota_url;
+window.configLoaded=true;
+}
 var interval=parseInt(d.data_log_interval)||10;
 var hours=(720*interval)/3600;
 document.getElementById('ring_buffer_hours').textContent=hours.toFixed(1);
