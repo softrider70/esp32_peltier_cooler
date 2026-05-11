@@ -265,6 +265,10 @@ void task_fan_pid(void *pvParameters) {
                 peltier_main_state = false;
             }
             // Between off and on: keep current state (hysteresis band)
+            ESP_LOGD(TAG, "Peltier: indoor=%.1f, on=%.1f, off=%.1f, main_state=%d",
+                     sd.temp_indoor, cfg->temp_peltier_on, cfg->temp_peltier_off, peltier_main_state);
+        } else {
+            ESP_LOGW(TAG, "Peltier: indoor sensor invalid");
         }
 
         // ---- Peltier PWM (langsames PWM für Stromspar-Modus) ----
@@ -286,6 +290,8 @@ void task_fan_pid(void *pvParameters) {
                 peltier_is_on = false;  // PWM-AUS-Phase
                 s_peltier_pwm_state = false;
             }
+            ESP_LOGD(TAG, "Peltier PWM: timer=%u/%u, on_time=%u, pwm_state=%d, hw_state=%d",
+                     s_peltier_pwm_timer, cfg->peltier_pwm_period, on_time, s_peltier_pwm_state, peltier_is_on);
         } else {
             // PWM aus, wenn Hauptzustand AUS ist
             peltier_is_on = false;
