@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        68      // Build counter - increment with each flash
+#define BUILD_NUMBER        69      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -50,6 +50,12 @@
 // ===== Reset Button Configuration =====
 #define RESET_BUTTON_HOLD_MS 3000     // Button must be held for 3 seconds to reset WiFi
 
+// ===== Energy Consumption Configuration =====
+#define PELTIER_VOLTAGE       12.0f   // Peltier voltage in Volts
+#define PELTIER_CURRENT       3.0f    // Peltier current in Amps
+#define PELTIER_POWER         (PELTIER_VOLTAGE * PELTIER_CURRENT)  // 36W
+#define ENERGY_SAVE_INTERVAL_MS 60000  // Save energy data every 60 seconds (NVS protection)
+
 // ===== NVS Keys =====
 #define NVS_NAMESPACE        "cooler_cfg"
 #define NVS_KEY_WIFI_SSID    "wifi_ssid"
@@ -74,9 +80,10 @@
 #define NVS_KEY_SCHED_SA_ON  "sch_sa_on"   // Saturday on
 #define NVS_KEY_SCHED_SA_OFF "sch_sa_off"  // Saturday off
 #define NVS_KEY_SCHED_SO_ON  "sch_so_on"   // Sunday on
-#define NVS_KEY_SCHED_SO_OFF "sch_so_off"  // Sunday off
+#define NVS_KEY_SCHED_SO_OFF  "sch_so_off"
+#define NVS_KEY_DATA_LOG_INTERVAL "data_log_interval"
+#define NVS_KEY_ENERGY_WH     "energy_wh"  // Total energy in Wh
 #define NVS_KEY_GRAPH_DATA   "graph_data"  // Graph data points
-#define NVS_KEY_DATA_LOG_INTERVAL "log_interval"  // Data logging interval (seconds)
 
 // ===== Task Priorities =====
 #define TASK_PRIO_SENSOR     5

@@ -20,6 +20,10 @@ static bool s_was_active = false;  // Track previous active state for NVS save
 static bool s_peltier_was_on = false;  // Track Peltier state for fan control
 static int s_peltier_off_counter = 0;  // Counter for fan cooldown after peltier off
 
+// ===== Energy Consumption Tracking =====
+static uint32_t s_peltier_run_time_sec = 0;  // Total Peltier run time in seconds
+static uint32_t s_last_energy_save_time = 0;  // Last time energy was saved (ms)
+
 // ===== Fan Control Parameters =====
 #define FAN_START_DUTY_WHEN_PELTIER_ON  127.0f  // 50% PWM when Peltier turns on (under 70%)
 #define FAN_COOLDOWN_DUTY              76.0f   // 30% PWM during cooldown
@@ -275,6 +279,20 @@ void task_fan_pid(void *pvParameters) {
         }
 
         s_peltier_was_on = peltier_is_on;
+
+        // ---- Energy Consumption Calculation ----
+        if (peltier_is_on) {
+            s_peltier_run_time_sec++;  // Increment run time
+        }
+
+        // Calculate energy: Wh = (hours) * power = (seconds / 3600) * 36W
+        cfg->energy_wh = (s_peltier_run_time_sec / 3600.0f) * PELTIER_POWER;
+
+        // Save energy data every 60 seconds (NVS protection)
+        if (current_time - s_last_energy_save_time >= ENERGY_SAVE_INTERVAL_MS) {
+            nvs_config_save_energy();
+            s_last_energy_save_time = current_time;
+        }
 
         // Clamp output
         if (fan_output > PID_OUTPUT_MAX) {

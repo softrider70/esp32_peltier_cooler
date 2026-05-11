@@ -16,6 +16,7 @@ typedef struct {
     uint16_t sched_on[7];           // Daily on times (hours 0-23, stored as minutes)
     uint16_t sched_off[7];          // Daily off times (hours 0-23, stored as minutes)
     uint16_t data_log_interval;     // Data logging interval in seconds (default: 10s)
+    float    energy_wh;             // Total energy consumption in Wh
 } app_config_t;
 
 // Initialize NVS and load config (or set defaults)
@@ -32,3 +33,6 @@ void nvs_config_set_wifi(const char *ssid, const char *password);
 
 // Delete WiFi credentials from NVS
 void nvs_config_delete_wifi_credentials(void);
+
+// Save only energy data to NVS (for frequent updates)
+void nvs_config_save_energy(void);

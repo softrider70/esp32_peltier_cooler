@@ -54,12 +54,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div id="tab-status" class="tab-content active">
 <div class="card">
 <h2>Live Status <span style="font-size:.7rem;color:#888;font-weight:normal">Build <span id="build">--</span></span></h2>
-<div class="grid">
-<div><div class="label">Innen</div><div class="val" id="t_indoor">--</div></div>
-<div><div class="label">Kühlblock</div><div class="val" id="t_heat">--</div></div>
-<div><div class="label">Lüfter Soll</div><div class="val" id="fan_duty">--%</div></div>
-<div><div class="label">Lüfter Ist</div><div class="val" id="fan_rpm">-- RPM</div></div>
-<div><div class="label">Peltier</div><div class="val" id="peltier">--</div></div>
+<div class="card">
+<h2>Status</h2>
+<div class="row"><label>Innen:</label><span id="st_indoor">--°C</span></div>
+<div class="row"><label>Kuehlblock:</label><span id="st_heatsink">--°C</span></div>
+<div class="row"><label>Luefter:</label><span id="st_fan">--%</span></div>
+<div class="row"><label>RPM:</label><span id="st_rpm">--</span></div>
+<div class="row"><label>Peltier:</label><span id="st_peltier">--</span></div>
+<div class="row"><label>Verbrauch:</label><span id="st_energy">-- Wh</span></div>
+<div class="row"><label>Zeit:</label><span id="st_time">--</span></div>
+<div class="row"><label>Betrieb:</label><span id="st_active">--</span></div>
 </div>
 <p style="margin-top:.3rem;font-size:.75rem">Scheduler: <span class="status-dot" id="dot_active"></span> <span id="sched_status">--</span> | Notmodus: <span class="status-dot" id="dot_emergency"></span> <span id="emergency_status">--</span> | Zeit: <span id="system_time">--</span></p>
 <div id="status_msg" class="status"></div>
@@ -258,12 +262,14 @@ legend:{labels:{color:'#e0e0e0'}}
 
 function refresh(){
 fetch('/api/status').then(r=>r.json()).then(d=>{
-document.getElementById('t_indoor').textContent=d.indoor_valid?d.indoor.toFixed(1)+'°C':'--';
-document.getElementById('t_heat').textContent=d.heatsink_valid?d.heatsink.toFixed(1)+'°C':'--';
-document.getElementById('fan_duty').textContent=Math.round(d.fan_duty/2.55)+'%';
-document.getElementById('fan_rpm').textContent=d.fan_rpm+' RPM';
-document.getElementById('peltier').textContent=d.peltier_on?'AN':'AUS';
-document.getElementById('peltier').className='val '+(d.peltier_on?'ok':'');
+document.getElementById('st_indoor').textContent=d.indoor_valid?d.indoor.toFixed(1)+'°C':'--';
+document.getElementById('st_heatsink').textContent=d.heatsink_valid?d.heatsink.toFixed(1)+'°C':'--';
+document.getElementById('st_fan').textContent=Math.round(d.fan_duty/2.55)+'%';
+document.getElementById('st_rpm').textContent=d.fan_rpm+' RPM';
+document.getElementById('st_peltier').textContent=d.peltier_on?'AN':'AUS';
+document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
+document.getElementById('st_time').textContent=d.time;
+document.getElementById('st_active').textContent=d.active?'AKTIV':'INAKTIV';
 var dot=document.getElementById('dot_active');
 dot.className='status-dot '+(d.active?'dot-on':'dot-off');
 document.getElementById('sched_status').textContent=d.active?'AKTIV':'INAKTIV';
@@ -272,8 +278,8 @@ dot_emergency.className='status-dot '+(d.emergency?'dot-warn':'dot-off');
 document.getElementById('emergency_status').textContent=d.emergency?'AKTIV':'INAKTIV';
 document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Zeit-Sync';
 document.getElementById('build').textContent=d.build;
-if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('t_heat').classList.add('warn');
-else document.getElementById('t_heat').classList.remove('warn');
+if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('st_heatsink').classList.add('warn');
+else document.getElementById('st_heatsink').classList.remove('warn');
 }).catch(e=>console.error(e));
 }
 

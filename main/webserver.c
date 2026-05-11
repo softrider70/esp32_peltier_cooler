@@ -80,6 +80,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"wifi_mode\":\"%s\",\"ota_url\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
+        "\"energy_wh\":%.2f,"
         "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
@@ -96,6 +97,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         wifi_is_connected() ? "STA" : "AP",
         ota_url,
         interval_sec, duration_hours,
+        cfg->energy_wh,
         BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");

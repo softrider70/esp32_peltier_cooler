@@ -18,6 +18,7 @@ static void load_defaults(void) {
     s_config.pid_ki = PID_KI_DEFAULT;
     s_config.pid_kd = PID_KD_DEFAULT;
     s_config.data_log_interval = 10;  // Default: 10 seconds
+    s_config.energy_wh = 0.0f;  // Default: 0 Wh
     
     // Default schedule: Mon-Thu 11-19, Fri 11-21, Sat-Sun 11-21
     for (int i = 0; i < 7; i++) {
@@ -62,6 +63,9 @@ void nvs_config_init(void) {
             s_config.temp_heatsink_max = val / 100.0f;
         if (nvs_get_i32(handle, NVS_KEY_TEMP_TARGET, &val) == ESP_OK)
             s_config.temp_heatsink_target = val / 100.0f;
+        if (nvs_get_i32(handle, NVS_KEY_ENERGY_WH, &val) == ESP_OK)
+            s_config.energy_wh = val / 100.0f;
+        ESP_LOGI(TAG, "Loaded from NVS: energy_wh=%.2f Wh", s_config.energy_wh);
         if (nvs_get_i32(handle, NVS_KEY_PID_KP, &val) == ESP_OK)
             s_config.pid_kp = val / 100.0f;
         if (nvs_get_i32(handle, NVS_KEY_PID_KI, &val) == ESP_OK)
@@ -114,6 +118,7 @@ void nvs_config_save(void) {
     nvs_set_i32(handle, NVS_KEY_TEMP_OFF, (int32_t)(s_config.temp_peltier_off * 100));
     nvs_set_i32(handle, NVS_KEY_TEMP_MAX, (int32_t)(s_config.temp_heatsink_max * 100));
     nvs_set_i32(handle, NVS_KEY_TEMP_TARGET, (int32_t)(s_config.temp_heatsink_target * 100));
+    nvs_set_i32(handle, NVS_KEY_ENERGY_WH, (int32_t)(s_config.energy_wh * 100));
     nvs_set_i32(handle, NVS_KEY_PID_KP, (int32_t)(s_config.pid_kp * 100));
     nvs_set_i32(handle, NVS_KEY_PID_KI, (int32_t)(s_config.pid_ki * 100));
     nvs_set_i32(handle, NVS_KEY_PID_KD, (int32_t)(s_config.pid_kd * 100));
@@ -164,4 +169,18 @@ void nvs_config_delete_wifi_credentials(void) {
     memset(s_config.wifi_pass, 0, sizeof(s_config.wifi_pass));
 
     ESP_LOGI(TAG, "WiFi credentials deleted from NVS");
+}
+
+void nvs_config_save_energy(void) {
+    nvs_handle_t handle;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for energy save");
+        return;
+    }
+
+    nvs_set_i32(handle, NVS_KEY_ENERGY_WH, (int32_t)(s_config.energy_wh * 100));
+    nvs_commit(handle);
+    nvs_close(handle);
+
+    ESP_LOGI(TAG, "Energy data saved to NVS: %.2f Wh", s_config.energy_wh);
 }
