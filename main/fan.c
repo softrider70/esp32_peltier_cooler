@@ -17,15 +17,7 @@ static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
 static pid_controller_t s_fan_pid;
 static bool s_was_active = false;  // Track previous active state for NVS save
-
-// Predictive Trendanalyse Variablen
-static float s_dt_history[P_PREDICTIVE_WINDOW];  // Ringbuffer für dT/dt
-static int s_dt_index = 0;                       // Aktueller Index
-static float s_dt_avg = 0.0f;                    // Gleitender Durchschnitt
-static float s_dt_accel = 0.0f;                  // Beschleunigung (d²T/dt²)
-static float s_prev_dt_avg = 0.0f;               // Vorheriger Durchschnitt
-static float s_last_temp_indoor = 0.0f;          // Letzte Temperatur
-static uint64_t s_last_temp_time = 0;            // Letzte Zeit
+static bool s_peltier_was_on = false;  // Track Peltier state for pre-emptive fan start
 
 // RPM measurement variables
 static volatile uint32_t s_tacho_pulses = 0;
@@ -203,55 +195,28 @@ void task_fan_pid(void *pvParameters) {
         }
 #endif
 
-        // ---- Predictive Trendanalyse: Vorhersage, wann Ziel erreicht wird ----
-        float dt_min = 0.0f;
-        if (sd.indoor_valid && s_last_temp_time > 0) {
-            uint64_t now = esp_timer_get_time() / 1000;  // ms
-            float time_diff_min = (now - s_last_temp_time) / 60000.0f;
-            if (time_diff_min > 0) {
-                dt_min = (sd.temp_indoor - s_last_temp_indoor) / time_diff_min;
-            }
-        }
-        s_last_temp_indoor = sd.temp_indoor;
-        s_last_temp_time = esp_timer_get_time() / 1000;
-
-        // Gleitenden Durchschnitt berechnen
-        s_dt_history[s_dt_index] = dt_min;
-        s_dt_index = (s_dt_index + 1) % P_PREDICTIVE_WINDOW;
-
-        float sum = 0.0f;
-        for (int i = 0; i < P_PREDICTIVE_WINDOW; i++) {
-            sum += s_dt_history[i];
-        }
-        s_dt_avg = sum / P_PREDICTIVE_WINDOW;
-
-        // Beschleunigung berechnen
-        s_dt_accel = s_dt_avg - s_prev_dt_avg;
-        s_prev_dt_avg = s_dt_avg;
-
-        // Prädiktive Logik: Sofort boosten bei schnellem Temperaturanstieg
-        float fan_boost_factor = 1.0f;  // Standard: kein Boost
-#if P_PREDICTIVE_ENABLED
-        if (s_dt_avg > P_PREDICTIVE_DT_THRESHOLD) {
-            // Temperatur steigt schnell → sofort boosten
-            // Boost proportional zur Steigungsrate
-            float boost = 1.0f + (s_dt_avg - P_PREDICTIVE_DT_THRESHOLD) * 2.0f;
-            if (boost > 2.0f) boost = 2.0f;  // Maximaler Boost
-            fan_boost_factor = boost;
-            ESP_LOGI(TAG, "Predictive: dT=%.3f°C/min, accel=%.3f, boost=%.2fx",
-                     s_dt_avg, s_dt_accel, boost);
-        }
-#endif
-
         // ---- Peltier: digital on/off based on indoor temperature range ----
+        bool peltier_is_on = false;
+
         if (sd.indoor_valid) {
             if (sd.temp_indoor >= cfg->temp_peltier_on) {
                 peltier_on();
+                peltier_is_on = true;
             } else if (sd.temp_indoor <= cfg->temp_peltier_off) {
                 peltier_off();
+                peltier_is_on = false;
             }
             // Between off and on: keep current state (hysteresis band)
         }
+
+        // ---- Pre-emptive Fan Start: Lüfter sofort starten, wenn Peltier aktiviert wird ----
+        float fan_prestart_duty = 0.0f;
+        if (peltier_is_on && !s_peltier_was_on) {
+            // Peltier wurde gerade eingeschaltet → Lüfter sofort auf moderate Drehzahl
+            fan_prestart_duty = 102.0f;  // 40% PWM (unter 60% Ziel)
+            ESP_LOGI(TAG, "Pre-emptive fan start: Peltier ON → fan at 40%");
+        }
+        s_peltier_was_on = peltier_is_on;
 
         // ---- PID: regulate fan to keep heatsink at target ----
         // For cooling: error = measurement - setpoint (positive when too hot → more fan)
@@ -292,8 +257,10 @@ void task_fan_pid(void *pvParameters) {
             // Assuming max error ~5°C should give 100% PWM
             fan_output = (p_term + i_term + d_term) * 20.0f;
 
-            // Apply predictive fan boost
-            fan_output *= fan_boost_factor;
+            // Apply pre-emptive fan start (override if prestart is higher)
+            if (fan_prestart_duty > fan_output) {
+                fan_output = fan_prestart_duty;
+            }
 
             // Clamp output
             if (fan_output > PID_OUTPUT_MAX) {
@@ -317,7 +284,7 @@ void task_fan_pid(void *pvParameters) {
 
         ESP_LOGD(TAG, "Indoor=%.1f Heatsink=%.1f fan=%d peltier=%s",
                  sd.temp_indoor, sd.temp_heatsink, s_current_duty,
-                 peltier_is_on() ? "ON" : "OFF");
+                 peltier_is_on ? "ON" : "OFF");
 
         vTaskDelay(pdMS_TO_TICKS(PID_SAMPLE_TIME_MS));
     }

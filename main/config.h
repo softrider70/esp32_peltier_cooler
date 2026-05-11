@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        63      // Build counter - increment with each flash
+#define BUILD_NUMBER        64      // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -32,11 +32,6 @@
 #define PID_OUTPUT_MIN      0.0f    // Fan off
 #define PID_OUTPUT_MAX      255.0f  // Fan full speed
 #define PID_SAMPLE_TIME_MS  1000    // 1 second
-
-// ===== Predictive Trendanalyse =====
-#define P_PREDICTIVE_ENABLED    true    // Predictive Trendanalyse aktivieren
-#define P_PREDICTIVE_WINDOW     3       // Fenstergröße für gleitenden Durchschnitt
-#define P_PREDICTIVE_DT_THRESHOLD 0.3f  // Minimale Temperaturänderungsrate für sofortigen Boost (°C/min)
 
 // ===== Sensor Configuration =====
 #define SENSOR_READ_INTERVAL_MS  2000   // Read sensors every 2s
