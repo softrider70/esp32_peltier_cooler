@@ -314,11 +314,11 @@ void task_fan_pid(void *pvParameters) {
                     ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Target=%.1f°C, Error=%.1f°C, Factor=%.2f, Base=%u%%, Target=%u%%",
                              sd.temp_indoor, cfg->temp_peltier_on, temp_error, duty_factor, base_duty, target_duty);
                     
-                    // Sanfte Annäherung an Ziel-Duty (max ±5% pro Schritt)
-                    if (target_duty > new_duty + 5) {
-                        new_duty += 5;
-                    } else if (target_duty < new_duty - 5) {
-                        new_duty -= 5;
+                    // Sanfte Annäherung an Ziel-Duty (max ±10% pro Schritt für schnellere Reaktion)
+                    if (target_duty > new_duty + 10) {
+                        new_duty += 10;
+                    } else if (target_duty < new_duty - 10) {
+                        new_duty -= 10;
                     } else {
                         new_duty = target_duty;
                     }
