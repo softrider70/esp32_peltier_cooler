@@ -108,6 +108,7 @@ void nvs_config_init(void) {
         if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, &u16) == ESP_OK) s_config.peltier_pwm_period = u16;
         uint8_t u8;
         if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, &u8) == ESP_OK) s_config.peltier_pwm_duty = u8;
+        ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u", s_config.peltier_pwm_period, s_config.peltier_pwm_duty);
 
         nvs_close(handle);
         ESP_LOGI(TAG, "Config loaded from NVS");
