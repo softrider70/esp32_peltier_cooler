@@ -294,24 +294,24 @@ void task_fan_pid(void *pvParameters) {
             
             // ---- Automatische Duty-Anpassung basierend auf Innentemperatur ----
             s_duty_adjust_timer++;
-            if (s_duty_adjust_timer >= 30) {  // Alle 30 Sekunden anpassen
+            if (s_duty_adjust_timer >= 180) {  // Alle 3 Minuten anpassen (180 Sekunden)
                 s_duty_adjust_timer = 0;
                 
                 if (sd.indoor_valid) {
                     uint8_t new_duty = cfg->peltier_pwm_duty;
                     
-                    if (sd.temp_indoor > cfg->temp_peltier_on + 0.5f) {
+                    if (sd.temp_indoor > cfg->temp_peltier_on + 1.0f) {
                         // Zu warm → Duty erhöhen
                         if (new_duty < 100) {
-                            new_duty += 5;  // +5%
+                            new_duty += 2;  // +2% (feiner)
                             if (new_duty > 100) new_duty = 100;
                             ESP_LOGI(TAG, "Auto-Duty: Temp %.1f > %.1f, increasing duty to %u%%",
                                      sd.temp_indoor, cfg->temp_peltier_on, new_duty);
                         }
-                    } else if (sd.temp_indoor < cfg->temp_peltier_off - 0.5f) {
+                    } else if (sd.temp_indoor < cfg->temp_peltier_off - 1.0f) {
                         // Zu kalt → Duty verringern
                         if (new_duty > 10) {  // Minimum 10%
-                            new_duty -= 5;  // -5%
+                            new_duty -= 2;  // -2% (feiner)
                             if (new_duty < 10) new_duty = 10;
                             ESP_LOGI(TAG, "Auto-Duty: Temp %.1f < %.1f, decreasing duty to %u%%",
                                      sd.temp_indoor, cfg->temp_peltier_off, new_duty);
