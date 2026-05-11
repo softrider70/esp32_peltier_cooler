@@ -298,17 +298,17 @@ void task_fan_pid(void *pvParameters) {
                     // Peltier-Kühlleistung sinkt bei größerer Temperaturdifferenz
                     // Daher: Mehr Duty bei größerer Differenz zum Ziel
                     float temp_error = sd.temp_indoor - cfg->temp_peltier_on;  // Fehler zum Ziel (13°C)
-                    
+
                     // Formfaktor: Je größer der Fehler, desto mehr Duty wird benötigt
-                    // Faktor 0.1 bedeutet: Bei 1°C über Ziel → 10% mehr Duty
-                    float duty_factor = 1.0f + (temp_error * 0.1f);
-                    
-                    // Begrenzung des Formfaktors auf sinnvolle Werte (0.5 bis 2.0)
+                    // Faktor 0.2 bedeutet: Bei 1°C über Ziel → 20% mehr Duty (erhöht für stärkere Reaktion)
+                    float duty_factor = 1.0f + (temp_error * 0.2f);
+
+                    // Begrenzung des Formfaktors auf sinnvolle Werte (0.5 bis 3.0)
                     if (duty_factor < 0.5f) duty_factor = 0.5f;
-                    if (duty_factor > 2.0f) duty_factor = 2.0f;
-                    
-                    // Basis-Duty berechnen (30% bei genauem Ziel, angepasst durch Formfaktor)
-                    uint8_t base_duty = 30;
+                    if (duty_factor > 3.0f) duty_factor = 3.0f;
+
+                    // Basis-Duty berechnen (40% bei genauem Ziel, angepasst durch Formfaktor)
+                    uint8_t base_duty = 40;
                     uint8_t target_duty = (uint8_t)(base_duty * duty_factor);
                     
                     ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Target=%.1f°C, Error=%.1f°C, Factor=%.2f, Base=%u%%, Target=%u%%",
