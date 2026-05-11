@@ -294,45 +294,36 @@ void task_fan_pid(void *pvParameters) {
                 if (sd.indoor_valid && cfg->peltier_pwm_auto) {
                     uint8_t new_duty = cfg->peltier_pwm_duty;
                     
-                    // Statische Variable für Temperaturänderung über Zeit
-                    static float last_indoor_temp = 0.0f;
-                    static bool first_run = true;
+                    // Logik basierend auf absoluter Temperatur (nicht auf Änderung)
+                    // Ziel: Temperatur im Bereich 11-13°C halten
+                    float temp_error = sd.temp_indoor - cfg->temp_peltier_on;  // Fehler zum Ziel (13°C)
                     
-                    float temp_change = 0.0f;
-                    if (!first_run) {
-                        temp_change = sd.temp_indoor - last_indoor_temp;
-                    }
-                    last_indoor_temp = sd.temp_indoor;
-                    first_run = false;
-                    
-                    ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Change=%.1f°C, Current_Duty=%u%%",
-                             sd.temp_indoor, temp_change, new_duty);
+                    ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Target=%.1f°C, Error=%.1f°C, Current_Duty=%u%%",
+                             sd.temp_indoor, cfg->temp_peltier_on, temp_error, new_duty);
                     
                     bool duty_changed = false;
                     
-                    // Einfache Logik: Nur Temperaturänderung beachten
-                    // Temp steigt → Duty erhöhen (mehr Kühlung nötig)
-                    // Temp fällt → Duty verringern (weniger Kühlung nötig)
-                    if (temp_change > 0.2f) {
-                        // Temperatur steigt um >0.2°C → Duty erhöhen
+                    if (temp_error > 0.3f) {
+                        // Temperatur > 13.3°C (zu warm) → Duty erhöhen
                         if (new_duty < 100) {
                             new_duty += 5;
                             if (new_duty > 100) new_duty = 100;
                             duty_changed = true;
-                            ESP_LOGI(TAG, "Auto-Duty: Temp steigt %.1f°C, increasing duty to %u%%",
-                                     temp_change, new_duty);
+                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f°C > %.1f°C (zu warm), increasing duty to %u%%",
+                                     sd.temp_indoor, cfg->temp_peltier_on, new_duty);
                         }
-                    } else if (temp_change < -0.2f) {
-                        // Temperatur fällt um >0.2°C → Duty verringern
+                    } else if (temp_error < -0.3f) {
+                        // Temperatur < 12.7°C (zu kalt) → Duty verringern
                         if (new_duty > 10) {
                             new_duty -= 5;
                             if (new_duty < 10) new_duty = 10;
                             duty_changed = true;
-                            ESP_LOGI(TAG, "Auto-Duty: Temp fällt %.1f°C, decreasing duty to %u%%",
-                                     temp_change, new_duty);
+                            ESP_LOGI(TAG, "Auto-Duty: Temp %.1f°C < %.1f°C (zu kalt), decreasing duty to %u%%",
+                                     sd.temp_indoor, cfg->temp_peltier_on, new_duty);
                         }
                     } else {
-                        ESP_LOGI(TAG, "Auto-Duty: Temp stabil (%.1f°C), Duty unverändert", temp_change);
+                        ESP_LOGI(TAG, "Auto-Duty: Temp %.1f°C im Zielbereich %.1f±0.3°C, Duty stabil bei %u%%",
+                                 sd.temp_indoor, cfg->temp_peltier_on, new_duty);
                     }
                     
                     // Duty speichern, wenn geändert
