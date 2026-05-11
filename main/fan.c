@@ -269,9 +269,9 @@ void task_fan_pid(void *pvParameters) {
 
         // ---- Peltier PWM (langsames PWM für Stromspar-Modus) ----
         bool peltier_hw_on = false;  // Hardware-Zustand
-        
+
         if (peltier_main_state) {
-            // Hauptzustand AN → Hardware immer AN, PWM steuert Duty
+            // Hauptzustand AN → Hardware wird durch PWM gesteuert
             uint32_t on_time = (cfg->peltier_pwm_period * cfg->peltier_pwm_duty) / 100;
             
             s_peltier_pwm_timer++;
@@ -279,9 +279,9 @@ void task_fan_pid(void *pvParameters) {
                 s_peltier_pwm_timer = 0;  // Periode zurücksetzen
             }
             
-            // Hardware immer AN bei Hauptzustand AN
-            peltier_hw_on = true;
+            // Hardware wird durch PWM gesteuert: AN wenn timer < on_time
             s_peltier_pwm_state = (s_peltier_pwm_timer < on_time);
+            peltier_hw_on = s_peltier_pwm_state;  // Hardware folgt PWM-Status
             
             ESP_LOGD(TAG, "Peltier PWM: timer=%u/%u, on_time=%u, pwm_state=%d, hw_state=%d",
                      s_peltier_pwm_timer, cfg->peltier_pwm_period, on_time, s_peltier_pwm_state, peltier_hw_on);

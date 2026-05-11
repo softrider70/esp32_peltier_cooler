@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        108     // Build counter - increment with each flash
+#define BUILD_NUMBER        109     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -47,10 +47,11 @@
 // ===== Reset Button Configuration =====
 #define RESET_BUTTON_HOLD_MS 3000     // Button must be held for 3 seconds to reset WiFi
 
-// ===== Energy Consumption Configuration =====
+// ===== Peltier Configuration =====
 #define PELTIER_VOLTAGE       12.0f   // Peltier voltage in Volts
+#define PELTIER_POWER         60.0f   // Peltier power in Watts (60W TEC1-12706)
+#define PELTIER_COST_PER_KWH  0.305f  // Strompreis in Euro pro kWh (30,5 Cent)
 #define PELTIER_CURRENT       3.0f    // Peltier current in Amps
-#define PELTIER_POWER         (PELTIER_VOLTAGE * PELTIER_CURRENT)  // 36W
 #define ENERGY_SAVE_INTERVAL_MS 900000  // Save energy data every 15 minutes (NVS protection)
 
 // ===== NVS Keys =====

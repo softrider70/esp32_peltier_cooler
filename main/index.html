@@ -73,10 +73,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 <div class="card">
 <h2>Verbrauch</h2>
-<div class="row"><label>Gesamt:</label><span id="st_energy">-- Wh</span></div>
-<div class="row"><label>Heute:</label><span id="st_energy_day">-- Wh</span></div>
-<div class="row"><label>Woche:</label><span id="st_energy_week">-- Wh</span></div>
-<div class="row"><label>Monat:</label><span id="st_energy_month">-- Wh</span></div>
+<div class="row"><label>Gesamt:</label><span id="st_energy">-- Wh</span> <span id="st_cost_total" style="color:#0ff;margin-left:.5rem">-- €</span></div>
+<div class="row"><label>Heute:</label><span id="st_energy_day">-- Wh</span> <span id="st_cost_day" style="color:#0ff;margin-left:.5rem">-- €</span></div>
+<div class="row"><label>Woche:</label><span id="st_energy_week">-- Wh</span> <span id="st_cost_week" style="color:#0ff;margin-left:.5rem">-- €</span></div>
+<div class="row"><label>Monat:</label><span id="st_energy_month">-- Wh</span> <span id="st_cost_month" style="color:#0ff;margin-left:.5rem">-- €</span></div>
 </div>
 <div class="card">
 <h2>System</h2>
@@ -308,6 +308,10 @@ document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
 document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
 document.getElementById('st_energy_week').textContent=d.energy_week.toFixed(2)+' Wh';
 document.getElementById('st_energy_month').textContent=d.energy_month.toFixed(2)+' Wh';
+document.getElementById('st_cost_total').textContent=d.cost_total.toFixed(2)+' €';
+document.getElementById('st_cost_day').textContent=d.cost_day.toFixed(2)+' €';
+document.getElementById('st_cost_week').textContent=d.cost_week.toFixed(2)+' €';
+document.getElementById('st_cost_month').textContent=d.cost_month.toFixed(2)+' €';
 document.getElementById('st_time').textContent=d.time;
 document.getElementById('st_active').textContent=d.active?'AKTIV':'INAKTIV';
 var dot=document.getElementById('dot_active');

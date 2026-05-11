@@ -80,6 +80,12 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     uint32_t interval_sec = data_logger_get_interval() / 1000;
     float duration_hours = (720.0f * interval_sec) / 3600.0f;
 
+    // Calculate costs (30.5 Cent/kWh = 0.305 Euro/kWh)
+    float cost_total = cfg->energy_wh * PELTIER_COST_PER_KWH / 1000.0f;
+    float cost_day = cfg->energy_day * PELTIER_COST_PER_KWH / 1000.0f;
+    float cost_week = cfg->energy_week * PELTIER_COST_PER_KWH / 1000.0f;
+    float cost_month = cfg->energy_month * PELTIER_COST_PER_KWH / 1000.0f;
+
     // Calculate trends
     int trend_indoor = calculate_trend(sd.temp_indoor, s_last_indoor_temp, 0.1f);
     int trend_heatsink = calculate_trend(sd.temp_heatsink, s_last_heatsink_temp, 0.1f);
@@ -105,6 +111,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
+        "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
         "\"peltier_pwm_period\":%u,\"peltier_pwm_duty\":%u,\"peltier_pwm_auto\":%s,"
         "\"peltier_pwm_interval\":%u,\"duty_timer_remaining\":%u,"
         "\"trend_indoor\":%d,\"trend_heatsink\":%d,\"trend_fan_duty\":%d,\"trend_pwm_duty\":%d,"
@@ -123,6 +130,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
+        cost_total, cost_day, cost_week, cost_month,
         cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false",
         cfg->peltier_pwm_interval, fan_get_duty_timer_remaining(),
         trend_indoor, trend_heatsink, trend_fan_duty, trend_pwm_duty,
