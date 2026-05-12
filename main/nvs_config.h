@@ -35,9 +35,6 @@ app_config_t* nvs_config_get(void);
 // Save current config to NVS
 void nvs_config_save(void);
 
-// Save only PWM params to NVS (period, duty, interval)
-void nvs_config_save_pwm_params(void);
-
 // Update WiFi credentials and save
 void nvs_config_set_wifi(const char *ssid, const char *password);
 
