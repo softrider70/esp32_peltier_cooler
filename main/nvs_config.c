@@ -185,10 +185,13 @@ void nvs_config_save(void) {
     nvs_set_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, s_config.data_log_interval);
 ESP_LOGI(TAG, "Saving data_log_interval to NVS: %u", s_config.data_log_interval);
     nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, s_config.peltier_pwm_period);
+    ESP_LOGI(TAG, "Saving peltier_pwm_period to NVS: %u", s_config.peltier_pwm_period);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, s_config.peltier_pwm_duty);
+    ESP_LOGI(TAG, "Saving peltier_pwm_duty to NVS: %u", s_config.peltier_pwm_duty);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, s_config.peltier_pwm_auto);
+    ESP_LOGI(TAG, "Saving peltier_pwm_auto to NVS: %d", s_config.peltier_pwm_auto);
     nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, s_config.peltier_pwm_interval);
-    ESP_LOGI(TAG, "Saving to NVS: pwm_auto=%d, pwm_interval=%u", s_config.peltier_pwm_auto, s_config.peltier_pwm_interval);
+    ESP_LOGI(TAG, "Saving peltier_pwm_interval to NVS: %u", s_config.peltier_pwm_interval);
 
     nvs_commit(handle);
     nvs_close(handle);
