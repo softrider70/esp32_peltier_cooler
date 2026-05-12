@@ -188,9 +188,9 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         snprintf(key_off, sizeof(key_off), "sched_%d_off", i);
         
         if (httpd_query_key_value(buf, key_on, value, sizeof(value)) == ESP_OK)
-            cfg->sched_on[i] = (uint16_t)atoi(value) * 60;  // Hours to minutes
+            cfg->sched_on[i] = (uint16_t)atoi(value);  // Already in minutes from JS
         if (httpd_query_key_value(buf, key_off, value, sizeof(value)) == ESP_OK)
-            cfg->sched_off[i] = (uint16_t)atoi(value) * 60;  // Hours to minutes
+            cfg->sched_off[i] = (uint16_t)atoi(value);  // Already in minutes from JS
     }
 
     nvs_config_save();
