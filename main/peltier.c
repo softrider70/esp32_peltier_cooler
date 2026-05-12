@@ -192,8 +192,7 @@ static void autoduty_callback(void* arg) {
             s_consecutive_reductions++;
             s_consecutive_increments = 0;
             s_equal_temp_counter = 0;
-            s_duty_step = 5;  // Zurück zu Basis
-            ESP_LOGI(TAG, "Auto-Duty: Temp sinks (%.2f -> %.2f), duty reduced to %u%%", s_temp_start, temp_current, s_pwm_duty);
+            ESP_LOGI(TAG, "Auto-Duty: Temp sinks (%.2f -> %.2f), duty reduced to %u%% (step=%u)", s_temp_start, temp_current, s_pwm_duty, s_duty_step);
             // Duty in NVS-Config aktualisieren
             app_config_t *cfg = nvs_config_get();
             cfg->peltier_pwm_duty = s_pwm_duty;
@@ -207,7 +206,7 @@ static void autoduty_callback(void* arg) {
             s_consecutive_increments++;
             s_consecutive_reductions = 0;
             s_equal_temp_counter = 0;
-            ESP_LOGI(TAG, "Auto-Duty: Temp rises (%.2f -> %.2f), duty increased to %u%%", s_temp_start, temp_current, s_pwm_duty);
+            ESP_LOGI(TAG, "Auto-Duty: Temp rises (%.2f -> %.2f), duty increased to %u%% (step=%u)", s_temp_start, temp_current, s_pwm_duty, s_duty_step);
             // Duty in NVS-Config aktualisieren
             app_config_t *cfg = nvs_config_get();
             cfg->peltier_pwm_duty = s_pwm_duty;
