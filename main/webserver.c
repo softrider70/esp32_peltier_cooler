@@ -112,17 +112,17 @@ static void generate_pwm_duty_symbol_series(char *buf, int buf_size, int actual_
     buf[len] = '\0';
 }
 
-// Generische Symbolreihe für Float-Werte
-static void generate_float_symbol_series(char *buf, int buf_size, float series[], int size, int actual_count, float threshold) {
+// Generische Symbolreihe für Float-Werte (links nach rechts: neu → alt)
+static void generate_float_symbol_series(char *buf, int buf_size, float series[], int actual_count, float threshold) {
     if (actual_count < 2) {
         snprintf(buf, buf_size, "->");
         return;
     }
     int len = 0;
     for (int i = 0; i < actual_count && len < buf_size - 1; i++) {
-        float prev = i > 0 ? series[(s_series_index - actual_count + i - 1 + 20) % 20] : series[(s_series_index - actual_count + i + 20) % 20];
-        float curr = series[(s_series_index - actual_count + i + 20) % 20];
-        float diff = curr - prev;
+        float prev = i < actual_count - 1 ? series[i + 1] : series[i];
+        float curr = series[i];
+        float diff = curr - prev;  // Aktueller - Vorheriger
         if (diff > threshold) len += snprintf(buf + len, buf_size - len, "^");
         else if (diff < -threshold) len += snprintf(buf + len, buf_size - len, "v");
         else len += snprintf(buf + len, buf_size - len, "-");
@@ -188,14 +188,22 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     if (s_history_index == 0) s_history_filled = true;
 
     // Update Symbolreihen (20 Werte) - neue Daten links, alte nach rechts schieben
-    for (int i = 19; i > 0; i--) {
-        s_indoor_series[i] = s_indoor_series[i - 1];
-        s_heatsink_series[i] = s_heatsink_series[i - 1];
-        s_fan_duty_series[i] = s_fan_duty_series[i - 1];
+    if (!s_series_filled) {
+        // Array noch nicht gefüllt - direkt an aktueller Position schreiben
+        s_indoor_series[s_series_index] = sd.temp_indoor;
+        s_heatsink_series[s_series_index] = sd.temp_heatsink;
+        s_fan_duty_series[s_series_index] = fan_get_duty();
+    } else {
+        // Array gefüllt - alles nach rechts schieben, neue Daten am Anfang
+        for (int i = 19; i > 0; i--) {
+            s_indoor_series[i] = s_indoor_series[i - 1];
+            s_heatsink_series[i] = s_heatsink_series[i - 1];
+            s_fan_duty_series[i] = s_fan_duty_series[i - 1];
+        }
+        s_indoor_series[0] = sd.temp_indoor;
+        s_heatsink_series[0] = sd.temp_heatsink;
+        s_fan_duty_series[0] = fan_get_duty();
     }
-    s_indoor_series[0] = sd.temp_indoor;
-    s_heatsink_series[0] = sd.temp_heatsink;
-    s_fan_duty_series[0] = fan_get_duty();
 
     s_series_index++;
     if (s_series_index >= 20) s_series_filled = true;
@@ -216,9 +224,9 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     char pwm_duty_symbol_series[25] = {0};
     int actual_count = s_series_filled ? 20 : s_series_index;
     int pwm_actual_count = s_pwm_duty_history_filled ? 20 : s_pwm_duty_history_index;
-    generate_float_symbol_series(indoor_symbol_series, sizeof(indoor_symbol_series), s_indoor_series, 20, actual_count, 0.1f);
-    generate_float_symbol_series(heatsink_symbol_series, sizeof(heatsink_symbol_series), s_heatsink_series, 20, actual_count, 0.1f);
-    generate_float_symbol_series(fan_duty_symbol_series, sizeof(fan_duty_symbol_series), (float*)s_fan_duty_series, 20, actual_count, 2.0f);
+    generate_float_symbol_series(indoor_symbol_series, sizeof(indoor_symbol_series), s_indoor_series, actual_count, 0.1f);
+    generate_float_symbol_series(heatsink_symbol_series, sizeof(heatsink_symbol_series), s_heatsink_series, actual_count, 0.1f);
+    generate_float_symbol_series(fan_duty_symbol_series, sizeof(fan_duty_symbol_series), (float*)s_fan_duty_series, actual_count, 2.0f);
     generate_pwm_duty_symbol_series(pwm_duty_symbol_series, sizeof(pwm_duty_symbol_series), pwm_actual_count);
 
     int len = snprintf(buf, sizeof(buf),
