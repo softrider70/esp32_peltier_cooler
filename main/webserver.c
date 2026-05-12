@@ -312,18 +312,24 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     }
 
     // Peltier PWM Parameter
+    bool pwm_params_changed = false;
     if (httpd_query_key_value(buf, "peltier_pwm_period", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_period = (uint16_t)atoi(value);
         ESP_LOGI(TAG, "Config update: peltier_pwm_period = %u seconds (raw: %s)", cfg->peltier_pwm_period, value);
+        pwm_params_changed = true;
     }
     if (httpd_query_key_value(buf, "peltier_pwm_duty", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_duty = (uint8_t)atoi(value);
         ESP_LOGI(TAG, "Config update: peltier_pwm_duty = %u%% (raw: %s)", cfg->peltier_pwm_duty, value);
+        pwm_params_changed = true;
     }
     if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK)
         cfg->peltier_pwm_auto = (atoi(value) != 0);
-    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK)
+    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_interval = (uint16_t)atoi(value);
+        ESP_LOGI(TAG, "Config update: peltier_pwm_interval = %u seconds (raw: %s)", cfg->peltier_pwm_interval, value);
+        pwm_params_changed = true;
+    }
 
     // Parse daily schedule (7 days, 2 values each)
     for (int i = 0; i < 7; i++) {
@@ -335,6 +341,11 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
             cfg->sched_on[i] = (uint16_t)atoi(value);  // Already in minutes from JS
         if (httpd_query_key_value(buf, key_off, value, sizeof(value)) == ESP_OK)
             cfg->sched_off[i] = (uint16_t)atoi(value);  // Already in minutes from JS
+    }
+
+    // PWM-Parameter separat speichern
+    if (pwm_params_changed) {
+        nvs_config_save_pwm_params();
     }
 
     nvs_config_save();
