@@ -14,7 +14,7 @@ static void load_defaults(void) {
     s_config.temp_peltier_off = TEMP_PELTIER_OFF_DEFAULT;
     s_config.temp_heatsink_max = TEMP_HEATSINK_MAX;
     s_config.temp_heatsink_target = TEMP_HEATSINK_TARGET;
-    s_config.data_log_interval = 300;  // Default: 300 seconds (5 minutes)
+    s_config.data_log_interval = 10;  // Default: 10 seconds
     s_config.energy_wh = 0.0f;  // Default: 0 Wh
     s_config.energy_day = 0.0f;  // Default: 0 Wh
     s_config.energy_week = 0.0f;
@@ -98,8 +98,12 @@ void nvs_config_init(void) {
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SA_OFF, &u16) == ESP_OK) s_config.sched_off[5] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_ON, &u16) == ESP_OK) s_config.sched_on[6] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_OFF, &u16) == ESP_OK) s_config.sched_off[6] = u16;
-        if (nvs_get_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, &u16) == ESP_OK) s_config.data_log_interval = u16;
-ESP_LOGI(TAG, "Loaded data_log_interval from NVS: %u (default was 300)", s_config.data_log_interval);
+        if (nvs_get_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, &u16) == ESP_OK) {
+    s_config.data_log_interval = u16;
+    ESP_LOGI(TAG, "Loaded data_log_interval from NVS: %u", s_config.data_log_interval);
+} else {
+    ESP_LOGI(TAG, "data_log_interval not found in NVS, using default: %u", s_config.data_log_interval);
+}
         if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, &u16) == ESP_OK) s_config.peltier_pwm_period = u16;
         uint8_t u8;
         if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, &u8) == ESP_OK) s_config.peltier_pwm_duty = u8;

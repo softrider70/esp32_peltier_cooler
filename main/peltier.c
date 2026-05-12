@@ -39,6 +39,7 @@ static void IRAM_ATTR pwm_on_callback(void* arg) {
 
     // Timer für GPIO aus starten
     uint64_t on_time_us = (s_pwm_period_us * s_pwm_duty) / 100;
+    ESP_LOGI(TAG, "PWM ON: period=%llu us, duty=%u%%, on_time=%llu us", s_pwm_period_us, s_pwm_duty, on_time_us);
     esp_timer_start_once(s_pwm_timer_off, on_time_us);
 
     // Nächsten Zyklus starten
@@ -188,6 +189,9 @@ static void autoduty_callback(void* arg) {
             s_equal_temp_counter = 0;
             s_duty_step = 5;  // Zurück zu Basis
             ESP_LOGI(TAG, "Auto-Duty: Temp sinks (%.2f -> %.2f), duty reduced to %u%%", s_temp_start, temp_current, s_pwm_duty);
+            // Duty in NVS-Config aktualisieren
+            app_config_t *cfg = nvs_config_get();
+            cfg->peltier_pwm_duty = s_pwm_duty;
         }
     } else if (temp_diff > 0.1f) {
         // Temperatur steigt → Duty erhöhen
@@ -197,6 +201,9 @@ static void autoduty_callback(void* arg) {
             s_consecutive_reductions = 0;
             s_equal_temp_counter = 0;
             ESP_LOGI(TAG, "Auto-Duty: Temp rises (%.2f -> %.2f), duty increased to %u%%", s_temp_start, temp_current, s_pwm_duty);
+            // Duty in NVS-Config aktualisieren
+            app_config_t *cfg = nvs_config_get();
+            cfg->peltier_pwm_duty = s_pwm_duty;
         }
     } else {
         // Temperatur gleich
@@ -208,6 +215,9 @@ static void autoduty_callback(void* arg) {
                 s_consecutive_increments++;
                 s_equal_temp_counter = 0;
                 ESP_LOGI(TAG, "Auto-Duty: Temp stable 2x, duty increased to %u%%", s_pwm_duty);
+                // Duty in NVS-Config aktualisieren
+                app_config_t *cfg = nvs_config_get();
+                cfg->peltier_pwm_duty = s_pwm_duty;
             }
         } else {
             // Stabil → Schrittweite zurück zu Basis
