@@ -26,6 +26,11 @@ static float s_fan_duty_history[3] = {0};
 static int s_history_index = 0;
 static bool s_history_filled = false;
 
+// PWM Duty Historie für Symbolreihe (10 Werte)
+static uint8_t s_pwm_duty_history[10] = {0};
+static int s_pwm_duty_history_index = 0;
+static bool s_pwm_duty_history_filled = false;
+
 static const char *TAG = "webserver";
 static httpd_handle_t s_server = NULL;
 static TaskHandle_t s_dns_task = NULL;
@@ -39,17 +44,42 @@ extern const uint8_t captive_html_end[]   asm("_binary_captive_html_end");
 // Trend-Berechnung über 3 Messwerte: 1=steigend, -1=fallend, 0=stabil
 static int calculate_trend(float current, float history[], int size, float threshold) {
 if (!s_history_filled) return 0;
-    
+
 // Berechne Durchschnitt der letzten 3 Werte
 float avg = 0;
 for (int i = 0; i < size; i++) {
 avg += history[i];
 }
 avg /= size;
-    
+
 if (current > avg + threshold) return 1;   // Steigend
 if (current < avg - threshold) return -1;  // Fallend
 return 0;                                   // Stabil
+}
+
+// Symbolreihe für PWM Duty generieren (z.B. "^^v->^")
+static void generate_pwm_duty_symbol_series(char *buf, int buf_size) {
+if (!s_pwm_duty_history_filled) {
+    snprintf(buf, buf_size, "->");
+    return;
+}
+
+int pos = 0;
+for (int i = 0; i < 10; i++) {
+    int idx = (s_pwm_duty_history_index - 10 + i + 10) % 10;
+    if (i > 0) {
+        uint8_t prev = s_pwm_duty_history[(idx - 1 + 10) % 10];
+        uint8_t curr = s_pwm_duty_history[idx];
+        if (curr > prev) {
+            buf[pos++] = '^';
+        } else if (curr < prev) {
+            buf[pos++] = 'v';
+        } else {
+            buf[pos++] = '-';
+        }
+    }
+}
+buf[pos] = '\0';
 }
 
 // ===== Handlers =====
@@ -105,9 +135,18 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     s_indoor_history[s_history_index] = sd.temp_indoor;
     s_heatsink_history[s_history_index] = sd.temp_heatsink;
     s_fan_duty_history[s_history_index] = fan_get_duty();
-        
+
     s_history_index = (s_history_index + 1) % 3;
     if (s_history_index == 0) s_history_filled = true;
+
+    // Update PWM Duty Historie (10 Werte für Symbolreihe)
+    s_pwm_duty_history[s_pwm_duty_history_index] = cfg->peltier_pwm_duty;
+    s_pwm_duty_history_index = (s_pwm_duty_history_index + 1) % 10;
+    if (s_pwm_duty_history_index == 0) s_pwm_duty_history_filled = true;
+
+    // Symbolreihe generieren
+    char pwm_duty_symbol_series[12] = {0};
+    generate_pwm_duty_symbol_series(pwm_duty_symbol_series, sizeof(pwm_duty_symbol_series));
 
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
@@ -121,6 +160,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_pwm_auto\":%s,\"peltier_pwm_interval\":%d,"
+        "\"pwm_duty_symbol_series\":\"%s\","
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
         "\"trend_indoor\":%d,\"trend_heatsink\":%d,\"trend_fan_duty\":%d,"
@@ -139,6 +179,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
         cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false", cfg->peltier_pwm_interval,
+        pwm_duty_symbol_series,
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
         trend_indoor, trend_heatsink, trend_fan_duty,

@@ -69,7 +69,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Peltier</h2>
 <div class="row"><label>Status:</label><button id="st_peltier" style="background:#444;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;cursor:default">--</button></div>
 <div class="row"><label>PWM Period:</label><span id="st_pwm_period">--s</span></div>
-<div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span></div>
+<div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span> <span id="pwm_duty_symbol_series" style="font-size:.7rem;color:#888"></span></div>
 <div class="row"><label>Auto-Duty:</label><span id="st_pwm_auto">--</span></div>
 <div class="row"><label>Auto-Duty Intervall:</label><span id="st_pwm_interval">--s</span></div>
 </div>
@@ -306,6 +306,7 @@ peltierBtn.textContent=d.peltier_on?'AN':'AUS';
 peltierBtn.style.background=d.peltier_on?'#e74c3c':'#2ecc71';
 document.getElementById('st_pwm_period').textContent=d.peltier_pwm_period+'s';
 document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
+document.getElementById('pwm_duty_symbol_series').textContent=d.pwm_duty_symbol_series;
 document.getElementById('st_pwm_auto').textContent=d.peltier_pwm_auto?'AN':'AUS';
 document.getElementById('st_pwm_interval').textContent=d.peltier_pwm_interval+'s';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
