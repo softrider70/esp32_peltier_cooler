@@ -38,10 +38,13 @@ static void load_defaults(void) {
 
 void nvs_config_init(void) {
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_LOGW(TAG, "NVS partition corrupted or new version - erasing NVS");
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
+        ESP_LOGW(TAG, "NVS partition corrupted - erasing NVS");
         nvs_flash_erase();
         nvs_flash_init();
+    } else if (ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_LOGW(TAG, "NVS new version found - NOT erasing, attempting to read");
+        // Don't erase - try to read existing data
     }
 
     load_defaults();
