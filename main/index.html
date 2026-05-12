@@ -360,7 +360,7 @@ else{el.textContent='';el.style.color=''}
 }
 
 function resetWifi(){
-if(!confirm('Wirklich WiFi-Credentials löschen?\\n\\nDer ESP32 startet dann in den AP-Modus.\\nSie müssen sich neu mit dem WiFi verbinden.'))return;
+if(!confirm('Wirklich WiFi-Credentials löschen?\n\nDer ESP32 startet dann in den AP-Modus.\nSie müssen sich neu mit dem WiFi verbinden.'))return;
 document.getElementById('wifi_reset_status').textContent='Reset wird ausgeführt...';
 fetch('/api/wifi/reset',{method:'POST'})
 .then(r=>r.json()).then(d=>{document.getElementById('wifi_reset_status').textContent=d.msg;document.getElementById('wifi_reset_status').style.color='#51cf66'})
