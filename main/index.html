@@ -335,6 +335,7 @@ fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-fo
 }
 
 function startOta(){
+console.log('OTA button clicked');
 fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='})
 .then(r=>r.json()).then(d=>{showStatus('OTA gestartet!','success');pollOta()}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
@@ -407,6 +408,7 @@ else if(id==='ota_url')saveOtaUrl();
 
 // System Reset Funktion
 function systemReset(){
+console.log('Reset button clicked');
 if(confirm('ESP32 wirklich neustarten?')){
 fetch('/api/reset',{method:'POST'}).then(r=>r.json()).then(d=>{
 alert('ESP32 wird neugestartet...');
