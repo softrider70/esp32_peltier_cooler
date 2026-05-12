@@ -90,7 +90,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <!-- Tab: Graph -->
 <div id="tab-graph" class="tab-content">
 <div class="card">
-<h2>Temperaturverlauf</h2>
+<h2>Temperaturverlauf <span style="font-size:.7rem;color:#888;font-weight:normal">Build <span id="build_graph">--</span></span></h2>
 <div id="graph-container">
 <canvas id="tempChart"></canvas>
 </div>
@@ -141,6 +141,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 </div>
 </div>
+
+<p style="font-size:.7rem;color:#888">Build <span id="build_config">--</span></p>
 
 <button type="button" onclick="saveConfig()" style="margin-bottom:.5rem">Speichern</button>
 <button type="button" onclick="saveToNVS()" style="margin-bottom:.5rem;margin-left:.5rem;background:#00ff00;color:#000">NVS speichern</button>
@@ -305,6 +307,8 @@ dot_emergency.className='status-dot '+(d.emergency?'dot-warn':'dot-off');
 document.getElementById('emergency_status').textContent=d.emergency?'AKTIV':'INAKTIV';
 document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Zeit-Sync';
 document.getElementById('build').textContent=d.build;
+document.getElementById('build_graph').textContent=d.build;
+document.getElementById('build_config').textContent=d.build;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('st_heatsink').classList.add('warn');
 else document.getElementById('st_heatsink').classList.remove('warn');
 // Load config values only once (on first load)
