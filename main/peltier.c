@@ -1,11 +1,12 @@
 #include "peltier.h"
-#include "config.h"
-#include "nvs_config.h"
 #include "sensor.h"
+#include "nvs_config.h"
+#include "config.h"
+#include "esp_log.h"
+#include <math.h>
+#include <stdbool.h>
 #include "driver/gpio.h"
 #include "esp_timer.h"
-#include "esp_log.h"
-#include <stdbool.h>
 
 static const char *TAG = "peltier";
 static bool s_is_on = false;        // Hardware-Zustand (GPIO)
@@ -240,8 +241,11 @@ static void autoduty_callback(void* arg) {
     if (s_consecutive_reductions >= 2) s_duty_step = 7;
     if (s_consecutive_reductions >= 4) s_duty_step = 10;
 
-    // Neue Start-Temperatur
-    s_temp_start = temp_current;
+    // Neue Start-Temperatur nur bei signifikanter Änderung
+    if (fabs(temp_diff) >= 0.1f) {
+        s_temp_start = temp_current;
+        s_equal_temp_counter = 0;
+    }
 }
 
 // Auto-Duty starten
