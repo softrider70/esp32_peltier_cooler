@@ -43,3 +43,6 @@ void nvs_config_delete_wifi_credentials(void);
 
 // Save only energy data to NVS (for frequent updates)
 void nvs_config_save_energy(void);
+
+// Save schedule defaults to NVS (8-23 for all days)
+void nvs_config_save_schedule_defaults(void);

@@ -215,3 +215,37 @@ void nvs_config_save_energy(void) {
     ESP_LOGI(TAG, "Energy data saved to NVS: total=%.2f Wh, day=%.2f Wh, week=%.2f Wh, month=%.2f Wh",
              s_config.energy_wh, s_config.energy_day, s_config.energy_week, s_config.energy_month);
 }
+
+void nvs_config_save_schedule_defaults(void) {
+    nvs_handle_t handle;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for schedule defaults");
+        return;
+    }
+
+    // Setze alle Schedule-Werte auf Default: 8-23
+    for (int i = 0; i < 7; i++) {
+        s_config.sched_on[i] = 8 * 60;   // 8:00
+        s_config.sched_off[i] = 23 * 60;  // 23:00
+    }
+
+    nvs_set_u16(handle, NVS_KEY_SCHED_MO_ON, s_config.sched_on[0]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_MO_OFF, s_config.sched_off[0]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_DI_ON, s_config.sched_on[1]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_DI_OFF, s_config.sched_off[1]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_MI_ON, s_config.sched_on[2]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_MI_OFF, s_config.sched_off[2]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_DO_ON, s_config.sched_on[3]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_DO_OFF, s_config.sched_off[3]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_FR_ON, s_config.sched_on[4]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_FR_OFF, s_config.sched_off[4]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_SA_ON, s_config.sched_on[5]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_SA_OFF, s_config.sched_off[5]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_SO_ON, s_config.sched_on[6]);
+    nvs_set_u16(handle, NVS_KEY_SCHED_SO_OFF, s_config.sched_off[6]);
+
+    nvs_commit(handle);
+    nvs_close(handle);
+
+    ESP_LOGI(TAG, "Schedule defaults saved to NVS: 8-23 for all days");
+}
