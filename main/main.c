@@ -86,16 +86,23 @@ void app_main(void) {
     peltier_init();
     ESP_LOGI(TAG, "Hardware initialized");
 
+    // 2.1. Enable PWM if configured
+    app_config_t *cfg_pwm = nvs_config_get();
+    peltier_pwm_enable(true);  // PWM immer aktivieren
+    if (cfg_pwm->peltier_pwm_auto) {
+        peltier_autoduty_start();
+        ESP_LOGI(TAG, "Auto-Duty enabled");
+    }
+
     // 2.5. Initialize data logger (ring buffer)
     data_logger_init();
-    
+
     // Load graph data from NVS (if available)
     data_logger_load_from_nvs();
-    
+
     // Load configured logging interval from NVS
-    app_config_t *cfg = nvs_config_get();
-    data_logger_set_interval(cfg->data_log_interval * 1000);  // Convert seconds to ms
-    ESP_LOGI(TAG, "Data logger initialized, interval: %d seconds", cfg->data_log_interval);
+    data_logger_set_interval(cfg_pwm->data_log_interval * 1000);  // Convert seconds to ms
+    ESP_LOGI(TAG, "Data logger initialized, interval: %d seconds", cfg_pwm->data_log_interval);
 
     // 3. Initialize WiFi (blocks until connected or AP mode active)
     wifi_init();

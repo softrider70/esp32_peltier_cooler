@@ -68,6 +68,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="card">
 <h2>Peltier</h2>
 <div class="row"><label>Status:</label><span id="st_peltier">--</span></div>
+<div class="row"><label>PWM Period:</label><span id="st_pwm_period">--s</span></div>
+<div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span></div>
+<div class="row"><label>Auto-Duty:</label><span id="st_pwm_auto">--</span></div>
+<div class="row"><label>Auto-Duty Intervall:</label><span id="st_pwm_interval">--s</span></div>
 </div>
 <div class="card">
 <h2>Verbrauch</h2>
@@ -112,6 +116,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Kühlblock Sicherheit</h2>
 <div class="row"><label>Max Temp:</label><input type="number" id="cfg_temp_max" step="1" min="40" max="80"></div>
 <div class="row"><label>PID Ziel:</label><input type="number" id="cfg_temp_target" step="1" min="30" max="60"></div>
+</div>
+
+<div class="card">
+<h2>Peltier PWM</h2>
+<div class="row"><label>Period (s):</label><input type="number" id="cfg_peltier_pwm_period" min="1" max="60"></div>
+<div class="row"><label>Duty (%):</label><input type="number" id="cfg_peltier_pwm_duty" min="1" max="100"></div>
+<div class="row"><label>Auto-Duty:</label><input type="checkbox" id="cfg_peltier_pwm_auto"></div>
+<div class="row"><label>Auto-Duty Intervall (s):</label><input type="number" id="cfg_peltier_pwm_interval" min="10" max="300"></div>
 </div>
 
 <div class="card">
@@ -290,6 +302,10 @@ document.getElementById('trend_fan_duty').textContent=getTrendSymbol(d.trend_fan
 document.getElementById('trend_fan_duty').style.color=getTrendColor(d.trend_fan_duty);
 document.getElementById('st_rpm').textContent=d.fan_rpm+' RPM';
 document.getElementById('st_peltier').textContent=d.peltier_on?'AN':'AUS';
+document.getElementById('st_pwm_period').textContent=d.peltier_pwm_period+'s';
+document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
+document.getElementById('st_pwm_auto').textContent=d.peltier_pwm_auto?'AN':'AUS';
+document.getElementById('st_pwm_interval').textContent=d.peltier_pwm_interval+'s';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
 document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
 document.getElementById('st_energy_week').textContent=d.energy_week.toFixed(2)+' Wh';
@@ -337,7 +353,11 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&temp_off='+document.getElementById('cfg_temp_off').value
 +'&temp_max='+document.getElementById('cfg_temp_max').value
 +'&temp_target='+document.getElementById('cfg_temp_target').value
-+'&data_log_interval='+document.getElementById('cfg_data_log_interval').value;
++'&data_log_interval='+document.getElementById('cfg_data_log_interval').value
++'&peltier_pwm_period='+document.getElementById('cfg_peltier_pwm_period').value
++'&peltier_pwm_duty='+document.getElementById('cfg_peltier_pwm_duty').value
++'&peltier_pwm_auto='+(document.getElementById('cfg_peltier_pwm_auto').checked?1:0)
++'&peltier_pwm_interval='+document.getElementById('cfg_peltier_pwm_interval').value;
 for(var i=0;i<7;i++){
 body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value*60;
 body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value*60;
@@ -398,6 +418,10 @@ document.getElementById('cfg_temp_max').value=d.temp_max;
 document.getElementById('cfg_temp_target').value=d.temp_target;
 document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
 document.getElementById('ring_buffer_hours').textContent=d.ring_buffer_hours.toFixed(1);
+document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
+document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
+document.getElementById('cfg_peltier_pwm_auto').checked=d.peltier_pwm_auto;
+document.getElementById('cfg_peltier_pwm_interval').value=d.peltier_pwm_interval;
 for(var i=0;i<7;i++){
 document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
 document.getElementById('sched_'+i+'_off').value=d.sched_off[i];
