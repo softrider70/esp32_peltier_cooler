@@ -303,33 +303,50 @@ void task_fan_pid(void *pvParameters) {
                     float temp_error = sd.temp_indoor - cfg->temp_peltier_on;  // Fehler zum Ziel (13°C)
 
                     // Formfaktor: Je größer der Fehler, desto mehr Duty wird benötigt
-                    // Faktor 0.2 bedeutet: Bei 1°C über Ziel → 20% mehr Duty (erhöht für stärkere Reaktion)
                     float duty_factor = 1.0f + (temp_error * 0.2f);
-
-                    // Begrenzung des Formfaktors auf sinnvolle Werte (0.5 bis 3.0)
                     if (duty_factor < 0.5f) duty_factor = 0.5f;
                     if (duty_factor > 3.0f) duty_factor = 3.0f;
 
                     // Basis-Duty berechnen (40% bei genauem Ziel, angepasst durch Formfaktor)
                     uint8_t base_duty = 40;
                     uint8_t target_duty = (uint8_t)(base_duty * duty_factor);
-                    
+
                     ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Target=%.1f°C, Error=%.1f°C, Factor=%.2f, Base=%u%%, Target=%u%%",
                              sd.temp_indoor, cfg->temp_peltier_on, temp_error, duty_factor, base_duty, target_duty);
-                    
-                    // Sanfte Annäherung an Ziel-Duty (max ±5% pro Schritt)
-                    if (target_duty > new_duty + 5) {
-                        new_duty += 5;
-                    } else if (target_duty < new_duty - 5) {
-                        new_duty -= 5;
+
+                    // Aggressive Anpassung: Bei Anstieg immer +10% pro Schritt
+                    if (temp_error > 0) {
+                        // Temperatur steigt → aggressiv hochregeln (+10%)
+                        if (target_duty > new_duty + 10) {
+                            new_duty += 10;
+                        } else {
+                            new_duty = target_duty;
+                        }
                     } else {
-                        new_duty = target_duty;
+                        // Temperatur sinkt → sanft runterregeln (max ±5%)
+                        if (target_duty < new_duty - 5) {
+                            new_duty -= 5;
+                        } else if (target_duty > new_duty + 5) {
+                            new_duty += 5;
+                        } else {
+                            new_duty = target_duty;
+                        }
                     }
-                    
-                    // Begrenzung auf 10-100%
+
+                    // Ab 48% Duty noch aggressiver werden (max +15% pro Schritt)
+                    if (new_duty >= 48 && target_duty > new_duty) {
+                        uint8_t aggressive_step = 15;
+                        if (new_duty + aggressive_step <= target_duty) {
+                            new_duty += aggressive_step;
+                        } else {
+                            new_duty = target_duty;
+                        }
+                    }
+
+                    // Begrenzung auf 10-63% (max 63% wie gewünscht)
                     if (new_duty < 10) new_duty = 10;
-                    if (new_duty > 100) new_duty = 100;
-                    
+                    if (new_duty > 63) new_duty = 63;
+
                     ESP_LOGI(TAG, "Auto-Duty: Adjusting duty to %u%% (target was %u%%)", new_duty, target_duty);
                     
                     // Duty speichern, wenn geändert

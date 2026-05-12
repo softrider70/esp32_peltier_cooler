@@ -229,15 +229,14 @@ static esp_err_t handler_api_nvs_save(httpd_req_t *req) {
     nvs_config_save();
     ESP_LOGI(TAG, "Manual NVS save triggered via web");
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"NVS gespeichert\"}");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"NVS saved\"}");
     return ESP_OK;
 }
 
 static esp_err_t handler_api_reset(httpd_req_t *req) {
     ESP_LOGW(TAG, "System reset triggered via web");
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"ESP32 wird neugestartet\"}");
-    vTaskDelay(pdMS_TO_TICKS(100));  // Kurze Verzögerung für Antwort
+    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"ESP32 restarting\"}");
     esp_restart();
     return ESP_OK;
 }
