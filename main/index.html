@@ -127,12 +127,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 
 <div class="card">
-<h2>System</h2>
-<div class="row"><button onclick="systemReset()" style="width:100%;padding:.5rem;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold">ESP32 Reset</button></div>
-<p style="font-size:.7rem;color:#888;margin-top:.2rem">Startet den ESP32 neu</p>
-</div>
-
-<div class="card">
 <h2>Zeitfenster</h2>
 <p style="font-size:.7rem;color:#888;margin-bottom:.3rem">Stundenwerte (0-23), Minuten auf 00</p>
 <table style="width:100%;font-size:.75rem;border-collapse:collapse">
@@ -145,6 +139,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <tr><td>Sa</td><td><input type="number" id="sched_5_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_5_off" min="0" max="23" style="width:50px"></td></tr>
 <tr><td>So</td><td><input type="number" id="sched_6_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_6_off" min="0" max="23" style="width:50px"></td></tr>
 </table>
+<div class="row" style="margin-top:.5rem">
+<button onclick="startOta()" style="background:#ff922b;padding:.4rem;font-size:.8rem;flex:1">Firmware Update</button>
+<button onclick="systemReset()" style="background:#e74c3c;padding:.4rem;font-size:.8rem;flex:1;margin-left:.5rem">ESP32 Reset</button>
+</div>
 </div>
 </div>
 
@@ -152,12 +150,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <button onclick="saveToNVS()" style="margin-bottom:.5rem;margin-left:.5rem;background:#00ff00;color:#000">NVS speichern</button>
 
 <div style="display:flex;gap:.5rem;margin-top:.5rem">
-<div class="card" style="flex:1;border-color:#ff922b">
-<h2 style="color:#ff922b;font-size:1rem">Firmware Update</h2>
-<p style="font-size:.7rem;color:#888;margin-bottom:.3rem">Standard-URL: http://192.168.1.191:8080/firmware.bin</p>
-<button onclick="startOta()" style="background:#ff922b;font-size:.8rem">Update starten</button>
-<p style="margin-top:.3rem;font-size:.7rem" id="ota_status"></p>
-</div>
 <div class="card" style="flex:1;border-color:#ff4444">
 <h2 style="color:#ff4444;font-size:1rem">WiFi Reset</h2>
 <p style="font-size:.7rem;color:#888;margin-bottom:.3rem">WiFi-Credentials löschen</p>
