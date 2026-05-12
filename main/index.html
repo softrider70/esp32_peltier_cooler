@@ -139,6 +139,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <button type="button" onclick="startOta()" style="background:#ff922b;padding:.4rem;font-size:.8rem;flex:1">Firmware Update</button>
 <button type="button" onclick="systemReset()" style="background:#e74c3c;padding:.4rem;font-size:.8rem;flex:1;margin-left:.5rem">ESP32 Reset</button>
 </div>
+<p id="ota_status" style="font-size:.7rem;color:#ff922b"></p>
 </div>
 </div>
 
@@ -376,6 +377,13 @@ fetch('/api/wifi/reset',{method:'POST'})
 function saveToNVS(){
 fetch('/api/nvs/save',{method:'POST'})
 .then(r=>r.json()).then(d=>{showStatus(d.msg,'ok')})
+.catch(e=>{showStatus('Fehler: '+e,'error')});
+}
+
+function systemReset(){
+if(!confirm('Wirklich ESP32 neustarten?'))return;
+fetch('/api/reset',{method:'POST'})
+.then(r=>r.json()).then(d=>{showStatus('Neustart gestartet...','success')})
 .catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
