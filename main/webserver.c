@@ -95,7 +95,7 @@ if (current < avg - threshold) return -1;  // Fallend
 return 0;                                   // Stabil
 }
 
-// Symbolreihe für PWM Duty generieren (z.B. "^^v->^")
+// Symbolreihe für PWM Duty generieren (links nach rechts: neu → alt)
 static void generate_pwm_duty_symbol_series(char *buf, int buf_size, int actual_count) {
     if (actual_count < 2) {
         snprintf(buf, buf_size, "->");
@@ -103,8 +103,8 @@ static void generate_pwm_duty_symbol_series(char *buf, int buf_size, int actual_
     }
     int len = 0;
     for (int i = 0; i < actual_count && len < buf_size - 1; i++) {
-        uint8_t prev = i > 0 ? s_pwm_duty_history[(s_pwm_duty_history_index - actual_count + i - 1 + 20) % 20] : s_pwm_duty_history[(s_pwm_duty_history_index - actual_count + i + 20) % 20];
-        uint8_t curr = s_pwm_duty_history[(s_pwm_duty_history_index - actual_count + i + 20) % 20];
+        uint8_t prev = i < actual_count - 1 ? s_pwm_duty_history[i + 1] : s_pwm_duty_history[i];
+        uint8_t curr = s_pwm_duty_history[i];
         if (curr > prev) len += snprintf(buf + len, buf_size - len, "^");
         else if (curr < prev) len += snprintf(buf + len, buf_size - len, "v");
         else len += snprintf(buf + len, buf_size - len, "-");
@@ -209,10 +209,16 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     if (s_series_index >= 20) s_series_filled = true;
 
     // Update PWM Duty Historie (20 Werte) - neue Daten links, alte nach rechts schieben
-    for (int i = 19; i > 0; i--) {
-        s_pwm_duty_history[i] = s_pwm_duty_history[i - 1];
+    if (!s_pwm_duty_history_filled) {
+        // Array noch nicht gefüllt - direkt an aktueller Position schreiben
+        s_pwm_duty_history[s_pwm_duty_history_index] = cfg->peltier_pwm_duty;
+    } else {
+        // Array gefüllt - alles nach rechts schieben, neue Daten am Anfang
+        for (int i = 19; i > 0; i--) {
+            s_pwm_duty_history[i] = s_pwm_duty_history[i - 1];
+        }
+        s_pwm_duty_history[0] = cfg->peltier_pwm_duty;
     }
-    s_pwm_duty_history[0] = cfg->peltier_pwm_duty;
 
     s_pwm_duty_history_index++;
     if (s_pwm_duty_history_index >= 20) s_pwm_duty_history_filled = true;
