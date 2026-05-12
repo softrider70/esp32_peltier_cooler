@@ -40,3 +40,6 @@ void peltier_autoduty_start(void);
 
 // Auto-Duty stoppen
 void peltier_autoduty_stop(void);
+
+// Duty-Faktor zurückgeben
+uint8_t peltier_get_duty_factor(void);

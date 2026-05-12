@@ -259,6 +259,11 @@ void peltier_autoduty_start(void) {
     ESP_LOGI(TAG, "Auto-Duty started with interval %u seconds", nvs_config_get()->peltier_pwm_interval);
 }
 
+// Duty-Faktor zurückgeben
+uint8_t peltier_get_duty_factor(void) {
+    return s_duty_step;
+}
+
 // Auto-Duty stoppen
 void peltier_autoduty_stop(void) {
     if (s_autoduty_timer != NULL) {

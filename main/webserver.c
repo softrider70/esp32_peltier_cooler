@@ -96,49 +96,49 @@ return 0;                                   // Stabil
 }
 
 // Symbolreihe für PWM Duty generieren (z.B. "^^v->^")
-static void generate_pwm_duty_symbol_series(char *buf, int buf_size) {
-if (!s_pwm_duty_history_filled) {
-    snprintf(buf, buf_size, "->");
-    return;
-}
-
-int pos = 0;
-// Von links nach rechts: neue Daten am Anfang (index 0), alte Daten am Ende
-for (int i = 0; i < 79; i++) {
-    uint8_t curr = s_pwm_duty_history[i];
-    uint8_t next = s_pwm_duty_history[i + 1];
-    if (curr < next) {
-        buf[pos++] = '^';
-    } else if (curr > next) {
-        buf[pos++] = 'v';
-    } else {
-        buf[pos++] = '-';
+static void generate_pwm_duty_symbol_series(char *buf, int buf_size, int actual_count) {
+    if (actual_count < 2) {
+        snprintf(buf, buf_size, "->");
+        return;
     }
-}
-buf[pos] = '\0';
+
+    int pos = 0;
+    // Von links nach rechts: neue Daten am Anfang (index 0), alte Daten am Ende
+    for (int i = 0; i < actual_count - 1; i++) {
+        uint8_t curr = s_pwm_duty_history[i];
+        uint8_t next = s_pwm_duty_history[i + 1];
+        if (curr < next) {
+            buf[pos++] = '^';
+        } else if (curr > next) {
+            buf[pos++] = 'v';
+        } else {
+            buf[pos++] = '-';
+        }
+    }
+    buf[pos] = '\0';
 }
 
 // Generische Symbolreihe für Float-Werte
-static void generate_float_symbol_series(char *buf, int buf_size, float series[], int size, float threshold) {
-if (!s_series_filled) {
-    snprintf(buf, buf_size, "->");
-    return;
-}
-
-int pos = 0;
-// Von links nach rechts: neue Daten am Anfang (index 0), alte Daten am Ende
-for (int i = 0; i < size - 1; i++) {
-    float curr = series[i];
-    float next = series[i + 1];
-    if (curr < next - threshold) {
-        buf[pos++] = '^';
-    } else if (curr > next + threshold) {
-        buf[pos++] = 'v';
-    } else {
-        buf[pos++] = '-';
+static void generate_float_symbol_series(char *buf, int buf_size, float series[], int size, int actual_count, float threshold) {
+    if (actual_count < 2) {
+        snprintf(buf, buf_size, "->");
+        return;
     }
-}
-buf[pos] = '\0';
+
+    int pos = 0;
+    // Von links nach rechts: neue Daten am Anfang (index 0), alte Daten am Ende
+    for (int i = 0; i < actual_count - 1; i++) {
+        float curr = series[i];
+        float next = series[i + 1];
+        if (curr < next - threshold) {
+            buf[pos++] = '^';
+        } else if (curr > next + threshold) {
+            buf[pos++] = 'v';
+        } else {
+            buf[pos++] = '-';
+        }
+    }
+    buf[pos] = '\0';
 }
 
 // ===== Handlers =====
@@ -230,10 +230,12 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     char heatsink_symbol_series[85] = {0};
     char fan_duty_symbol_series[85] = {0};
     char pwm_duty_symbol_series[85] = {0};
-    generate_float_symbol_series(indoor_symbol_series, sizeof(indoor_symbol_series), s_indoor_series, 80, 0.1f);
-    generate_float_symbol_series(heatsink_symbol_series, sizeof(heatsink_symbol_series), s_heatsink_series, 80, 0.1f);
-    generate_float_symbol_series(fan_duty_symbol_series, sizeof(fan_duty_symbol_series), (float*)s_fan_duty_series, 80, 2.0f);
-    generate_pwm_duty_symbol_series(pwm_duty_symbol_series, sizeof(pwm_duty_symbol_series));
+    int actual_count = s_series_filled ? 80 : s_series_index;
+    int pwm_actual_count = s_pwm_duty_history_filled ? 80 : s_pwm_duty_history_index;
+    generate_float_symbol_series(indoor_symbol_series, sizeof(indoor_symbol_series), s_indoor_series, 80, actual_count, 0.1f);
+    generate_float_symbol_series(heatsink_symbol_series, sizeof(heatsink_symbol_series), s_heatsink_series, 80, actual_count, 0.1f);
+    generate_float_symbol_series(fan_duty_symbol_series, sizeof(fan_duty_symbol_series), (float*)s_fan_duty_series, 80, actual_count, 2.0f);
+    generate_pwm_duty_symbol_series(pwm_duty_symbol_series, sizeof(pwm_duty_symbol_series), pwm_actual_count);
 
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
@@ -246,7 +248,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
-        "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_pwm_auto\":%s,\"peltier_pwm_interval\":%d,"
+        "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_pwm_auto\":%s,\"peltier_pwm_interval\":%d,\"peltier_duty_factor\":%u,"
         "\"indoor_symbol_series\":\"%s\",\"heatsink_symbol_series\":\"%s\",\"fan_duty_symbol_series\":\"%s\",\"pwm_duty_symbol_series\":\"%s\","
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
@@ -265,7 +267,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->sched_off[0]/60, cfg->sched_off[1]/60, cfg->sched_off[2]/60, cfg->sched_off[3]/60, cfg->sched_off[4]/60, cfg->sched_off[5]/60, cfg->sched_off[6]/60,
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
-        cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false", cfg->peltier_pwm_interval,
+        cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false", cfg->peltier_pwm_interval, peltier_get_duty_factor(),
         indoor_symbol_series, heatsink_symbol_series, fan_duty_symbol_series, pwm_duty_symbol_series,
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
