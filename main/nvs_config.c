@@ -156,6 +156,29 @@ void nvs_config_save_pwm_params(void) {
     }
 
     esp_err_t err;
+    
+    // Zuerst alte Werte löschen
+    err = nvs_erase_key(handle, NVS_KEY_PELTIER_PWM_PERIOD);
+    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGE(TAG, "Failed to erase peltier_pwm_period: %s", esp_err_to_name(err));
+    }
+    
+    err = nvs_erase_key(handle, NVS_KEY_PELTIER_PWM_DUTY);
+    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGE(TAG, "Failed to erase peltier_pwm_duty: %s", esp_err_to_name(err));
+    }
+    
+    err = nvs_erase_key(handle, NVS_KEY_PELTIER_PWM_INTERVAL);
+    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGE(TAG, "Failed to erase peltier_pwm_interval: %s", esp_err_to_name(err));
+    }
+    
+    err = nvs_commit(handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to commit erase: %s", esp_err_to_name(err));
+    }
+    
+    // Neue Werte schreiben
     err = nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, s_config.peltier_pwm_period);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to save peltier_pwm_period: %s", esp_err_to_name(err));
