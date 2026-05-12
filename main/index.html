@@ -57,7 +57,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="card-grid">
 <div class="card">
 <h2>Temperaturen</h2>
-<div class="row"><label>Innen:</label><span id="st_indoor">--°C</span> <span id="trend_indoor"></span></div>
+<div class="row"><label>Innen:</label><span id="st_indoor">--°C</span> <span style="font-size:.7rem;color:#888">(min: <span id="st_temp_off">--</span> / max: <span id="st_temp_on">--</span>)</span> <span id="trend_indoor"></span></div>
 <div class="row"><label>Kuehlblock:</label><span id="st_heatsink">--°C</span> <span id="trend_heatsink"></span></div>
 </div>
 <div class="card">
@@ -274,7 +274,9 @@ return'#888';
 
 function refresh(){
 fetch('/api/status').then(r=>r.json()).then(d=>{
-document.getElementById('st_indoor').textContent=d.indoor_valid?d.indoor.toFixed(1)+'°C':'--';
+document.getElementById('st_indoor').textContent=d.indoor.toFixed(1)+'°C';
+document.getElementById('st_temp_off').textContent=d.temp_off.toFixed(1)+'°C';
+document.getElementById('st_temp_on').textContent=d.temp_on.toFixed(1)+'°C';
 document.getElementById('trend_indoor').textContent=getTrendSymbol(d.trend_indoor);
 document.getElementById('trend_indoor').style.color=getTrendColor(d.trend_indoor);
 document.getElementById('st_heatsink').textContent=d.heatsink_valid?d.heatsink.toFixed(1)+'°C':'--';
