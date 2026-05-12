@@ -98,6 +98,7 @@ void nvs_config_init(void) {
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_ON, &u16) == ESP_OK) s_config.sched_on[6] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_OFF, &u16) == ESP_OK) s_config.sched_off[6] = u16;
         if (nvs_get_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, &u16) == ESP_OK) s_config.data_log_interval = u16;
+ESP_LOGI(TAG, "Loaded data_log_interval from NVS: %u (default was 300)", s_config.data_log_interval);
         if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, &u16) == ESP_OK) s_config.peltier_pwm_period = u16;
         uint8_t u8;
         if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, &u8) == ESP_OK) s_config.peltier_pwm_duty = u8;

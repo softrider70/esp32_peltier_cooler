@@ -87,7 +87,8 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     }
 
     // Calculate ring buffer duration in hours
-    uint32_t interval_sec = data_logger_get_interval() / 1000;
+    uint32_t interval_ms = data_logger_get_interval();
+    uint32_t interval_sec = interval_ms / 1000;
     float duration_hours = (720.0f * interval_sec) / 3600.0f;
 
     // Calculate costs (30.5 Cent/kWh = 0.305 Euro/kWh)
@@ -180,8 +181,12 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->temp_heatsink_max = strtof(value, NULL);
     if (httpd_query_key_value(buf, "temp_target", value, sizeof(value)) == ESP_OK)
         cfg->temp_heatsink_target = strtof(value, NULL);
-    if (httpd_query_key_value(buf, "data_log_interval", value, sizeof(value)) == ESP_OK)
+    if (httpd_query_key_value(buf, "data_log_interval", value, sizeof(value)) == ESP_OK) {
         cfg->data_log_interval = (uint16_t)atoi(value);
+        ESP_LOGI(TAG, "Config update: data_log_interval = %u seconds", cfg->data_log_interval);
+        // Sofort an Data Logger übergeben
+        data_logger_set_interval(cfg->data_log_interval * 1000);
+    }
     if (httpd_query_key_value(buf, "peltier_pwm_period", value, sizeof(value)) == ESP_OK)
         cfg->peltier_pwm_period = (uint16_t)atoi(value);
     if (httpd_query_key_value(buf, "peltier_pwm_duty", value, sizeof(value)) == ESP_OK)
@@ -214,11 +219,8 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     }
 
     nvs_config_save();
-    
+
     ESP_LOGI(TAG, "After save: temp_on=%.1f, temp_off=%.1f", cfg->temp_peltier_on, cfg->temp_peltier_off);
-    
-    // Update data logger interval if changed
-    data_logger_set_interval(cfg->data_log_interval * 1000);  // Convert seconds to ms
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
