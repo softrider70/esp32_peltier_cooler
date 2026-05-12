@@ -16,8 +16,8 @@ static bool s_main_state = false;   // Hauptzustand (Temperatursteuerung)
 static esp_timer_handle_t s_pwm_timer_on = NULL;   // Timer für GPIO ein
 static esp_timer_handle_t s_pwm_timer_off = NULL;  // Timer für GPIO aus
 static bool s_pwm_enabled = false;
-static uint64_t s_pwm_period_us = 10000000;  // 10s in Mikrosekunden
-static uint8_t s_pwm_duty = 10;              // Default 10%
+static uint64_t s_pwm_period_us = 0;  // Wird aus Config geladen
+static uint8_t s_pwm_duty = 0;        // Wird aus Config geladen
 
 // Auto-Duty State Machine
 static esp_timer_handle_t s_autoduty_timer = NULL;
@@ -81,7 +81,11 @@ void peltier_init(void) {
     esp_timer_create(&on_timer_args, &s_pwm_timer_on);
     esp_timer_create(&off_timer_args, &s_pwm_timer_off);
 
-    ESP_LOGI(TAG, "Peltier GPIO %d initialized with PWM support", GPIO_PELTIER);
+    // PWM-Werte aus Config laden
+    app_config_t *cfg = nvs_config_get();
+    s_pwm_period_us = cfg->peltier_pwm_period * 1000000;
+    s_pwm_duty = cfg->peltier_pwm_duty;
+    ESP_LOGI(TAG, "Peltier GPIO %d initialized with PWM support (period=%llu us, duty=%u%%)", GPIO_PELTIER, s_pwm_period_us, s_pwm_duty);
 }
 
 void peltier_on(void) {
