@@ -146,7 +146,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <button type="button" onclick="saveConfig()" style="margin-bottom:.5rem">Speichern</button>
 <button type="button" onclick="saveToNVS()" style="margin-bottom:.5rem;margin-left:.5rem;background:#00ff00;color:#000">NVS speichern</button>
-<button type="button" onclick="setScheduleDefaults()" style="margin-bottom:.5rem;margin-left:.5rem;background:#ff922b;color:#000">Schedule Defaults</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -377,13 +376,6 @@ fetch('/api/wifi/reset',{method:'POST'})
 function saveToNVS(){
 fetch('/api/nvs/save',{method:'POST'})
 .then(r=>r.json()).then(d=>{showStatus(d.msg,'ok')})
-.catch(e=>{showStatus('Fehler: '+e,'error')});
-}
-
-function setScheduleDefaults(){
-if(!confirm('Schedule auf Defaults setzen (8-23 für alle Tage)?'))return;
-fetch('/api/schedule/defaults',{method:'POST'})
-.then(r=>r.json()).then(d=>{showStatus(d.msg,'success');refresh()})
 .catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 

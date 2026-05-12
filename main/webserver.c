@@ -187,14 +187,10 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         snprintf(key_on, sizeof(key_on), "sched_%d_on", i);
         snprintf(key_off, sizeof(key_off), "sched_%d_off", i);
         
-        if (httpd_query_key_value(buf, key_on, value, sizeof(value)) == ESP_OK) {
+        if (httpd_query_key_value(buf, key_on, value, sizeof(value)) == ESP_OK)
             cfg->sched_on[i] = (uint16_t)atoi(value) * 60;  // Hours to minutes
-            nvs_config_mark_schedule_modified();  // Mark as modified
-        }
-        if (httpd_query_key_value(buf, key_off, value, sizeof(value)) == ESP_OK) {
+        if (httpd_query_key_value(buf, key_off, value, sizeof(value)) == ESP_OK)
             cfg->sched_off[i] = (uint16_t)atoi(value) * 60;  // Hours to minutes
-            nvs_config_mark_schedule_modified();  // Mark as modified
-        }
     }
 
     nvs_config_save();
@@ -211,14 +207,6 @@ static esp_err_t handler_api_nvs_save(httpd_req_t *req) {
     ESP_LOGI(TAG, "Manual NVS save triggered via web");
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"NVS saved\"}");
-    return ESP_OK;
-}
-
-static esp_err_t handler_api_schedule_defaults(httpd_req_t *req) {
-    nvs_config_save_schedule_defaults();
-    ESP_LOGI(TAG, "Schedule defaults saved to NVS via web");
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"Schedule defaults saved (8-23)\"}");
     return ESP_OK;
 }
 
@@ -452,7 +440,7 @@ static void dns_task(void *pvParameters) {
 
 void webserver_init(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 15;
+    config.max_uri_handlers = 14;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     if (httpd_start(&s_server, &config) != ESP_OK) {
@@ -491,9 +479,6 @@ void webserver_init(void) {
     httpd_uri_t uri_api_nvs_save = {
         .uri = "/api/nvs/save", .method = HTTP_POST, .handler = handler_api_nvs_save
     };
-    httpd_uri_t uri_api_schedule_defaults = {
-        .uri = "/api/schedule/defaults", .method = HTTP_POST, .handler = handler_api_schedule_defaults
-    };
     httpd_uri_t uri_api_reset = {
         .uri = "/api/reset", .method = HTTP_POST, .handler = handler_api_reset
     };
@@ -512,7 +497,6 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_graph_save);
     httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
     httpd_register_uri_handler(s_server, &uri_api_nvs_save);
-    httpd_register_uri_handler(s_server, &uri_api_schedule_defaults);
     httpd_register_uri_handler(s_server, &uri_api_reset);
     httpd_register_uri_handler(s_server, &uri_catchall);
 
