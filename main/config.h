@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        185     // Build counter - increment with each flash
+#define BUILD_NUMBER        186     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -82,10 +82,10 @@
 #define NVS_KEY_SCHED_SO_ON  "sched_so_on"
 #define NVS_KEY_SCHED_SO_OFF "sched_so_off"
 #define NVS_KEY_DATA_LOG_INTERVAL "data_log_interval"
-#define NVS_KEY_PELTIER_PWM_PERIOD "peltier_pwm_period"
-#define NVS_KEY_PELTIER_PWM_DUTY   "peltier_pwm_duty"
-#define NVS_KEY_PELTIER_PWM_AUTO   "peltier_pwm_auto"
-#define NVS_KEY_PELTIER_PWM_INTERVAL "peltier_pwm_interval"
+#define NVS_KEY_PELTIER_PWM_PERIOD "pwm_period"
+#define NVS_KEY_PELTIER_PWM_DUTY   "pwm_duty"
+#define NVS_KEY_PELTIER_PWM_AUTO   "pwm_auto"
+#define NVS_KEY_PELTIER_PWM_INTERVAL "pwm_interval"
 #define NVS_KEY_GRAPH_DATA         "graph_data"
 
 // ===== Task Priorities =====
