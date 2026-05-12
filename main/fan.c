@@ -237,15 +237,18 @@ void task_fan_pid(void *pvParameters) {
 #endif
 
         // ---- Peltier: digital on/off based on indoor temperature range ----
-        bool peltier_main_state = false;  // Hauptzustand (für NVS-Schreiben)
+        bool peltier_main_state = s_peltier_main_was_on;  // Vorherigen Zustand übernehmen
 
         if (sd.indoor_valid) {
-            if (sd.temp_indoor >= cfg->temp_peltier_on) {
+            // Hysterese: Nur schalten wenn Schwellwerte überschritten werden
+            if (!peltier_main_state && sd.temp_indoor >= cfg->temp_peltier_on) {
+                // Peltier ist AUS und obere Schwelle erreicht → AN
                 peltier_main_state = true;
-            } else if (sd.temp_indoor <= cfg->temp_peltier_off) {
+            } else if (peltier_main_state && sd.temp_indoor <= cfg->temp_peltier_off) {
+                // Peltier ist AN und untere Schwelle erreicht → AUS
                 peltier_main_state = false;
             }
-            // Between off and on: keep current state (hysteresis band)
+            // Dazwischen: Zustand beibehalten
             ESP_LOGD(TAG, "Peltier: indoor=%.1f, on=%.1f, off=%.1f, main_state=%d",
                      sd.temp_indoor, cfg->temp_peltier_on, cfg->temp_peltier_off, peltier_main_state);
         } else {
