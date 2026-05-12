@@ -131,6 +131,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label>Daten-Log Intervall (s):</label><input type="number" id="cfg_data_log_interval" min="1" max="3600"></div>
 <p style="font-size:.7rem;color:#888;margin-top:.2rem">Ringspeicher: <span id="ring_buffer_hours">--</span> Stunden</p>
 <button type="button" onclick="resetWifi()" style="background:#ff4444;font-size:.8rem;margin-top:.5rem">WiFi Reset</button>
+<button type="button" onclick="showLogs()" style="background:#444;font-size:.8rem;margin-top:.5rem;margin-left:.5rem">Logs</button>
 <p style="margin-top:.3rem;font-size:.7rem" id="wifi_reset_status"></p>
 </div>
 
@@ -396,6 +397,13 @@ else if(d.status==='success'){el.textContent='Erfolg! Neustart...';el.style.colo
 else if(d.status==='failed'){el.textContent='Fehler: '+d.error;el.style.color='#ff6b6b'}
 else{el.textContent='';el.style.color=''}
 }).catch(e=>{document.getElementById('ota_status').textContent='Verbindung verloren (Neustart?)'});
+}
+
+function showLogs(){
+fetch('/api/logs').then(r=>r.json()).then(d=>{
+var logs=d.logs.join('\n');
+alert(logs||'Keine Logs');
+}).catch(e=>{alert('Fehler: '+e)});
 }
 
 function resetWifi(){

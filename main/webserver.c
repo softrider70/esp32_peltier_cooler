@@ -42,6 +42,37 @@ static const char *TAG = "webserver";
 static httpd_handle_t s_server = NULL;
 static TaskHandle_t s_dns_task = NULL;
 
+// Log Ringpuffer (50 Einträge)
+#define LOG_BUFFER_SIZE 50
+static char s_log_buffer[LOG_BUFFER_SIZE][256] = {0};
+static int s_log_index = 0;
+static bool s_log_filled = false;
+
+// Custom Log Handler
+static int log_handler(const char *fmt, va_list args) {
+    char log_msg[256];
+    vsnprintf(log_msg, sizeof(log_msg), fmt, args);
+
+    // Tag extrahieren (Format: "TAG (123) message")
+    const char *tag_start = strchr(log_msg, ' ');
+    if (tag_start) {
+        tag_start++; // Skip space
+        const char *tag_end = strchr(tag_start, ' ');
+        if (tag_end) {
+            char tag[32] = {0};
+            strncpy(tag, tag_start, tag_end - tag_start);
+            const char *msg = tag_end + 1;
+
+            // In Ringpuffer schreiben
+            snprintf(s_log_buffer[s_log_index], sizeof(s_log_buffer[s_log_index]),
+                     "[%s] %s", tag, msg);
+            s_log_index = (s_log_index + 1) % LOG_BUFFER_SIZE;
+            if (s_log_index == 0) s_log_filled = true;
+        }
+    }
+    return 0;
+}
+
 // Embedded HTML files (linked via CMake EMBED_FILES)
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
@@ -322,6 +353,24 @@ static esp_err_t handler_api_reset(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t handler_api_logs(httpd_req_t *req) {
+    httpd_resp_set_type(req, "application/json");
+
+    char json[16384] = {0};
+    int pos = snprintf(json, sizeof(json), "{\"logs\":[");
+
+    int start_idx = s_log_filled ? s_log_index : 0;
+    for (int i = 0; i < (s_log_filled ? LOG_BUFFER_SIZE : s_log_index); i++) {
+        int idx = (start_idx + i) % LOG_BUFFER_SIZE;
+        if (i > 0) pos += snprintf(json + pos, sizeof(json) - pos, ",");
+        pos += snprintf(json + pos, sizeof(json) - pos, "\"%s\"", s_log_buffer[idx]);
+    }
+
+    snprintf(json + pos, sizeof(json) - pos, "]}");
+    httpd_resp_sendstr(req, json);
+    return ESP_OK;
+}
+
 static esp_err_t handler_api_wifi(httpd_req_t *req) {
     char buf[256];
     int received = httpd_req_recv(req, buf, sizeof(buf) - 1);
@@ -542,8 +591,12 @@ static void dns_task(void *pvParameters) {
 // ===== Public API =====
 
 void webserver_init(void) {
+    // Log Handler registrieren
+    esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_set_vprintf(log_handler);
+
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 14;
+    config.max_uri_handlers = 15;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     if (httpd_start(&s_server, &config) != ESP_OK) {
@@ -585,6 +638,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_reset = {
         .uri = "/api/reset", .method = HTTP_POST, .handler = handler_api_reset
     };
+    httpd_uri_t uri_api_logs = {
+        .uri = "/api/logs", .method = HTTP_GET, .handler = handler_api_logs
+    };
     // Catch-all for captive portal (must be last)
     httpd_uri_t uri_catchall = {
         .uri = "/*", .method = HTTP_GET, .handler = handler_captive_redirect
@@ -601,7 +657,10 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
     httpd_register_uri_handler(s_server, &uri_api_nvs_save);
     httpd_register_uri_handler(s_server, &uri_api_reset);
-    httpd_register_uri_handler(s_server, &uri_catchall);
+    httpd_register_uri_handler(s_server, &uri_api_logs);
+    if (wifi_get_mode() == WIFI_MODE_AP) {
+        httpd_register_uri_handler(s_server, &uri_catchall);
+    }
 
     ESP_LOGI(TAG, "HTTP server started");
 
