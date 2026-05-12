@@ -343,7 +343,7 @@ body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value*60;
 body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value*60;
 }
 fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
-.then(r=>r.json()).then(d=>{showStatus('Gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
+.then(r=>r.json()).then(d=>{showStatus('Gespeichert!','success');window.configLoaded=undefined;refresh()}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
 function startOta(){
