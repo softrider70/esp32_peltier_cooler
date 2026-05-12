@@ -315,15 +315,30 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     if (httpd_query_key_value(buf, "peltier_pwm_period", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_period = (uint16_t)atoi(value);
         ESP_LOGI(TAG, "Config update: peltier_pwm_period = %u seconds (raw: %s)", cfg->peltier_pwm_period, value);
+    } else {
+        ESP_LOGI(TAG, "Config update: peltier_pwm_period not in request");
     }
     if (httpd_query_key_value(buf, "peltier_pwm_duty", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_duty = (uint8_t)atoi(value);
         ESP_LOGI(TAG, "Config update: peltier_pwm_duty = %u%% (raw: %s)", cfg->peltier_pwm_duty, value);
+    } else {
+        ESP_LOGI(TAG, "Config update: peltier_pwm_duty not in request");
     }
-    if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK)
+    if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_auto = (atoi(value) != 0);
-    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK)
+        ESP_LOGI(TAG, "Config update: peltier_pwm_auto = %d (raw: %s)", cfg->peltier_pwm_auto, value);
+    } else {
+        ESP_LOGI(TAG, "Config update: peltier_pwm_auto not in request");
+    }
+    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_interval = (uint16_t)atoi(value);
+        ESP_LOGI(TAG, "Config update: peltier_pwm_interval = %u seconds (raw: %s)", cfg->peltier_pwm_interval, value);
+    } else {
+        ESP_LOGI(TAG, "Config update: peltier_pwm_interval not in request");
+    }
+
+    ESP_LOGI(TAG, "Before nvs_config_save: period=%u, duty=%u, interval=%u",
+             cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_interval);
 
     // Parse daily schedule (7 days, 2 values each)
     for (int i = 0; i < 7; i++) {
