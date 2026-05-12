@@ -99,18 +99,38 @@ void nvs_config_init(void) {
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_ON, &u16) == ESP_OK) s_config.sched_on[6] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_SO_OFF, &u16) == ESP_OK) s_config.sched_off[6] = u16;
         if (nvs_get_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, &u16) == ESP_OK) {
-    s_config.data_log_interval = u16;
-    ESP_LOGI(TAG, "Loaded data_log_interval from NVS: %u", s_config.data_log_interval);
-} else {
-    ESP_LOGI(TAG, "data_log_interval not found in NVS, using default: %u", s_config.data_log_interval);
-}
-        if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, &u16) == ESP_OK) s_config.peltier_pwm_period = u16;
+            s_config.data_log_interval = u16;
+            ESP_LOGI(TAG, "Loaded data_log_interval from NVS: %u", s_config.data_log_interval);
+        } else {
+            ESP_LOGI(TAG, "data_log_interval not found in NVS, using default: %u", s_config.data_log_interval);
+        }
+        if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, &u16) == ESP_OK) {
+            s_config.peltier_pwm_period = u16;
+            ESP_LOGI(TAG, "Loaded peltier_pwm_period from NVS: %u", s_config.peltier_pwm_period);
+        } else {
+            ESP_LOGI(TAG, "peltier_pwm_period not found in NVS, using default: %u", s_config.peltier_pwm_period);
+        }
         uint8_t u8;
-        if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, &u8) == ESP_OK) s_config.peltier_pwm_duty = u8;
+        if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, &u8) == ESP_OK) {
+            s_config.peltier_pwm_duty = u8;
+            ESP_LOGI(TAG, "Loaded peltier_pwm_duty from NVS: %u", s_config.peltier_pwm_duty);
+        } else {
+            ESP_LOGI(TAG, "peltier_pwm_duty not found in NVS, using default: %u", s_config.peltier_pwm_duty);
+        }
         uint8_t auto_val;
-        if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, &auto_val) == ESP_OK) s_config.peltier_pwm_auto = auto_val;
+        if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, &auto_val) == ESP_OK) {
+            s_config.peltier_pwm_auto = auto_val;
+            ESP_LOGI(TAG, "Loaded peltier_pwm_auto from NVS: %d", s_config.peltier_pwm_auto);
+        } else {
+            ESP_LOGI(TAG, "peltier_pwm_auto not found in NVS, using default: %d", s_config.peltier_pwm_auto);
+        }
         uint16_t interval_val;
-        if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, &interval_val) == ESP_OK) s_config.peltier_pwm_interval = interval_val;
+        if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, &interval_val) == ESP_OK) {
+            s_config.peltier_pwm_interval = interval_val;
+            ESP_LOGI(TAG, "Loaded peltier_pwm_interval from NVS: %u", s_config.peltier_pwm_interval);
+        } else {
+            ESP_LOGI(TAG, "peltier_pwm_interval not found in NVS, using default: %u", s_config.peltier_pwm_interval);
+        }
         ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u, pwm_auto=%d, pwm_interval=%u",
                  s_config.peltier_pwm_period, s_config.peltier_pwm_duty, s_config.peltier_pwm_auto, s_config.peltier_pwm_interval);
 

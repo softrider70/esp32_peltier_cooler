@@ -271,10 +271,14 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     }
 
     // Peltier PWM Parameter
-    if (httpd_query_key_value(buf, "peltier_pwm_period", value, sizeof(value)) == ESP_OK)
+    if (httpd_query_key_value(buf, "peltier_pwm_period", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_period = (uint16_t)atoi(value);
-    if (httpd_query_key_value(buf, "peltier_pwm_duty", value, sizeof(value)) == ESP_OK)
+        ESP_LOGI(TAG, "Config update: peltier_pwm_period = %u seconds (raw: %s)", cfg->peltier_pwm_period, value);
+    }
+    if (httpd_query_key_value(buf, "peltier_pwm_duty", value, sizeof(value)) == ESP_OK) {
         cfg->peltier_pwm_duty = (uint8_t)atoi(value);
+        ESP_LOGI(TAG, "Config update: peltier_pwm_duty = %u%% (raw: %s)", cfg->peltier_pwm_duty, value);
+    }
     if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK)
         cfg->peltier_pwm_auto = (atoi(value) != 0);
     if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK)

@@ -37,9 +37,13 @@ static void IRAM_ATTR pwm_on_callback(void* arg) {
     gpio_set_level(GPIO_PELTIER, 1);
     s_is_on = true;
 
+    // Konfiguration neu laden (für Auto-Duty Updates)
+    app_config_t *cfg = nvs_config_get();
+    s_pwm_period_us = cfg->peltier_pwm_period * 1000000;
+    s_pwm_duty = cfg->peltier_pwm_duty;
+
     // Timer für GPIO aus starten
     uint64_t on_time_us = (s_pwm_period_us * s_pwm_duty) / 100;
-    ESP_LOGI(TAG, "PWM ON: period=%llu us, duty=%u%%, on_time=%llu us", s_pwm_period_us, s_pwm_duty, on_time_us);
     esp_timer_start_once(s_pwm_timer_off, on_time_us);
 
     // Nächsten Zyklus starten
