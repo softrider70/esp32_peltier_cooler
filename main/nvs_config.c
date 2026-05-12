@@ -7,6 +7,7 @@
 
 static const char *TAG = "nvs_config";
 static app_config_t s_config;
+static bool s_schedule_modified = false;  // Track if schedule was explicitly modified
 
 static void load_defaults(void) {
     memset(&s_config, 0, sizeof(s_config));
@@ -144,20 +145,25 @@ void nvs_config_save(void) {
     nvs_set_i32(handle, NVS_KEY_ENERGY_MONTH, (int32_t)(s_config.energy_month * 100));
     nvs_set_u32(handle, NVS_KEY_LAST_DATE, s_config.last_date);
 
-    nvs_set_u16(handle, NVS_KEY_SCHED_MO_ON, s_config.sched_on[0]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_MO_OFF, s_config.sched_off[0]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_DI_ON, s_config.sched_on[1]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_DI_OFF, s_config.sched_off[1]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_MI_ON, s_config.sched_on[2]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_MI_OFF, s_config.sched_off[2]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_DO_ON, s_config.sched_on[3]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_DO_OFF, s_config.sched_off[3]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_FR_ON, s_config.sched_on[4]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_FR_OFF, s_config.sched_off[4]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_SA_ON, s_config.sched_on[5]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_SA_OFF, s_config.sched_off[5]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_SO_ON, s_config.sched_on[6]);
-    nvs_set_u16(handle, NVS_KEY_SCHED_SO_OFF, s_config.sched_off[6]);
+    // Schedule-Werte nur speichern, wenn sie explizit geändert wurden
+    if (s_schedule_modified) {
+        nvs_set_u16(handle, NVS_KEY_SCHED_MO_ON, s_config.sched_on[0]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_MO_OFF, s_config.sched_off[0]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_DI_ON, s_config.sched_on[1]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_DI_OFF, s_config.sched_off[1]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_MI_ON, s_config.sched_on[2]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_MI_OFF, s_config.sched_off[2]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_DO_ON, s_config.sched_on[3]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_DO_OFF, s_config.sched_off[3]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_FR_ON, s_config.sched_on[4]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_FR_OFF, s_config.sched_off[4]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_SA_ON, s_config.sched_on[5]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_SA_OFF, s_config.sched_off[5]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_SO_ON, s_config.sched_on[6]);
+        nvs_set_u16(handle, NVS_KEY_SCHED_SO_OFF, s_config.sched_off[6]);
+        s_schedule_modified = false;  // Reset flag after saving
+        ESP_LOGI(TAG, "Schedule values saved to NVS");
+    }
     nvs_set_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, s_config.data_log_interval);
     nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, s_config.peltier_pwm_period);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, s_config.peltier_pwm_duty);
@@ -247,5 +253,11 @@ void nvs_config_save_schedule_defaults(void) {
     nvs_commit(handle);
     nvs_close(handle);
 
+    s_schedule_modified = false;  // Reset flag after saving defaults
     ESP_LOGI(TAG, "Schedule defaults saved to NVS: 8-23 for all days");
+}
+
+void nvs_config_mark_schedule_modified(void) {
+    s_schedule_modified = true;
+    ESP_LOGI(TAG, "Schedule marked as modified");
 }

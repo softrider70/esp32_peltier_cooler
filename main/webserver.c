@@ -187,10 +187,14 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         snprintf(key_on, sizeof(key_on), "sched_%d_on", i);
         snprintf(key_off, sizeof(key_off), "sched_%d_off", i);
         
-        if (httpd_query_key_value(buf, key_on, value, sizeof(value)) == ESP_OK)
+        if (httpd_query_key_value(buf, key_on, value, sizeof(value)) == ESP_OK) {
             cfg->sched_on[i] = (uint16_t)atoi(value) * 60;  // Hours to minutes
-        if (httpd_query_key_value(buf, key_off, value, sizeof(value)) == ESP_OK)
+            nvs_config_mark_schedule_modified();  // Mark as modified
+        }
+        if (httpd_query_key_value(buf, key_off, value, sizeof(value)) == ESP_OK) {
             cfg->sched_off[i] = (uint16_t)atoi(value) * 60;  // Hours to minutes
+            nvs_config_mark_schedule_modified();  // Mark as modified
+        }
     }
 
     nvs_config_save();
