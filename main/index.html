@@ -68,8 +68,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="card">
 <h2>Peltier</h2>
 <div class="row"><label>Status:</label><span id="st_peltier">--</span></div>
-<div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span> <span id="trend_pwm_duty"></span></div>
-<div class="row"><label>Nächste Duty-Messung:</label><span id="st_duty_timer">--s</span></div>
 </div>
 <div class="card">
 <h2>Verbrauch</h2>
@@ -120,6 +118,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Datenaufzeichnung</h2>
 <div class="row"><label>Daten-Log Intervall (s):</label><input type="number" id="cfg_data_log_interval" min="1" max="3600" value="300"></div>
 <p style="font-size:.7rem;color:#888;margin-top:.2rem">Ringspeicher: <span id="ring_buffer_hours">--</span> Stunden</p>
+<button onclick="resetWifi()" style="background:#ff4444;font-size:.8rem;margin-top:.5rem">WiFi Reset</button>
+<p style="margin-top:.3rem;font-size:.7rem" id="wifi_reset_status"></p>
 </div>
 
 <div class="card">
@@ -144,15 +144,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <button onclick="saveConfig()" style="margin-bottom:.5rem">Speichern</button>
 <button onclick="saveToNVS()" style="margin-bottom:.5rem;margin-left:.5rem;background:#00ff00;color:#000">NVS speichern</button>
-
-<div style="display:flex;gap:.5rem;margin-top:.5rem">
-<div class="card" style="flex:1;border-color:#ff4444">
-<h2 style="color:#ff4444;font-size:1rem">WiFi Reset</h2>
-<p style="font-size:.7rem;color:#888;margin-bottom:.3rem">WiFi-Credentials löschen</p>
-<button onclick="resetWifi()" style="background:#ff4444;font-size:.8rem">WiFi Reset</button>
-<p style="margin-top:.3rem;font-size:.7rem" id="wifi_reset_status"></p>
-</div>
-</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -294,10 +285,6 @@ document.getElementById('trend_fan_duty').textContent=getTrendSymbol(d.trend_fan
 document.getElementById('trend_fan_duty').style.color=getTrendColor(d.trend_fan_duty);
 document.getElementById('st_rpm').textContent=d.fan_rpm+' RPM';
 document.getElementById('st_peltier').textContent=d.peltier_on?'AN':'AUS';
-document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
-document.getElementById('trend_pwm_duty').textContent=getTrendSymbol(d.trend_pwm_duty);
-document.getElementById('trend_pwm_duty').style.color=getTrendColor(d.trend_pwm_duty);
-document.getElementById('st_duty_timer').textContent=d.duty_timer_remaining+'s';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
 document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
 document.getElementById('st_energy_week').textContent=d.energy_week.toFixed(2)+' Wh';
