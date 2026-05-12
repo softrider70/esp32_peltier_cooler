@@ -387,8 +387,8 @@ document.getElementById('cfg_temp_target').value=d.temp_target;
 document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
 document.getElementById('ring_buffer_hours').textContent=d.ring_buffer_hours.toFixed(1);
 for(var i=0;i<7;i++){
-document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
-document.getElementById('sched_'+i+'_off').value=d.sched_off[i];
+document.getElementById('sched_'+i+'_on').value=d.sched_on[i]/60;
+document.getElementById('sched_'+i+'_off').value=d.sched_off[i]/60;
 }
 }).catch(e=>{});
 
