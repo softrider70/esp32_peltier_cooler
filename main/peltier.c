@@ -198,6 +198,8 @@ static void autoduty_callback(void* arg) {
             app_config_t *cfg = nvs_config_get();
             cfg->peltier_pwm_duty = s_pwm_duty;
         }
+        // s_temp_start aktualisieren bei signifikanter Änderung
+        s_temp_start = temp_current;
     } else if (temp_diff > 0.1f) {
         // Temperatur steigt → Duty erhöhen
         if (s_pwm_duty < 20) {
@@ -210,9 +212,9 @@ static void autoduty_callback(void* arg) {
             app_config_t *cfg = nvs_config_get();
             cfg->peltier_pwm_duty = s_pwm_duty;
         }
+        // s_temp_start aktualisieren bei signifikanter Änderung
+        s_temp_start = temp_current;
     } else {
-        // Temperatur gleich
-        s_equal_temp_counter++;
         ESP_LOGI(TAG, "Auto-Duty: Temp equal (diff=%.2f), counter=%d", temp_diff, s_equal_temp_counter);
         if (s_equal_temp_counter >= 2) {
             // 2x gleich → Duty erhöhen
@@ -240,12 +242,7 @@ static void autoduty_callback(void* arg) {
     if (s_consecutive_increments >= 4) s_duty_step = 10;
     if (s_consecutive_reductions >= 2) s_duty_step = 7;
     if (s_consecutive_reductions >= 4) s_duty_step = 10;
-
-    // Neue Start-Temperatur nur bei signifikanter Änderung
-    if (fabs(temp_diff) >= 0.1f) {
-        s_temp_start = temp_current;
-        s_equal_temp_counter = 0;
-    }
+    ESP_LOGI(TAG, "Auto-Duty: step=%u, inc=%u, red=%u", s_duty_step, s_consecutive_increments, s_consecutive_reductions);
 }
 
 // Auto-Duty starten

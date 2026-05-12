@@ -72,6 +72,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span> <span id="pwm_duty_symbol_series" style="font-size:.7rem;color:#888"></span></div>
 <div class="row"><label>Auto-Duty:</label><span id="st_pwm_auto">--</span></div>
 <div class="row"><label>Auto-Duty Intervall:</label><span id="st_pwm_interval">--s</span></div>
+<div class="row"><label>Duty-Faktor:</label><span id="st_duty_factor">--%</span></div>
 </div>
 <div class="card">
 <h2>Verbrauch</h2>
@@ -314,7 +315,7 @@ document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
 document.getElementById('pwm_duty_symbol_series').textContent=d.pwm_duty_symbol_series;
 document.getElementById('st_pwm_auto').textContent=d.peltier_pwm_auto?'AN':'AUS';
 document.getElementById('st_pwm_interval').textContent=d.peltier_pwm_interval+'s';
-document.getElementById('peltier_duty_factor').textContent=d.peltier_duty_factor+'%';
+document.getElementById('st_duty_factor').textContent=d.peltier_duty_factor+'%';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
 document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
 document.getElementById('st_energy_week').textContent=d.energy_week.toFixed(2)+' Wh';
