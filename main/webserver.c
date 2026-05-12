@@ -354,6 +354,16 @@ static esp_err_t handler_api_nvs_save(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t handler_api_factory_reset(httpd_req_t *req) {
+    ESP_LOGW(TAG, "Factory reset triggered via web");
+    nvs_config_factory_reset();
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"Factory reset completed - ESP32 restarting\"}");
+    vTaskDelay(pdMS_TO_TICKS(100));  // Delay um Antwort zu senden
+    esp_restart();
+    return ESP_OK;
+}
+
 static esp_err_t handler_api_reset(httpd_req_t *req) {
     ESP_LOGW(TAG, "System reset triggered via web");
     httpd_resp_set_type(req, "application/json");
@@ -645,6 +655,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_nvs_save = {
         .uri = "/api/nvs/save", .method = HTTP_POST, .handler = handler_api_nvs_save
     };
+    httpd_uri_t uri_api_factory_reset = {
+        .uri = "/api/factory_reset", .method = HTTP_POST, .handler = handler_api_factory_reset
+    };
     httpd_uri_t uri_api_reset = {
         .uri = "/api/reset", .method = HTTP_POST, .handler = handler_api_reset
     };
@@ -666,6 +679,7 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_graph_save);
     httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
     httpd_register_uri_handler(s_server, &uri_api_nvs_save);
+    httpd_register_uri_handler(s_server, &uri_api_factory_reset);
     httpd_register_uri_handler(s_server, &uri_api_reset);
     httpd_register_uri_handler(s_server, &uri_api_logs);
     if (wifi_get_mode() == WIFI_MODE_AP) {

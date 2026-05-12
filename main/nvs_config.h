@@ -43,3 +43,6 @@ void nvs_config_delete_wifi_credentials(void);
 
 // Save only energy data to NVS (for frequent updates)
 void nvs_config_save_energy(void);
+
+// Factory reset: Erase all NVS data and restore defaults
+void nvs_config_factory_reset(void);

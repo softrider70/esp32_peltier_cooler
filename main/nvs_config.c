@@ -243,6 +243,27 @@ void nvs_config_save_energy(void) {
     nvs_commit(handle);
     nvs_close(handle);
 
-    ESP_LOGI(TAG, "Energy data saved to NVS: total=%.2f Wh, day=%.2f Wh, week=%.2f Wh, month=%.2f Wh",
-             s_config.energy_wh, s_config.energy_day, s_config.energy_week, s_config.energy_month);
+    ESP_LOGI(TAG, "Energy data saved to NVS");
+}
+
+void nvs_config_factory_reset(void) {
+    ESP_LOGI(TAG, "Factory reset: Erasing NVS namespace");
+    
+    esp_err_t err = nvs_flash_erase();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to erase NVS flash: %s", esp_err_to_name(err));
+        return;
+    }
+    
+    err = nvs_flash_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init NVS after erase: %s", esp_err_to_name(err));
+        return;
+    }
+    
+    // Defaults neu laden
+    load_defaults();
+    nvs_config_save();
+    
+    ESP_LOGI(TAG, "Factory reset completed, defaults restored");
 }

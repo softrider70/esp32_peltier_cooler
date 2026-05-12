@@ -163,6 +163,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <button type="button" onclick="saveConfig()" style="margin-bottom:.5rem">Speichern</button>
 <button type="button" onclick="saveToNVS()" style="margin-bottom:.5rem;margin-left:.5rem;background:#00ff00;color:#000">NVS speichern</button>
+<button type="button" onclick="factoryReset()" style="margin-bottom:.5rem;margin-left:.5rem;background:#ff0000;color:#fff">Factory Reset</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -422,6 +423,14 @@ function saveToNVS(){
 fetch('/api/nvs/save',{method:'POST'})
 .then(r=>r.json()).then(d=>{showStatus(d.msg,'ok')})
 .catch(e=>{showStatus('Fehler: '+e,'error')});
+}
+
+function factoryReset(){
+if(confirm('Wirklich Factory Reset durchführen? Alle Einstellungen werden gelöscht!')){
+fetch('/api/factory_reset',{method:'POST'})
+.then(r=>r.json()).then(d=>{showStatus(d.msg,'ok');setTimeout(()=>location.reload(),2000)})
+.catch(e=>{showStatus('Fehler: '+e,'error')});
+}
 }
 
 function systemReset(){
