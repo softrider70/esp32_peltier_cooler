@@ -237,7 +237,7 @@ void task_fan_pid(void *pvParameters) {
 #endif
 
         // ---- Peltier: digital on/off based on indoor temperature range ----
-        bool peltier_main_state = s_peltier_main_was_on;  // Vorherigen Zustand übernehmen
+        bool peltier_main_state = peltier_get_main_state();  // Zustand aus peltier-Modul holen
 
         if (sd.indoor_valid) {
             // Hysterese: Nur schalten wenn Schwellwerte überschritten werden
