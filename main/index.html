@@ -45,9 +45,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <!-- Tab Navigation -->
 <div class="tabs">
-<button class="tab active" onclick="showTab('status')">Status</button>
-<button class="tab" onclick="showTab('graph')">Graph</button>
-<button class="tab" onclick="showTab('config')">Konfiguration</button>
+<button type="button" class="tab active" onclick="showTab('status')">Status</button>
+<button type="button" class="tab" onclick="showTab('graph')">Graph</button>
+<button type="button" class="tab" onclick="showTab('config')">Konfiguration</button>
 </div>
 
 <!-- Tab: Status -->
@@ -94,7 +94,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div id="graph-container">
 <canvas id="tempChart"></canvas>
 </div>
-<button onclick="saveGraphToNVS()" style="margin-top:.5rem;padding:.3rem .5rem;background:#0ff;border:none;border-radius:4px;color:#000;cursor:pointer;font-size:.8rem">Graph-Daten in NVS speichern</button>
+<button type="button" onclick="saveGraphToNVS()" style="margin-top:.5rem;padding:.3rem .5rem;background:#0ff;border:none;border-radius:4px;color:#000;cursor:pointer;font-size:.8rem">Graph-Daten in NVS speichern</button>
 </div>
 </div>
 
@@ -118,7 +118,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Datenaufzeichnung</h2>
 <div class="row"><label>Daten-Log Intervall (s):</label><input type="number" id="cfg_data_log_interval" min="1" max="3600" value="300"></div>
 <p style="font-size:.7rem;color:#888;margin-top:.2rem">Ringspeicher: <span id="ring_buffer_hours">--</span> Stunden</p>
-<button onclick="resetWifi()" style="background:#ff4444;font-size:.8rem;margin-top:.5rem">WiFi Reset</button>
+<button type="button" onclick="resetWifi()" style="background:#ff4444;font-size:.8rem;margin-top:.5rem">WiFi Reset</button>
 <p style="margin-top:.3rem;font-size:.7rem" id="wifi_reset_status"></p>
 </div>
 
@@ -136,14 +136,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <tr><td>So</td><td><input type="number" id="sched_6_on" min="0" max="23" style="width:50px"></td><td><input type="number" id="sched_6_off" min="0" max="23" style="width:50px"></td></tr>
 </table>
 <div class="row" style="margin-top:.5rem">
-<button onclick="startOta()" style="background:#ff922b;padding:.4rem;font-size:.8rem;flex:1">Firmware Update</button>
-<button onclick="systemReset()" style="background:#e74c3c;padding:.4rem;font-size:.8rem;flex:1;margin-left:.5rem">ESP32 Reset</button>
+<button type="button" onclick="startOta()" style="background:#ff922b;padding:.4rem;font-size:.8rem;flex:1">Firmware Update</button>
+<button type="button" onclick="systemReset()" style="background:#e74c3c;padding:.4rem;font-size:.8rem;flex:1;margin-left:.5rem">ESP32 Reset</button>
 </div>
 </div>
 </div>
 
-<button onclick="saveConfig()" style="margin-bottom:.5rem">Speichern</button>
-<button onclick="saveToNVS()" style="margin-bottom:.5rem;margin-left:.5rem;background:#00ff00;color:#000">NVS speichern</button>
+<button type="button" onclick="saveConfig()" style="margin-bottom:.5rem">Speichern</button>
+<button type="button" onclick="saveToNVS()" style="margin-bottom:.5rem;margin-left:.5rem;background:#00ff00;color:#000">NVS speichern</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -335,7 +335,6 @@ fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-fo
 }
 
 function startOta(){
-console.log('OTA button clicked');
 fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='})
 .then(r=>r.json()).then(d=>{showStatus('OTA gestartet!','success');pollOta()}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
@@ -408,7 +407,6 @@ else if(id==='ota_url')saveOtaUrl();
 
 // System Reset Funktion
 function systemReset(){
-console.log('Reset button clicked');
 if(confirm('ESP32 wirklich neustarten?')){
 fetch('/api/reset',{method:'POST'}).then(r=>r.json()).then(d=>{
 alert('ESP32 wird neugestartet...');
