@@ -17,18 +17,12 @@
 static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
 static bool s_was_active = false;  // Track previous active state for NVS save
-static bool s_peltier_was_on = false;  // Track Peltier state for fan control
 static bool s_peltier_main_was_on = false;  // Track Peltier main state for NVS save
 static int s_peltier_off_counter = 0;  // Counter for fan cooldown after peltier off
 
 // ===== Energy Consumption Tracking =====
 static uint32_t s_peltier_run_time_sec = 0;  // Total Peltier run time in seconds
 static float s_last_energy_wh = 0.0f;  // Last saved energy value (for change detection)
-
-// ===== Peltier PWM (langsames PWM für Stromspar-Modus) =====
-static uint32_t s_peltier_pwm_timer = 0;  // PWM-Timer in Sekunden
-static bool s_peltier_pwm_state = false;  // Aktueller PWM-Zustand (AN/AUS)
-static uint32_t s_duty_adjust_timer = 0;  // Timer für Duty-Anpassung
 
 // ===== Fan Control Parameters =====
 #define FAN_START_DUTY_WHEN_PELTIER_ON  127.0f  // 50% PWM when Peltier turns on (under 70%)
@@ -117,15 +111,6 @@ uint8_t fan_get_duty(void) {
 
 uint16_t fan_get_rpm(void) {
     return s_current_rpm;
-}
-
-// Get remaining seconds until next auto-duty adjustment
-uint16_t fan_get_duty_timer_remaining(void) {
-    app_config_t *cfg = nvs_config_get();
-    if (cfg->peltier_pwm_interval > s_duty_adjust_timer) {
-        return cfg->peltier_pwm_interval - s_duty_adjust_timer;
-    }
-    return 0;
 }
 
 // Aktualisiere Tages-/Wochen-/Monats-Statistiken basierend auf Datum
@@ -270,112 +255,51 @@ void task_fan_pid(void *pvParameters) {
         // Hauptzustand an peltier-Modul übergeben (für Anzeige)
         peltier_set_main_state(peltier_main_state);
 
-        // ---- Peltier PWM (langsames PWM für Stromspar-Modus) ----
-        bool peltier_hw_on = false;  // Hardware-Zustand
-
+        // ---- Hardware-Steuerung: direkt AN/AUS ----
         if (peltier_main_state) {
-            // Hauptzustand AN → Hardware wird durch PWM gesteuert
-            uint32_t on_time = (cfg->peltier_pwm_period * cfg->peltier_pwm_duty) / 100;
-            
-            s_peltier_pwm_timer++;
-            if (s_peltier_pwm_timer >= cfg->peltier_pwm_period) {
-                s_peltier_pwm_timer = 0;  // Periode zurücksetzen
-            }
-            
-            // Hardware wird durch PWM gesteuert: AN wenn timer < on_time
-            s_peltier_pwm_state = (s_peltier_pwm_timer < on_time);
-            peltier_hw_on = s_peltier_pwm_state;  // Hardware folgt PWM-Status
-            
-            ESP_LOGD(TAG, "Peltier PWM: timer=%u/%u, on_time=%u, pwm_state=%d, hw_state=%d",
-                     s_peltier_pwm_timer, cfg->peltier_pwm_period, on_time, s_peltier_pwm_state, peltier_hw_on);
-            
-            // ---- Automatische Duty-Anpassung basierend auf Innentemperatur ----
-            s_duty_adjust_timer++;
-            if (s_duty_adjust_timer >= cfg->peltier_pwm_interval) {  // Konfigurierbares Intervall
-                s_duty_adjust_timer = 0;
-                
-                if (sd.indoor_valid && cfg->peltier_pwm_auto) {
-                    uint8_t new_duty = cfg->peltier_pwm_duty;
-                    
-                    // Logik basierend auf absoluter Temperatur mit Formfaktor
-                    // Peltier-Kühlleistung sinkt bei größerer Temperaturdifferenz
-                    // Daher: Mehr Duty bei größerer Differenz zum Ziel
-                    float temp_error = sd.temp_indoor - cfg->temp_peltier_on;  // Fehler zum Ziel (13°C)
-
-                    // Formfaktor: Je größer der Fehler, desto mehr Duty wird benötigt
-                    float duty_factor = 1.0f + (temp_error * 0.2f);
-                    if (duty_factor < 0.5f) duty_factor = 0.5f;
-                    if (duty_factor > 3.0f) duty_factor = 3.0f;
-
-                    // Basis-Duty berechnen (40% bei genauem Ziel, angepasst durch Formfaktor)
-                    uint8_t base_duty = 40;
-                    uint8_t target_duty = (uint8_t)(base_duty * duty_factor);
-
-                    ESP_LOGI(TAG, "Auto-Duty check: Indoor=%.1f°C, Target=%.1f°C, Error=%.1f°C, Factor=%.2f, Base=%u%%, Target=%u%%",
-                             sd.temp_indoor, cfg->temp_peltier_on, temp_error, duty_factor, base_duty, target_duty);
-
-                    // Aggressive Anpassung: Bei Anstieg immer +10% pro Schritt
-                    if (temp_error > 0) {
-                        // Temperatur steigt → aggressiv hochregeln (+10%)
-                        if (target_duty > new_duty + 10) {
-                            new_duty += 10;
-                        } else {
-                            new_duty = target_duty;
-                        }
-                    } else {
-                        // Temperatur sinkt → sanft runterregeln (max ±5%)
-                        if (target_duty < new_duty - 5) {
-                            new_duty -= 5;
-                        } else if (target_duty > new_duty + 5) {
-                            new_duty += 5;
-                        } else {
-                            new_duty = target_duty;
-                        }
-                    }
-
-                    // Ab 48% Duty noch aggressiver werden (max +15% pro Schritt)
-                    if (new_duty >= 48 && target_duty > new_duty) {
-                        uint8_t aggressive_step = 15;
-                        if (new_duty + aggressive_step <= target_duty) {
-                            new_duty += aggressive_step;
-                        } else {
-                            new_duty = target_duty;
-                        }
-                    }
-
-                    // Begrenzung auf 10-63% (max 63% wie gewünscht)
-                    if (new_duty < 10) new_duty = 10;
-                    if (new_duty > 63) new_duty = 63;
-
-                    ESP_LOGI(TAG, "Auto-Duty: Adjusting duty to %u%% (target was %u%%)", new_duty, target_duty);
-                    
-                    // Duty speichern, wenn geändert
-                    if (new_duty != cfg->peltier_pwm_duty) {
-                        cfg->peltier_pwm_duty = new_duty;
-                        nvs_config_save();
-                    }
-                }
-            }
+            peltier_on();
+            s_peltier_off_counter = 0;
         } else {
-            // Hauptzustand AUS → Hardware AUS
-            peltier_hw_on = false;
-            s_peltier_pwm_timer = 0;
-            s_peltier_pwm_state = false;
+            peltier_off();
         }
 
-        // ---- Lüftersteuerung basierend auf Peltier-Hauptzustand (nicht PWM-Zustand) ----
+        // ---- Energy Consumption Calculation ----
+        if (peltier_main_state) {
+            s_peltier_run_time_sec++;  // Increment run time
+        }
+
+        // Calculate energy increment for this interval (1 second)
+        float energy_increment = (1.0f / 3600.0f) * PELTIER_POWER;  // Wh per second
+        if (peltier_main_state) {
+            update_energy_stats(energy_increment);  // Update stats only when Peltier is on
+        }
+
+        // Save energy data only when Peltier main state turns OFF and value changed
+        if (s_peltier_main_was_on && !peltier_main_state) {
+            cfg = nvs_config_get();
+            bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.01f;  // Changed by >0.01 Wh
+
+            if (energy_changed) {
+                nvs_config_save_energy();
+                s_last_energy_wh = cfg->energy_wh;
+                ESP_LOGI(TAG, "Energy saved on Peltier main OFF: %.2f Wh", cfg->energy_wh);
+            }
+        }
+
+        // Track previous main state
+        s_peltier_main_was_on = peltier_main_state;
+
+        // ---- Lüftersteuerung basierend auf Peltier-Hauptzustand ----
         float fan_output = 0.0f;
 
         if (peltier_main_state) {
             // Peltier-Hauptzustand ist AN → Lüfter regelt basierend auf Kühlblock-Temp
-            // Hardware wird separat gesteuert (siehe unten)
-            
             // Einfache P-Steuerung ohne Deadband oder Glättung
             float error = sd.temp_heatsink - cfg->temp_heatsink_target;
             float temp_diff_to_max = cfg->temp_heatsink_max - sd.temp_heatsink;
-            
+
             float fan_output_percent = 40.0f;
-            
+
             // Bis 3 Grad unter max: Linear bis 68%
             if (temp_diff_to_max > 3.0f) {
                 // Linearer Bereich: 40% + (error * 8%) pro °C
@@ -388,13 +312,13 @@ void task_fan_pid(void *pvParameters) {
                 fan_output_percent = 68.0f * exp_factor;
                 if (fan_output_percent > 100.0f) fan_output_percent = 100.0f;
             }
-            
+
             // Clamp zwischen 30% und 100%
             if (fan_output_percent < 30.0f) fan_output_percent = 30.0f;
-            
-            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, diff_to_max=%.1f°C, fan=%.0f%%", 
+
+            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, diff_to_max=%.1f°C, fan=%.0f%%",
                      sd.temp_heatsink, error, temp_diff_to_max, fan_output_percent);
-            
+
             fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
             // Peltier-Hauptzustand ist AUS → Lüfter nachlaufen für Restwärme
@@ -408,42 +332,6 @@ void task_fan_pid(void *pvParameters) {
                 fan_output = 0.0f;
             }
         }
-
-        // ---- Hardware-Steuerung basierend auf Hauptzustand ----
-        if (peltier_hw_on) {
-            peltier_on();  // Hardware einschalten
-            s_peltier_off_counter = 0;  // Cooldown-Counter zurücksetzen
-        } else {
-            peltier_off();  // Hardware ausschalten
-        }
-
-        s_peltier_was_on = peltier_hw_on;
-
-        // ---- Energy Consumption Calculation ----
-        if (peltier_hw_on) {
-            s_peltier_run_time_sec++;  // Increment run time
-        }
-
-        // Calculate energy increment for this interval (1 second)
-        float energy_increment = (1.0f / 3600.0f) * PELTIER_POWER;  // Wh per second
-        if (peltier_hw_on) {
-            update_energy_stats(energy_increment);  // Update stats only when Peltier is on
-        }
-
-        // Save energy data only when Peltier main state turns OFF and value changed
-        if (s_peltier_main_was_on && !peltier_main_state) {
-            cfg = nvs_config_get();
-            bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.01f;  // Changed by >0.01 Wh
-            
-            if (energy_changed) {
-                nvs_config_save_energy();
-                s_last_energy_wh = cfg->energy_wh;
-                ESP_LOGI(TAG, "Energy saved on Peltier main OFF: %.2f Wh", cfg->energy_wh);
-            }
-        }
-        
-        // Track previous main state
-        s_peltier_main_was_on = peltier_main_state;
 
         // Clamp output
         if (fan_output > 255.0f) {
@@ -465,7 +353,7 @@ void task_fan_pid(void *pvParameters) {
 
         ESP_LOGD(TAG, "Indoor=%.1f Heatsink=%.1f fan=%d peltier=%s",
                  sd.temp_indoor, sd.temp_heatsink, s_current_duty,
-                 peltier_hw_on ? "ON" : "OFF");
+                 peltier_main_state ? "ON" : "OFF");
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }

@@ -23,7 +23,6 @@
 static float s_indoor_history[3] = {0};
 static float s_heatsink_history[3] = {0};
 static float s_fan_duty_history[3] = {0};
-static float s_pwm_duty_history[3] = {0};
 static int s_history_index = 0;
 static bool s_history_filled = false;
 
@@ -101,14 +100,12 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     int trend_indoor = calculate_trend(sd.temp_indoor, s_indoor_history, 3, 0.1f);
     int trend_heatsink = calculate_trend(sd.temp_heatsink, s_heatsink_history, 3, 0.1f);
     int trend_fan_duty = calculate_trend((float)fan_get_duty(), s_fan_duty_history, 3, 2.0f);
-    int trend_pwm_duty = calculate_trend((float)cfg->peltier_pwm_duty, s_pwm_duty_history, 3, 2.0f);
-    
+        
     // Update history (Ring Buffer mit 3 Werten)
     s_indoor_history[s_history_index] = sd.temp_indoor;
     s_heatsink_history[s_history_index] = sd.temp_heatsink;
     s_fan_duty_history[s_history_index] = fan_get_duty();
-    s_pwm_duty_history[s_history_index] = cfg->peltier_pwm_duty;
-    
+        
     s_history_index = (s_history_index + 1) % 3;
     if (s_history_index == 0) s_history_filled = true;
 
@@ -125,9 +122,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
-        "\"peltier_pwm_period\":%u,\"peltier_pwm_duty\":%u,\"peltier_pwm_auto\":%s,"
-        "\"peltier_pwm_interval\":%u,\"duty_timer_remaining\":%u,"
-        "\"trend_indoor\":%d,\"trend_heatsink\":%d,\"trend_fan_duty\":%d,\"trend_pwm_duty\":%d,"
+        "\"trend_indoor\":%d,\"trend_heatsink\":%d,\"trend_fan_duty\":%d,"
         "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
@@ -144,9 +139,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         interval_sec, duration_hours,
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
-        cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false",
-        cfg->peltier_pwm_interval, fan_get_duty_timer_remaining(),
-        trend_indoor, trend_heatsink, trend_fan_duty, trend_pwm_duty,
+        trend_indoor, trend_heatsink, trend_fan_duty,
         BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");
@@ -186,24 +179,6 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         ESP_LOGI(TAG, "Config update: data_log_interval = %u seconds", cfg->data_log_interval);
         // Sofort an Data Logger übergeben
         data_logger_set_interval(cfg->data_log_interval * 1000);
-    }
-    if (httpd_query_key_value(buf, "peltier_pwm_period", value, sizeof(value)) == ESP_OK)
-        cfg->peltier_pwm_period = (uint16_t)atoi(value);
-    if (httpd_query_key_value(buf, "peltier_pwm_duty", value, sizeof(value)) == ESP_OK)
-        cfg->peltier_pwm_duty = (uint8_t)atoi(value);
-    if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK) {
-        bool new_auto = (atoi(value) != 0);
-        ESP_LOGI(TAG, "Config update: peltier_pwm_auto = %d (was %d)", new_auto, cfg->peltier_pwm_auto);
-        cfg->peltier_pwm_auto = new_auto;
-        // Sofort speichern für Persistenz
-        nvs_config_save();
-    }
-    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK) {
-        uint16_t new_interval = (uint16_t)atoi(value);
-        ESP_LOGI(TAG, "Config update: peltier_pwm_interval = %u (was %u)", new_interval, cfg->peltier_pwm_interval);
-        cfg->peltier_pwm_interval = new_interval;
-        // Sofort speichern für Persistenz
-        nvs_config_save();
     }
 
     // Parse daily schedule (7 days, 2 values each)

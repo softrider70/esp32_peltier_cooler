@@ -21,7 +21,7 @@ static void load_defaults(void) {
     s_config.energy_month = 0.0f;
     s_config.last_date = 0;
     s_config.peltier_pwm_period = PELTIER_PWM_PERIOD_DEFAULT;
-    s_config.peltier_pwm_duty = 100;  // Test: 100% Duty
+    s_config.peltier_pwm_duty = PELTIER_PWM_DUTY_DEFAULT;
     s_config.peltier_pwm_auto = true;  // Auto-Duty standardmäßig aktiviert (verbesserte Logik)
     s_config.peltier_pwm_interval = PELTIER_PWM_INTERVAL_DEFAULT;  // 1 Minute
     

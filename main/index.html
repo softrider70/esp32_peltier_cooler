@@ -107,11 +107,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Peltier Kühlbereich</h2>
 <div class="row"><label>AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40"></div>
 <div class="row"><label>AUS ab:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35"></div>
-<div class="row"><label>PWM Periode (s):</label><input type="number" id="cfg_peltier_pwm_period" min="1" max="60" value="10"></div>
-<div class="row"><label>PWM Duty (%):</label><input type="number" id="cfg_peltier_pwm_duty" min="10" max="100" value="50"></div>
-<div class="row"><label>Auto-Duty:</label><input type="checkbox" id="cfg_peltier_pwm_auto" checked></div>
-<div class="row"><label>Auto-Intervall (s):</label><input type="number" id="cfg_peltier_pwm_interval" min="30" max="3600" value="180"></div>
-<p style="font-size:.7rem;color:#888;margin-top:.2rem">Hysterese: Peltier bleibt an zwischen AUS und AN<br>Auto-Duty: Intervall in Sekunden (180 = 3 Min)</p>
+<p style="font-size:.7rem;color:#888;margin-top:.2rem">Hysterese: Peltier bleibt an zwischen AUS und AN</p>
 </div>
 
 <div class="card">
@@ -329,10 +325,6 @@ document.getElementById('cfg_temp_off').value=d.temp_off;
 document.getElementById('cfg_temp_max').value=d.temp_max;
 document.getElementById('cfg_temp_target').value=d.temp_target;
 document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
-document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
-document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
-document.getElementById('cfg_peltier_pwm_auto').checked=d.peltier_pwm_auto==='true';
-document.getElementById('cfg_peltier_pwm_interval').value=d.peltier_pwm_interval;
 window.configLoaded=true;
 }
 var interval=parseInt(d.data_log_interval)||10;
@@ -346,11 +338,7 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&temp_off='+document.getElementById('cfg_temp_off').value
 +'&temp_max='+document.getElementById('cfg_temp_max').value
 +'&temp_target='+document.getElementById('cfg_temp_target').value
-+'&data_log_interval='+document.getElementById('cfg_data_log_interval').value
-+'&peltier_pwm_period='+document.getElementById('cfg_peltier_pwm_period').value
-+'&peltier_pwm_duty='+document.getElementById('cfg_peltier_pwm_duty').value
-+'&peltier_pwm_auto='+(document.getElementById('cfg_peltier_pwm_auto').checked?'1':'0')
-+'&peltier_pwm_interval='+document.getElementById('cfg_peltier_pwm_interval').value;
++'&data_log_interval='+document.getElementById('cfg_data_log_interval').value;
 for(var i=0;i<7;i++){
 body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value;
 body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value;
