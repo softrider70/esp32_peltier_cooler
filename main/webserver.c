@@ -178,7 +178,7 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         cfg->temp_heatsink_target = strtof(value, NULL);
     if (httpd_query_key_value(buf, "data_log_interval", value, sizeof(value)) == ESP_OK) {
         cfg->data_log_interval = (uint16_t)atoi(value);
-        ESP_LOGI(TAG, "Config update: data_log_interval = %u seconds", cfg->data_log_interval);
+        ESP_LOGI(TAG, "Config update: data_log_interval = %u seconds (raw: %s)", cfg->data_log_interval, value);
         // Sofort an Data Logger übergeben
         data_logger_set_interval(cfg->data_log_interval * 1000);
     }

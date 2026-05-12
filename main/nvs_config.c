@@ -159,6 +159,7 @@ void nvs_config_save(void) {
     nvs_set_u16(handle, NVS_KEY_SCHED_SO_ON, s_config.sched_on[6]);
     nvs_set_u16(handle, NVS_KEY_SCHED_SO_OFF, s_config.sched_off[6]);
     nvs_set_u16(handle, NVS_KEY_DATA_LOG_INTERVAL, s_config.data_log_interval);
+ESP_LOGI(TAG, "Saving data_log_interval to NVS: %u", s_config.data_log_interval);
     nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_PERIOD, s_config.peltier_pwm_period);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, s_config.peltier_pwm_duty);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, s_config.peltier_pwm_auto);

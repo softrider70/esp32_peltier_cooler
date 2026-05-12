@@ -67,7 +67,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 <div class="card">
 <h2>Peltier</h2>
-<div class="row"><label>Status:</label><span id="st_peltier">--</span></div>
+<div class="row"><label>Status:</label><button id="st_peltier" style="background:#444;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;cursor:default">--</button></div>
 <div class="row"><label>PWM Period:</label><span id="st_pwm_period">--s</span></div>
 <div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span></div>
 <div class="row"><label>Auto-Duty:</label><span id="st_pwm_auto">--</span></div>
@@ -301,7 +301,9 @@ document.getElementById('st_fan').textContent=Math.round(d.fan_duty/2.55)+'%';
 document.getElementById('trend_fan_duty').textContent=getTrendSymbol(d.trend_fan_duty);
 document.getElementById('trend_fan_duty').style.color=getTrendColor(d.trend_fan_duty);
 document.getElementById('st_rpm').textContent=d.fan_rpm+' RPM';
-document.getElementById('st_peltier').textContent=d.peltier_on?'AN':'AUS';
+var peltierBtn=document.getElementById('st_peltier');
+peltierBtn.textContent=d.peltier_on?'AN':'AUS';
+peltierBtn.style.background=d.peltier_on?'#e74c3c':'#2ecc71';
 document.getElementById('st_pwm_period').textContent=d.peltier_pwm_period+'s';
 document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
 document.getElementById('st_pwm_auto').textContent=d.peltier_pwm_auto?'AN':'AUS';
