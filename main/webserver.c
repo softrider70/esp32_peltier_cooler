@@ -214,6 +214,7 @@ static esp_err_t handler_api_reset(httpd_req_t *req) {
     ESP_LOGW(TAG, "System reset triggered via web");
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"ESP32 restarting\"}");
+    vTaskDelay(pdMS_TO_TICKS(100));  // Delay um Antwort zu senden
     esp_restart();
     return ESP_OK;
 }

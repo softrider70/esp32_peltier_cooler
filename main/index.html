@@ -312,6 +312,11 @@ document.getElementById('cfg_temp_off').value=d.temp_off;
 document.getElementById('cfg_temp_max').value=d.temp_max;
 document.getElementById('cfg_temp_target').value=d.temp_target;
 document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
+// Load schedule values
+for(var i=0;i<7;i++){
+document.getElementById('sched_'+i+'_on').value=d.sched_on[i]/60;
+document.getElementById('sched_'+i+'_off').value=d.sched_off[i]/60;
+}
 window.configLoaded=true;
 }
 var interval=parseInt(d.data_log_interval)||10;
@@ -335,7 +340,7 @@ fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-fo
 }
 
 function startOta(){
-fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url='})
+fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'url=http://192.168.1.191:8080/firmware.bin'})
 .then(r=>r.json()).then(d=>{showStatus('OTA gestartet!','success');pollOta()}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
