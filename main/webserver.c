@@ -26,15 +26,15 @@ static float s_fan_duty_history[3] = {0};
 static int s_history_index = 0;
 static bool s_history_filled = false;
 
-// Historie für Symbolreihen (10 Werte)
-static float s_indoor_series[10] = {0};
-static float s_heatsink_series[10] = {0};
-static uint8_t s_fan_duty_series[10] = {0};
+// Historie für Symbolreihen (80 Werte)
+static float s_indoor_series[80] = {0};
+static float s_heatsink_series[80] = {0};
+static uint8_t s_fan_duty_series[80] = {0};
 static int s_series_index = 0;
 static bool s_series_filled = false;
 
-// PWM Duty Historie für Symbolreihe (10 Werte)
-static uint8_t s_pwm_duty_history[10] = {0};
+// PWM Duty Historie für Symbolreihe (80 Werte)
+static uint8_t s_pwm_duty_history[80] = {0};
 static int s_pwm_duty_history_index = 0;
 static bool s_pwm_duty_history_filled = false;
 
@@ -103,18 +103,16 @@ if (!s_pwm_duty_history_filled) {
 }
 
 int pos = 0;
-for (int i = 0; i < 10; i++) {
-    int idx = (s_pwm_duty_history_index - 10 + i + 10) % 10;
-    if (i > 0) {
-        uint8_t prev = s_pwm_duty_history[(idx - 1 + 10) % 10];
-        uint8_t curr = s_pwm_duty_history[idx];
-        if (curr > prev) {
-            buf[pos++] = '^';
-        } else if (curr < prev) {
-            buf[pos++] = 'v';
-        } else {
-            buf[pos++] = '-';
-        }
+// Von links nach rechts: neue Daten am Anfang (index 0), alte Daten am Ende
+for (int i = 0; i < 79; i++) {
+    uint8_t curr = s_pwm_duty_history[i];
+    uint8_t next = s_pwm_duty_history[i + 1];
+    if (curr < next) {
+        buf[pos++] = '^';
+    } else if (curr > next) {
+        buf[pos++] = 'v';
+    } else {
+        buf[pos++] = '-';
     }
 }
 buf[pos] = '\0';
@@ -128,18 +126,16 @@ if (!s_series_filled) {
 }
 
 int pos = 0;
-for (int i = 0; i < size; i++) {
-    int idx = (s_series_index - size + i + size) % size;
-    if (i > 0) {
-        float prev = series[(idx - 1 + size) % size];
-        float curr = series[idx];
-        if (curr > prev + threshold) {
-            buf[pos++] = '^';
-        } else if (curr < prev - threshold) {
-            buf[pos++] = 'v';
-        } else {
-            buf[pos++] = '-';
-        }
+// Von links nach rechts: neue Daten am Anfang (index 0), alte Daten am Ende
+for (int i = 0; i < size - 1; i++) {
+    float curr = series[i];
+    float next = series[i + 1];
+    if (curr < next - threshold) {
+        buf[pos++] = '^';
+    } else if (curr > next + threshold) {
+        buf[pos++] = 'v';
+    } else {
+        buf[pos++] = '-';
     }
 }
 buf[pos] = '\0';
@@ -202,27 +198,41 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     s_history_index = (s_history_index + 1) % 3;
     if (s_history_index == 0) s_history_filled = true;
 
-    // Update Symbolreihen (10 Werte)
-    s_indoor_series[s_series_index] = sd.temp_indoor;
-    s_heatsink_series[s_series_index] = sd.temp_heatsink;
-    s_fan_duty_series[s_series_index] = fan_get_duty();
+    // Update Symbolreihen (80 Werte) - neue Daten links, alte nach rechts schieben
+    if (s_series_filled) {
+        // Alle Werte nach rechts schieben
+        for (int i = 79; i > 0; i--) {
+            s_indoor_series[i] = s_indoor_series[i - 1];
+            s_heatsink_series[i] = s_heatsink_series[i - 1];
+            s_fan_duty_series[i] = s_fan_duty_series[i - 1];
+        }
+    }
+    s_indoor_series[0] = sd.temp_indoor;
+    s_heatsink_series[0] = sd.temp_heatsink;
+    s_fan_duty_series[0] = fan_get_duty();
 
-    s_series_index = (s_series_index + 1) % 10;
-    if (s_series_index == 0) s_series_filled = true;
+    s_series_index++;
+    if (s_series_index >= 80) s_series_filled = true;
 
-    // Update PWM Duty Historie (10 Werte für Symbolreihe)
-    s_pwm_duty_history[s_pwm_duty_history_index] = cfg->peltier_pwm_duty;
-    s_pwm_duty_history_index = (s_pwm_duty_history_index + 1) % 10;
-    if (s_pwm_duty_history_index == 0) s_pwm_duty_history_filled = true;
+    // Update PWM Duty Historie (80 Werte) - neue Daten links, alte nach rechts schieben
+    if (s_pwm_duty_history_filled) {
+        for (int i = 79; i > 0; i--) {
+            s_pwm_duty_history[i] = s_pwm_duty_history[i - 1];
+        }
+    }
+    s_pwm_duty_history[0] = cfg->peltier_pwm_duty;
+
+    s_pwm_duty_history_index++;
+    if (s_pwm_duty_history_index >= 80) s_pwm_duty_history_filled = true;
 
     // Symbolreihen generieren
-    char indoor_symbol_series[12] = {0};
-    char heatsink_symbol_series[12] = {0};
-    char fan_duty_symbol_series[12] = {0};
-    char pwm_duty_symbol_series[12] = {0};
-    generate_float_symbol_series(indoor_symbol_series, sizeof(indoor_symbol_series), s_indoor_series, 10, 0.1f);
-    generate_float_symbol_series(heatsink_symbol_series, sizeof(heatsink_symbol_series), s_heatsink_series, 10, 0.1f);
-    generate_float_symbol_series(fan_duty_symbol_series, sizeof(fan_duty_symbol_series), (float*)s_fan_duty_series, 10, 2.0f);
+    char indoor_symbol_series[85] = {0};
+    char heatsink_symbol_series[85] = {0};
+    char fan_duty_symbol_series[85] = {0};
+    char pwm_duty_symbol_series[85] = {0};
+    generate_float_symbol_series(indoor_symbol_series, sizeof(indoor_symbol_series), s_indoor_series, 80, 0.1f);
+    generate_float_symbol_series(heatsink_symbol_series, sizeof(heatsink_symbol_series), s_heatsink_series, 80, 0.1f);
+    generate_float_symbol_series(fan_duty_symbol_series, sizeof(fan_duty_symbol_series), (float*)s_fan_duty_series, 80, 2.0f);
     generate_pwm_duty_symbol_series(pwm_duty_symbol_series, sizeof(pwm_duty_symbol_series));
 
     int len = snprintf(buf, sizeof(buf),

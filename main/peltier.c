@@ -212,6 +212,7 @@ static void autoduty_callback(void* arg) {
     } else {
         // Temperatur gleich
         s_equal_temp_counter++;
+        ESP_LOGI(TAG, "Auto-Duty: Temp equal (diff=%.2f), counter=%d", temp_diff, s_equal_temp_counter);
         if (s_equal_temp_counter >= 2) {
             // 2x gleich → Duty erhöhen
             if (s_pwm_duty < 20) {
@@ -222,6 +223,8 @@ static void autoduty_callback(void* arg) {
                 // Duty in NVS-Config aktualisieren
                 app_config_t *cfg = nvs_config_get();
                 cfg->peltier_pwm_duty = s_pwm_duty;
+            } else {
+                ESP_LOGI(TAG, "Auto-Duty: Duty already at max (%u%%)", s_pwm_duty);
             }
         } else {
             // Stabil → Schrittweite zurück zu Basis
