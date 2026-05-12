@@ -199,13 +199,10 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     if (s_history_index == 0) s_history_filled = true;
 
     // Update Symbolreihen (80 Werte) - neue Daten links, alte nach rechts schieben
-    if (s_series_filled) {
-        // Alle Werte nach rechts schieben
-        for (int i = 79; i > 0; i--) {
-            s_indoor_series[i] = s_indoor_series[i - 1];
-            s_heatsink_series[i] = s_heatsink_series[i - 1];
-            s_fan_duty_series[i] = s_fan_duty_series[i - 1];
-        }
+    for (int i = 79; i > 0; i--) {
+        s_indoor_series[i] = s_indoor_series[i - 1];
+        s_heatsink_series[i] = s_heatsink_series[i - 1];
+        s_fan_duty_series[i] = s_fan_duty_series[i - 1];
     }
     s_indoor_series[0] = sd.temp_indoor;
     s_heatsink_series[0] = sd.temp_heatsink;
@@ -215,10 +212,8 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     if (s_series_index >= 80) s_series_filled = true;
 
     // Update PWM Duty Historie (80 Werte) - neue Daten links, alte nach rechts schieben
-    if (s_pwm_duty_history_filled) {
-        for (int i = 79; i > 0; i--) {
-            s_pwm_duty_history[i] = s_pwm_duty_history[i - 1];
-        }
+    for (int i = 79; i > 0; i--) {
+        s_pwm_duty_history[i] = s_pwm_duty_history[i - 1];
     }
     s_pwm_duty_history[0] = cfg->peltier_pwm_duty;
 

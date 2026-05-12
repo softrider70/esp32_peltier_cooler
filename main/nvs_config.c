@@ -146,6 +146,9 @@ app_config_t* nvs_config_get(void) {
 }
 
 void nvs_config_save(void) {
+    ESP_LOGI(TAG, "nvs_config_save called: pwm_period=%u, pwm_duty=%u",
+             s_config.peltier_pwm_period, s_config.peltier_pwm_duty);
+
     nvs_handle_t handle;
     if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to open NVS for writing");
