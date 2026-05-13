@@ -1,4 +1,4 @@
-<!-- Build 54 - Fix peltier field name -->
+<!-- Build 267 - Auto-Duty Implementation -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -71,6 +71,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label>Status:</label><button id="st_peltier" style="background:#444;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;cursor:default">--</button></div>
 <div class="row"><label>PWM Period:</label><span id="st_pwm_period">--s</span></div>
 <div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span></div>
+<div class="row"><label>Auto-Duty:</label><button id="st_autoduty" style="background:#444;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;cursor:default">--</button></div>
+<div class="row"><label>AD Duty:</label><span id="st_autoduty_duty">--%</span></div>
+<div class="row"><label>AD Cycle:</label><span id="st_autoduty_cycle">--s</span></div>
+<div class="row"><label>AD Step:</label><span id="st_autoduty_step">--%</span></div>
+<div class="row"><label>AD Countdown:</label><span id="st_autoduty_countdown">--s</span></div>
 </div>
 <div class="card">
 <h2>Verbrauch</h2>
@@ -121,6 +126,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h2>Peltier PWM</h2>
 <div class="row"><label>Period (s):</label><input type="number" id="cfg_peltier_pwm_period" min="1" max="300"></div>
 <div class="row"><label>Duty (%):</label><input type="number" id="cfg_peltier_pwm_duty" min="1" max="100"></div>
+</div>
+
+<div class="card">
+<h2>Auto-Duty Regelung</h2>
+<div class="row"><label>Auto-Duty:</label><input type="checkbox" id="cfg_auto_duty_en"></div>
+<div class="row"><label>Duty (%):</label><input type="number" id="cfg_auto_duty_duty" min="0" max="100"></div>
+<div class="row"><label>Zyklus (s):</label><input type="number" id="cfg_auto_duty_cycle" min="1" max="300"></div>
 </div>
 
 <div class="card">
@@ -286,6 +298,13 @@ peltierBtn.textContent=d.peltier_on?'AN':'AUS';
 peltierBtn.style.background=d.peltier_on?'#e74c3c':'#2ecc71';
 document.getElementById('st_pwm_period').textContent=d.peltier_pwm_period+'s';
 document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
+var autodutyBtn=document.getElementById('st_autoduty');
+autodutyBtn.textContent=d.auto_duty_en?'AN':'AUS';
+autodutyBtn.style.background=d.auto_duty_en?'#e74c3c':'#2ecc71';
+document.getElementById('st_autoduty_duty').textContent=d.auto_duty_duty+'%';
+document.getElementById('st_autoduty_cycle').textContent=d.auto_duty_cycle+'s';
+document.getElementById('st_autoduty_step').textContent=d.auto_duty_step+'%';
+document.getElementById('st_autoduty_countdown').textContent=d.auto_duty_countdown+'s';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
 document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
 document.getElementById('st_energy_week').textContent=d.energy_week.toFixed(2)+' Wh';
@@ -315,6 +334,11 @@ document.getElementById('cfg_temp_off').value=d.temp_off;
 document.getElementById('cfg_temp_max').value=d.temp_max;
 document.getElementById('cfg_temp_target').value=d.temp_target;
 document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
+document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
+document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
+document.getElementById('cfg_auto_duty_en').checked=d.auto_duty_en;
+document.getElementById('cfg_auto_duty_duty').value=d.auto_duty_duty;
+document.getElementById('cfg_auto_duty_cycle').value=d.auto_duty_cycle;
 // Load schedule values
 for(var i=0;i<7;i++){
 document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
@@ -336,6 +360,9 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&data_log_interval='+document.getElementById('cfg_data_log_interval').value
 +'&peltier_pwm_period='+document.getElementById('cfg_peltier_pwm_period').value
 +'&peltier_pwm_duty='+document.getElementById('cfg_peltier_pwm_duty').value
++'&auto_duty_en='+(document.getElementById('cfg_auto_duty_en').checked?1:0)
++'&auto_duty_duty='+document.getElementById('cfg_auto_duty_duty').value
++'&auto_duty_cycle='+document.getElementById('cfg_auto_duty_cycle').value
 for(var i=0;i<7;i++){
 body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value*60;
 body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value*60;
@@ -413,6 +440,9 @@ document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
 document.getElementById('ring_buffer_hours').textContent=d.ring_buffer_hours.toFixed(1);
 document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
 document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
+document.getElementById('cfg_auto_duty_en').checked=d.auto_duty_en;
+document.getElementById('cfg_auto_duty_duty').value=d.auto_duty_duty;
+document.getElementById('cfg_auto_duty_cycle').value=d.auto_duty_cycle;
 for(var i=0;i<7;i++){
 document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
 document.getElementById('sched_'+i+'_off').value=d.sched_off[i];

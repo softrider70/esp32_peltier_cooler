@@ -1,5 +1,6 @@
 #include "sensor.h"
 #include "config.h"
+#include "peltier.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -22,6 +23,9 @@ static int s_sensor_count = 0;
 // Error handling
 static int s_error_count = 0;
 static bool s_emergency_mode = false;
+
+// Auto-Duty Start Flag
+static bool s_autoduty_started = false;
 
 // OneWire timing (microseconds)
 static inline void ow_delay_us(uint32_t us) {
@@ -287,6 +291,13 @@ void task_sensor(void *pvParameters) {
             if (t > -126.0f) {
                 new_data.temp_indoor = t;
                 new_data.indoor_valid = true;
+                
+                // Auto-Duty beim ersten validen Sensor starten
+                if (!s_autoduty_started && new_data.indoor_valid) {
+                    s_autoduty_started = true;
+                    ESP_LOGI(TAG, "Sensor valid, starting Auto-Duty");
+                    peltier_autoduty_start_with_temp(new_data.temp_indoor);
+                }
             } else {
                 read_error = true;
                 // Keep previous value on error

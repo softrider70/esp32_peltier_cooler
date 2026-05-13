@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        257     // Build counter - increment with each flash
+#define BUILD_NUMBER        267     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -29,6 +29,11 @@
 // ===== Peltier PWM Defaults =====
 #define PELTIER_PWM_PERIOD_DEFAULT  10      // PWM period in seconds
 #define PELTIER_PWM_DUTY_DEFAULT   10      // PWM duty cycle % (10 = start value for power saving)
+
+// ===== Auto-Duty Defaults =====
+#define AUTO_DUTY_EN_DEFAULT       true    // Auto-Duty enabled by default
+#define AUTO_DUTY_DUTY_DEFAULT     80      // Auto-Duty duty cycle % (default 80%)
+#define AUTO_DUTY_CYCLE_DEFAULT    5       // Auto-Duty cycle duration in seconds (default 5s)
 
 // ===== Sensor Configuration =====
 #define SENSOR_READ_INTERVAL_MS  2000   // Read sensors every 2s
@@ -84,6 +89,9 @@
 #define NVS_KEY_PELTIER_PWM_PERIOD "pwm_period"
 #define NVS_KEY_PELTIER_PWM_DUTY   "pwm_duty"
 #define NVS_KEY_GRAPH_DATA         "graph_data"
+#define NVS_KEY_AUTO_DUTY_EN       "autoduty_en"
+#define NVS_KEY_AUTO_DUTY_DUTY     "autoduty_duty"
+#define NVS_KEY_AUTO_DUTY_CYCLE    "autoduty_cycle"
 
 // ===== Task Priorities =====
 #define TASK_PRIO_SENSOR     5

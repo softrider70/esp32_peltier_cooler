@@ -22,7 +22,10 @@ static void load_defaults(void) {
     s_config.last_date = 0;
     s_config.peltier_pwm_period = PELTIER_PWM_PERIOD_DEFAULT;
     s_config.peltier_pwm_duty = PELTIER_PWM_DUTY_DEFAULT;
-    
+    s_config.auto_duty_en = AUTO_DUTY_EN_DEFAULT;
+    s_config.auto_duty_duty = AUTO_DUTY_DUTY_DEFAULT;
+    s_config.auto_duty_cycle = AUTO_DUTY_CYCLE_DEFAULT;
+
     // Default schedule: Alle Tage 8-23
     for (int i = 0; i < 7; i++) {
         s_config.sched_on[i] = 8 * 60;   // 8:00
@@ -118,6 +121,29 @@ void nvs_config_init(void) {
         ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u",
                  s_config.peltier_pwm_period, s_config.peltier_pwm_duty);
 
+        // Auto-Duty Parameter laden
+        uint8_t auto_duty_en_u8;
+        if (nvs_get_u8(handle, NVS_KEY_AUTO_DUTY_EN, &auto_duty_en_u8) == ESP_OK) {
+            s_config.auto_duty_en = auto_duty_en_u8 ? true : false;
+            ESP_LOGI(TAG, "Loaded auto_duty_en from NVS: %s", s_config.auto_duty_en ? "true" : "false");
+        } else {
+            ESP_LOGI(TAG, "auto_duty_en not found in NVS, using default: %s", s_config.auto_duty_en ? "true" : "false");
+        }
+        if (nvs_get_u8(handle, NVS_KEY_AUTO_DUTY_DUTY, &u8) == ESP_OK) {
+            s_config.auto_duty_duty = u8;
+            ESP_LOGI(TAG, "Loaded auto_duty_duty from NVS: %u", s_config.auto_duty_duty);
+        } else {
+            ESP_LOGI(TAG, "auto_duty_duty not found in NVS, using default: %u", s_config.auto_duty_duty);
+        }
+        if (nvs_get_u16(handle, NVS_KEY_AUTO_DUTY_CYCLE, &u16) == ESP_OK) {
+            s_config.auto_duty_cycle = u16;
+            ESP_LOGI(TAG, "Loaded auto_duty_cycle from NVS: %u", s_config.auto_duty_cycle);
+        } else {
+            ESP_LOGI(TAG, "auto_duty_cycle not found in NVS, using default: %u", s_config.auto_duty_cycle);
+        }
+        ESP_LOGI(TAG, "Loaded from NVS: auto_duty_en=%s, auto_duty_duty=%u, auto_duty_cycle=%u",
+                 s_config.auto_duty_en ? "true" : "false", s_config.auto_duty_duty, s_config.auto_duty_cycle);
+
         nvs_close(handle);
         ESP_LOGI(TAG, "Config loaded from NVS");
     } else {
@@ -175,6 +201,14 @@ ESP_LOGI(TAG, "Saving data_log_interval to NVS: %u", s_config.data_log_interval)
     ESP_LOGI(TAG, "Saving peltier_pwm_period to NVS: %u", s_config.peltier_pwm_period);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, s_config.peltier_pwm_duty);
     ESP_LOGI(TAG, "Saving peltier_pwm_duty to NVS: %u", s_config.peltier_pwm_duty);
+
+    // Auto-Duty Parameter speichern
+    nvs_set_u8(handle, NVS_KEY_AUTO_DUTY_EN, s_config.auto_duty_en ? 1 : 0);
+    ESP_LOGI(TAG, "Saving auto_duty_en to NVS: %s", s_config.auto_duty_en ? "true" : "false");
+    nvs_set_u8(handle, NVS_KEY_AUTO_DUTY_DUTY, s_config.auto_duty_duty);
+    ESP_LOGI(TAG, "Saving auto_duty_duty to NVS: %u", s_config.auto_duty_duty);
+    nvs_set_u16(handle, NVS_KEY_AUTO_DUTY_CYCLE, s_config.auto_duty_cycle);
+    ESP_LOGI(TAG, "Saving auto_duty_cycle to NVS: %u", s_config.auto_duty_cycle);
 
     nvs_commit(handle);
     nvs_close(handle);

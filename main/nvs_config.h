@@ -22,6 +22,11 @@ typedef struct {
     // Peltier PWM (langsames PWM für Stromspar-Modus)
     uint16_t peltier_pwm_period;  // PWM-Periode in Sekunden (z.B. 10s)
     uint8_t peltier_pwm_duty;     // PWM-Duty-Cycle in % (0-100)
+
+    // Auto-Duty Regelung
+    bool auto_duty_en;            // Auto-Duty Hauptschalter
+    uint8_t auto_duty_duty;       // Auto-Duty Duty-Cycle in % (0-100)
+    uint16_t auto_duty_cycle;     // Auto-Duty Zyklusdauer in Sekunden
 } app_config_t;
 
 // Initialize NVS and load config (or set defaults)

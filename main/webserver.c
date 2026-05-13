@@ -29,31 +29,6 @@ static char s_log_buffer[LOG_BUFFER_SIZE][256] = {0};
 static int s_log_index = 0;
 static bool s_log_filled = false;
 
-// Custom Log Handler
-static int log_handler(const char *fmt, va_list args) {
-    char log_msg[256];
-    vsnprintf(log_msg, sizeof(log_msg), fmt, args);
-
-    // Tag extrahieren (Format: "TAG (123) message")
-    const char *tag_start = strchr(log_msg, ' ');
-    if (tag_start) {
-        tag_start++; // Skip space
-        const char *tag_end = strchr(tag_start, ' ');
-        if (tag_end) {
-            char tag[32] = {0};
-            strncpy(tag, tag_start, tag_end - tag_start);
-            const char *msg = tag_end + 1;
-
-            // In Ringpuffer schreiben
-            snprintf(s_log_buffer[s_log_index], sizeof(s_log_buffer[s_log_index]),
-                     "[%s] %s", tag, msg);
-            s_log_index = (s_log_index + 1) % LOG_BUFFER_SIZE;
-            if (s_log_index == 0) s_log_filled = true;
-        }
-    }
-    return 0;
-}
-
 // Embedded HTML files (linked via CMake EMBED_FILES)
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
@@ -116,6 +91,8 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,"
+        "\"auto_duty_en\":%s,\"auto_duty_duty\":%d,\"auto_duty_cycle\":%d,"
+        "\"auto_duty_countdown\":%d,\"auto_duty_step\":%d,"
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
         "\"build\":%d}",
@@ -133,6 +110,8 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
         cfg->peltier_pwm_period, cfg->peltier_pwm_duty,
+        cfg->auto_duty_en ? "true" : "false", cfg->auto_duty_duty, cfg->auto_duty_cycle,
+        peltier_get_autoduty_countdown(), peltier_get_autoduty_step(),
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
         BUILD_NUMBER);
@@ -188,6 +167,32 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         ESP_LOGI(TAG, "Config update: peltier_pwm_duty = %u%% (raw: %s)", cfg->peltier_pwm_duty, value);
     } else {
         ESP_LOGI(TAG, "Config update: peltier_pwm_duty not in request");
+    }
+
+    // Auto-Duty Parameter
+    if (httpd_query_key_value(buf, "auto_duty_en", value, sizeof(value)) == ESP_OK) {
+        cfg->auto_duty_en = (atoi(value) != 0);
+        ESP_LOGI(TAG, "Config update: auto_duty_en = %s", cfg->auto_duty_en ? "true" : "false");
+        // Sofort in NVS speichern
+        nvs_config_save();
+        // Auto-Duty starten oder stoppen
+        if (cfg->auto_duty_en) {
+            peltier_autoduty_start();
+        } else {
+            peltier_autoduty_stop();
+        }
+    }
+    if (httpd_query_key_value(buf, "auto_duty_duty", value, sizeof(value)) == ESP_OK) {
+        cfg->auto_duty_duty = (uint8_t)atoi(value);
+        ESP_LOGI(TAG, "Config update: auto_duty_duty = %u%%", cfg->auto_duty_duty);
+        // Sofort in NVS speichern
+        nvs_config_save();
+    }
+    if (httpd_query_key_value(buf, "auto_duty_cycle", value, sizeof(value)) == ESP_OK) {
+        cfg->auto_duty_cycle = (uint16_t)atoi(value);
+        ESP_LOGI(TAG, "Config update: auto_duty_cycle = %u seconds", cfg->auto_duty_cycle);
+        // Sofort in NVS speichern
+        nvs_config_save();
     }
 
     ESP_LOGI(TAG, "Before nvs_config_save: period=%u, duty=%u",
