@@ -11,7 +11,7 @@ Temperaturgeregelte Kuehlung eines Innenraums mittels Peltier-Element, gesteuert
 
 **Lüftersteuerung:**
 - Der Lüfter ist direkt an den Peltier-Zustand gekoppelt
-- **Peltier AN →** Lüfter startet sofort (min. 50% PWM), PID übernimmt Feinregulierung
+- **Peltier AN →** Lüfter startet sofort (min. 40% PWM), PID übernimmt Feinregulierung
 - **Peltier AUS →** Lüfter läuft bei 40% PWM nach, bis Kühlblock unter 30°C fällt
 - Ziel: Vermeidung von Temperaturüberschreitung und Lärmreduktion (unter 70% PWM)
 
@@ -122,23 +122,23 @@ Automatische Anpassung des PWM Duty-Cycles basierend auf Temperaturverlauf.
 
 **Konfiguration (Webinterface):**
 - Hauptschalter unter Konfig, wird gleich im NVS gespeichert
-- Duty% auf Konfigseite (default 80%), per Return und Speicherbutton in NVS
 - Zyklus auf Konfigseite (default 5s), per Return und Speicherbutton in NVS
-- Countdown auf Konfigseite wann der nächste Zyklus beginnt
+- Duty wird beim Aktivieren vom aktuellen PWM Duty übernommen (keine separate Konfiguration)
 
 **Status-Anzeige:**
 - Hauptschalterzustand bunt dargestellt
 - PWM Zyklus
 - PWM Duty%
 - PWM Duty Step %
+- Aktuelle Leistung in Watt (basierend auf PWM Duty und PELTIER_POWER)
 
 **Regellogik:**
 - Toleranz: 0.1°C (Temperatur muss sich um mindestens 0.1°C ändern)
-- Innen temp im Zyklus konstant für 2 Zyklen → duty + step
-- Innen temp sinkt im Zyklus (diff < -0.1°C) → duty - step, step exponential senken (Bitverschiebung: 32-16-8-4-2-1), min. 1%
-- Innen temp steigt im Zyklus (diff > +0.1°C) → duty + step, step exponential steigern (Bitverschiebung: 1-2-4-8-16-32), max 32%
-- Startwert Step: 16%
-- Startwert Duty: aus NVS (default 80%)
+- Innen temp im Zyklus konstant für 2 Zyklen → duty + step, step verdoppeln (4→8→16→32, max 32%)
+- Innen temp sinkt im Zyklus (diff < -0.1°C) → duty - 4, step auf 4 zurücksetzen
+- Innen temp steigt im Zyklus (diff > +0.1°C) → duty + 4, step auf 4 zurücksetzen
+- Startwert Step: 4%
+- Startwert Duty: Aktueller PWM Duty beim Aktivieren
 
 ## Software-Architektur
 
@@ -174,8 +174,9 @@ main/
 
 ### Monitor-Seite (STA-Modus)
 
-- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty
-- Einstellbar: Temperatur-Schwellen (on/off/max), PWM-Parameter (Period, Duty), Auto-Duty (Hauptschalter, Duty%, Zyklus), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
+- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty, PWM Step, Aktuelle Leistung (W)
+- Einstellbar: Temperatur-Schwellen (on/off/max), PWM-Parameter (Period, Duty), Auto-Duty (Hauptschalter, Zyklus), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
+- Energiedaten: Gesamt, Heute, Woche, Monat (Wh) mit Kostenberechnung (€)
 - WiFi-Reset: Rot markierter Button zum Löschen der WiFi-Credentials und Starten des AP-Modus
 - Auto-Refresh alle 3 Sekunden
 - REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`
@@ -240,16 +241,24 @@ Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert un
 | Peltier AN | `temp_on` | 25.0°C | Einschalt-Schwelle Innenraum |
 | Peltier AUS | `temp_off` | 22.0°C | Ausschalt-Schwelle Innenraum |
 | Kuehlblock Max | `temp_max` | 60.0°C | Sicherheits-Cutoff |
-| PWM Period | `pwm_period` | 10s | PWM Period (Dauer eines Zyklus) |
-| PWM Duty | `pwm_duty` | 10% | PWM Duty Cycle (5-20%) |
-| Auto-Duty Hauptschalter | `auto_duty_en` | true | auto-duty regelung aktivieren |
-| Auto-Duty Duty% | `auto_duty_duty` | 80% | PWM Duty-Cycle für Auto-Duty |
+| Kuehlblock Target | `temp_target` | 45.0°C | Zieltemperatur für Lüfter-PID |
+| PWM Period | `peltier_pwm_period` | 10s | PWM Period (Dauer eines Zyklus) |
+| PWM Duty | `peltier_pwm_duty` | 10% | PWM Duty Cycle (5-20%) |
+| Auto-Duty Hauptschalter | `auto_duty_en` | true | Auto-Duty Regelung aktivieren |
 | Auto-Duty Zyklus | `auto_duty_cycle` | 5s | Zyklusdauer für Auto-Duty Regelung |
 | OTA URL | `ota_url` | http://192.168.1.191:8080/firmware.bin | Firmware-Update Server URL |
-| Mo-Fr AN | `sch_mo_on` ... `sch_do_on` | 11:00 | Betriebsstart Mo-Do (Stunden 0-23) |
-| Mo-Fr AUS | `sch_mo_off` ... `sch_do_off` | 19:00 | Betriebsende Mo-Do |
-| Fr-So AN | `sch_fr_on` ... `sch_so_on` | 11:00 | Betriebsstart Fr-So |
-| Fr-So AUS | `sch_fr_off` ... `sch_so_off` | 21:00 | Betriebsende Fr-So |
+| Daten-Log Intervall | `data_log_interval` | 10s | Intervall für Daten-Logger |
+| Mo-Fr AN | `sched_mo_on` ... `sched_do_on` | 11:00 | Betriebsstart Mo-Do (Stunden 0-23) |
+| Mo-Fr AUS | `sched_mo_off` ... `sched_do_off` | 19:00 | Betriebsende Mo-Do |
+| Fr-So AN | `sched_fr_on` ... `sched_so_on` | 11:00 | Betriebsstart Fr-So |
+| Fr-So AUS | `sched_fr_off` ... `sched_so_off` | 21:00 | Betriebsende Fr-So |
+| Energie Gesamt | `energy_wh` | 0.0 Wh | Gesamtenergieverbrauch |
+| Energie Heute | `energy_day` | 0.0 Wh | Tagesenergieverbrauch |
+| Energie Woche | `energy_week` | 0.0 Wh | Wochenenergieverbrauch |
+| Energie Monat | `energy_month` | 0.0 Wh | Monatsenergieverbrauch |
+| Letztes Datum | `last_date` | 0 | Zuletzt gespeichertes Datum (YYYYMMDD) |
+| Letzte Woche | `last_week` | 0 | Zuletzt gespeicherte Kalenderwoche (0-53) |
+| Letzter Monat | `last_month` | 0 | Zuletzt gespeicherter Monat (0-11) |
 
 ## NVS-Schreibzugriffe
 

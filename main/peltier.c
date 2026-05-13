@@ -25,7 +25,7 @@ static bool s_autoduty_enabled = false;
 static esp_timer_handle_t s_autoduty_timer = NULL;
 static float s_autoduty_temp_ref = 0.0f;  // Temperatur-Referenz am Zyklusstart
 static uint8_t s_autoduty_duty = 0;       // Aktueller Duty-Wert (0-100%)
-static uint8_t s_autoduty_step = 2;       // Step-Wert (konstant +-2%)
+static uint8_t s_autoduty_step = 4;       // Step-Wert (4,8,16,32 - erhöht sich bei konstanter Temp)
 static uint8_t s_autoduty_constant_counter = 0;  // Zähler für konstante Temperatur (2 Zyklen)
 static uint64_t s_autoduty_cycle_us = 0;  // Zyklusdauer in Mikrosekunden
 static int64_t s_autoduty_last_callback_us = 0;  // Zeitpunkt des letzten Callbacks
@@ -67,7 +67,7 @@ static void autoduty_callback(void* arg) {
     // Zeitpunkt des Callbacks speichern
     s_autoduty_last_callback_us = esp_timer_get_time();
 
-    ESP_LOGI(TAG, "Auto-Duty callback: duty=%u, step=2, temp_ref=%.1f", s_autoduty_duty, s_autoduty_temp_ref);
+    ESP_LOGI(TAG, "Auto-Duty callback: duty=%u, step=%u, temp_ref=%.1f", s_autoduty_duty, s_autoduty_step, s_autoduty_temp_ref);
 
     sensor_data_t sd = sensor_get_data();
     if (!sd.indoor_valid) {
@@ -81,22 +81,30 @@ static void autoduty_callback(void* arg) {
 
     // Regellogik
     if (temp_diff < 0) {
-        // Temperatur sinkt → duty - 2
-        s_autoduty_duty -= 2;
+        // Temperatur sinkt → duty - 4
+        s_autoduty_duty -= 4;
+        // Step zurücksetzen
+        s_autoduty_step = 4;
         s_autoduty_constant_counter = 0;
-        ESP_LOGI(TAG, "Auto-Duty: Temp falling, duty decreased to %u, step=2", s_autoduty_duty);
+        ESP_LOGI(TAG, "Auto-Duty: Temp falling, duty decreased to %u, step=4", s_autoduty_duty);
     } else if (temp_diff > 0) {
-        // Temperatur steigt → duty + 2
-        s_autoduty_duty += 2;
+        // Temperatur steigt → duty + 4
+        s_autoduty_duty += 4;
+        // Step zurücksetzen
+        s_autoduty_step = 4;
         s_autoduty_constant_counter = 0;
-        ESP_LOGI(TAG, "Auto-Duty: Temp rising, duty increased to %u, step=2", s_autoduty_duty);
+        ESP_LOGI(TAG, "Auto-Duty: Temp rising, duty increased to %u, step=4", s_autoduty_duty);
     } else {
-        // Temperatur exakt gleich → duty + 2 nach 2 Zyklen
+        // Temperatur exakt gleich → duty + step, step erhöhen
         s_autoduty_constant_counter++;
         if (s_autoduty_constant_counter >= 2) {
-            s_autoduty_duty += 2;
+            s_autoduty_duty += s_autoduty_step;
+            // Step verdoppeln (max 32)
+            if (s_autoduty_step < 32) {
+                s_autoduty_step <<= 1;
+            }
             s_autoduty_constant_counter = 0;
-            ESP_LOGI(TAG, "Auto-Duty: Temp constant, duty increased to %u", s_autoduty_duty);
+            ESP_LOGI(TAG, "Auto-Duty: Temp constant, duty increased to %u, step=%u", s_autoduty_duty, s_autoduty_step);
         }
     }
 
@@ -246,7 +254,7 @@ void peltier_autoduty_start(void) {
     // Aktuellen PWM Duty übernehmen, nicht den gespeicherten AD Duty
     s_autoduty_duty = peltier_get_duty();
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
-    s_autoduty_step = 2;  // Konstanter Step-Wert
+    s_autoduty_step = 4;  // Basis-Step-Wert
     s_autoduty_constant_counter = 0;
     
     if (sd.indoor_valid) {
@@ -275,7 +283,7 @@ void peltier_autoduty_start_with_temp(float temp_indoor) {
     // Aktuellen PWM Duty übernehmen, nicht den gespeicherten AD Duty
     s_autoduty_duty = peltier_get_duty();
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
-    s_autoduty_step = 2;  // Konstanter Step-Wert
+    s_autoduty_step = 4;  // Basis-Step-Wert
     s_autoduty_constant_counter = 0;
     s_autoduty_temp_ref = temp_indoor;
     s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
@@ -316,7 +324,7 @@ uint8_t peltier_get_autoduty_duty(void) {
 }
 
 uint8_t peltier_get_autoduty_step(void) {
-    return 2;  // Konstanter Step-Wert
+    return s_autoduty_step;  // Aktueller Step-Wert (4,8,16,32)
 }
 
 uint16_t peltier_get_autoduty_cycle(void) {
