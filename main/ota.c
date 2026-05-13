@@ -9,6 +9,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
+#include "sensor.h"
+#include "wifi.h"
 
 static const char *TAG = "ota";
 
@@ -18,16 +20,60 @@ static char s_ota_url[OTA_URL_MAX_LEN] = {0};
 
 #define OTA_BUF_SIZE 4096
 
+// OTA Verification Task - führt Self-Tests durch nach 30 Sekunden
+static void ota_verify_task(void *pvParameters) {
+    ESP_LOGI(TAG, "OTA verification task started - waiting 30s for system stability");
+
+    // 30 Sekunden warten
+    vTaskDelay(pdMS_TO_TICKS(30000));
+
+    ESP_LOGI(TAG, "Starting OTA self-checks");
+
+    // Self-Check 1: Sensoren verfügbar
+    sensor_data_t sd = sensor_get_data();
+    bool sensors_ok = sd.indoor_valid || sd.heatsink_valid;
+    if (!sensors_ok) {
+        ESP_LOGE(TAG, "Self-check FAILED: No valid sensors");
+        esp_ota_mark_app_invalid_rollback_and_reboot();
+        vTaskDelete(NULL);
+        return;
+    }
+
+    // Self-Check 2: WiFi verbunden (optional - nur wenn im STA-Modus)
+    bool wifi_ok = true;
+    if (wifi_get_mode() == WIFI_MODE_STA) {
+        wifi_ok = wifi_is_connected();
+        if (!wifi_ok) {
+            ESP_LOGW(TAG, "Self-check WARNING: WiFi not connected (non-critical)");
+            // Nicht kritisch - trotzdem fortfahren
+        }
+    }
+
+    // Self-Check 3: Keine kritischen Fehler
+    // (kann später erweitert werden)
+
+    // Alle Checks bestanden
+    ESP_LOGI(TAG, "Self-check PASSED: sensors=%d, wifi=%d", sensors_ok, wifi_ok);
+    esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Firmware marked as VALID - rollback protection disabled");
+    } else {
+        ESP_LOGE(TAG, "Failed to mark firmware as valid: %s", esp_err_to_name(err));
+    }
+
+    vTaskDelete(NULL);
+}
+
 void ota_init(void) {
-    // Mark current firmware as valid (cancels rollback timer)
-    // This is called after system has been running stable for a few seconds
+    // NICHT sofort markieren - warten auf Self-Test nach 30 Sekunden
     const esp_partition_t *running = esp_ota_get_running_partition();
     esp_ota_img_states_t state;
 
     if (esp_ota_get_state_partition(running, &state) == ESP_OK) {
         if (state == ESP_OTA_IMG_PENDING_VERIFY) {
-            ESP_LOGI(TAG, "First boot after OTA — marking firmware as VALID");
-            esp_ota_mark_app_valid_cancel_rollback();
+            ESP_LOGI(TAG, "First boot after OTA — starting 30s verification timer");
+            // Task starten, der nach 30 Sekunden die Firmware validiert
+            xTaskCreate(ota_verify_task, "ota_verify", 4096, NULL, 5, NULL);
         }
     }
 
