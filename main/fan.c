@@ -280,7 +280,7 @@ void task_fan(void *pvParameters) {
         // Save energy data only when Peltier main state turns OFF and value changed
         if (s_peltier_main_was_on && !peltier_main_state) {
             cfg = nvs_config_get();
-            bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.01f;  // Changed by >0.01 Wh
+            bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.1f;  // Changed by >0.1 Wh
 
             if (energy_changed) {
                 nvs_config_save_energy();
