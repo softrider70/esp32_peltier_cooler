@@ -245,6 +245,12 @@ bool peltier_pwm_is_enabled(void) {
 // ===== Auto-Duty Regelung =====
 
 void peltier_autoduty_start(void) {
+    // Prüfen, ob Auto-Duty bereits läuft
+    if (s_autoduty_enabled) {
+        ESP_LOGW(TAG, "Auto-Duty already enabled, skipping start");
+        return;
+    }
+    
     sensor_data_t sd = sensor_get_data();
     
     s_autoduty_enabled = true;
@@ -269,6 +275,12 @@ void peltier_autoduty_start(void) {
 }
 
 void peltier_autoduty_start_with_temp(float temp_indoor) {
+    // Prüfen, ob Auto-Duty bereits läuft
+    if (s_autoduty_enabled) {
+        ESP_LOGW(TAG, "Auto-Duty already enabled, skipping start");
+        return;
+    }
+    
     s_autoduty_enabled = true;
     app_config_t *cfg = nvs_config_get();
     s_autoduty_duty = cfg->auto_duty_duty;
