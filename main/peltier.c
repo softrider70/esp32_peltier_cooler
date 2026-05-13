@@ -26,6 +26,8 @@ static uint8_t s_duty_step = 5;              // Basis-Schrittweite 5%
 static uint8_t s_equal_temp_counter = 0;     // Zähler für "Temperatur gleich"
 static uint8_t s_consecutive_increments = 0; // Aufeinanderfolgende Erhöhungen
 static uint8_t s_consecutive_reductions = 0; // Aufeinanderfolgende Reduzierungen
+static int64_t s_autoduty_last_time = 0;     // Zeitstempel der letzten Auto-Duty-Kontrolle
+static uint32_t s_autoduty_interval_sec = 0; // Interval in Sekunden
 
 // PWM Timer Callback: GPIO ein
 static void IRAM_ATTR pwm_on_callback(void* arg) {
@@ -177,6 +179,9 @@ static void autoduty_callback(void* arg) {
         return;
     }
 
+    // Zeitstempel aktualisieren
+    s_autoduty_last_time = esp_timer_get_time();
+
     // Aktuelle Innentemperatur holen
     sensor_data_t sensor_data = sensor_get_data();
     float temp_current = sensor_data.temp_indoor;
@@ -266,14 +271,31 @@ void peltier_autoduty_start(void) {
         esp_timer_create(&timer_args, &s_autoduty_timer);
     }
 
-    uint32_t interval_us = nvs_config_get()->peltier_pwm_interval * 1000000;
+    s_autoduty_interval_sec = nvs_config_get()->peltier_pwm_interval;
+    s_autoduty_last_time = esp_timer_get_time();
+    uint32_t interval_us = s_autoduty_interval_sec * 1000000;
     esp_timer_start_periodic(s_autoduty_timer, interval_us);
-    ESP_LOGI(TAG, "Auto-Duty started with interval %u seconds", nvs_config_get()->peltier_pwm_interval);
+    ESP_LOGI(TAG, "Auto-Duty started with interval %u seconds", s_autoduty_interval_sec);
 }
 
 // Duty-Faktor zurückgeben
 uint8_t peltier_get_duty_factor(void) {
     return s_duty_step;
+}
+
+// Auto-Duty Countdown zurückgeben (Sekunden bis zur nächsten Kontrolle)
+uint32_t peltier_get_autoduty_countdown(void) {
+    if (!s_pwm_enabled || !nvs_config_get()->peltier_pwm_auto || s_autoduty_interval_sec == 0) {
+        return 0;
+    }
+    
+    int64_t current_time = esp_timer_get_time();
+    int64_t elapsed_us = current_time - s_autoduty_last_time;
+    int32_t elapsed_sec = elapsed_us / 1000000;
+    int32_t remaining = s_autoduty_interval_sec - elapsed_sec;
+    
+    if (remaining < 0) remaining = 0;
+    return (uint32_t)remaining;
 }
 
 // Auto-Duty stoppen

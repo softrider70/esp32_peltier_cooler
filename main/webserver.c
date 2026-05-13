@@ -246,7 +246,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
-        "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_pwm_auto\":%s,\"peltier_pwm_interval\":%d,\"peltier_duty_factor\":%u,"
+        "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_pwm_auto\":%s,\"peltier_pwm_interval\":%d,\"peltier_duty_factor\":%u,\"peltier_autoduty_countdown\":%lu,"
         "\"indoor_symbol_series\":\"%s\",\"heatsink_symbol_series\":\"%s\",\"fan_duty_symbol_series\":\"%s\",\"pwm_duty_symbol_series\":\"%s\","
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
@@ -265,7 +265,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->sched_off[0]/60, cfg->sched_off[1]/60, cfg->sched_off[2]/60, cfg->sched_off[3]/60, cfg->sched_off[4]/60, cfg->sched_off[5]/60, cfg->sched_off[6]/60,
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
-        cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false", cfg->peltier_pwm_interval, peltier_get_duty_factor(),
+        cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false", cfg->peltier_pwm_interval, peltier_get_duty_factor(), peltier_get_autoduty_countdown(),
         indoor_symbol_series, heatsink_symbol_series, fan_duty_symbol_series, pwm_duty_symbol_series,
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
