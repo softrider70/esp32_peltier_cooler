@@ -46,6 +46,5 @@ bool peltier_autoduty_is_enabled(void);
 
 // Auto-Duty Werte lesen
 uint8_t peltier_get_autoduty_duty(void);
-uint8_t peltier_get_autoduty_step(void);
 uint16_t peltier_get_autoduty_cycle(void);
 uint16_t peltier_get_autoduty_countdown(void);

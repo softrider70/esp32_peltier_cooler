@@ -129,14 +129,12 @@ Automatische Anpassung des PWM Duty-Cycles basierend auf Temperaturverlauf.
 - Hauptschalterzustand bunt dargestellt
 - PWM Zyklus
 - PWM Duty%
-- PWM Duty Step %
 - Aktuelle Leistung in Watt (basierend auf PWM Duty und PELTIER_POWER)
 
 **Regellogik:**
 - Toleranz: 0.1°C (Temperatur muss sich um mindestens 0.1°C ändern)
-- Innen temp sinkt im Zyklus (diff < -0.1°C) → duty - 2, step auf 4 zurücksetzen
-- Innen temp steigt oder gleich (diff >= -0.1°C) für 2 Zyklen → duty + step, step verdoppeln (4→8→16→32, max 32%)
-- Startwert Step: 4%
+- Innen temp sinkt im Zyklus (diff < -0.1°C) → duty - 2
+- Innen temp steigt oder gleich (diff >= -0.1°C) für 2 Zyklen → duty + 4
 - Startwert Duty: Aktueller PWM Duty beim Aktivieren
 
 ## Software-Architektur
@@ -173,7 +171,7 @@ main/
 
 ### Monitor-Seite (STA-Modus)
 
-- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty, PWM Step, Aktuelle Leistung (W)
+- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty, Aktuelle Leistung (W)
 - Einstellbar: Temperatur-Schwellen (on/off/max), PWM-Parameter (Period, Duty), Auto-Duty (Hauptschalter, Zyklus), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
 - Energiedaten: Gesamt, Heute, Woche, Monat (Wh) mit Kostenberechnung (€)
 - WiFi-Reset: Rot markierter Button zum Löschen der WiFi-Credentials und Starten des AP-Modus
