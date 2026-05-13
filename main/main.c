@@ -89,8 +89,7 @@ void app_main(void) {
     // 2.1. Enable PWM if configured
     app_config_t *cfg_pwm = nvs_config_get();
     peltier_pwm_enable(true);  // PWM immer aktivieren
-
-    // 2.2. Auto-Duty wird im Sensor-Task gestartet, wenn der Sensor valid ist
+    peltier_autoduty_start();  // Start Auto-Duty immediately
 
     // 2.5. Initialize data logger (ring buffer)
     data_logger_init();

@@ -262,24 +262,20 @@ bool peltier_pwm_is_enabled(void) {
 // ===== Auto-Duty Regelung =====
 
 void peltier_autoduty_start(void) {
-    app_config_t *cfg = nvs_config_get();
-    if (!cfg->auto_duty_en) {
-        ESP_LOGW(TAG, "Auto-Duty not enabled in config");
-        return;
-    }
-
     sensor_data_t sd = sensor_get_data();
-    if (!sd.indoor_valid) {
-        ESP_LOGW(TAG, "Auto-Duty: Indoor sensor invalid, cannot start");
-        return;
-    }
-
+    
     s_autoduty_enabled = true;
+    app_config_t *cfg = nvs_config_get();
     s_autoduty_duty = cfg->auto_duty_duty;
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
     s_autoduty_step = 16;  // Startwert
     s_autoduty_constant_counter = 0;
-    s_autoduty_temp_ref = sd.temp_indoor;
+    
+    if (sd.indoor_valid) {
+        s_autoduty_temp_ref = sd.temp_indoor;
+    } else {
+        s_autoduty_temp_ref = 20.0f;  // Fallback-Temperatur wenn Sensor invalid
+    }
     s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
     s_autoduty_callback_count = 0;  // Zähler zurücksetzen
 
@@ -290,15 +286,8 @@ void peltier_autoduty_start(void) {
 }
 
 void peltier_autoduty_start_with_temp(float temp_indoor) {
-    app_config_t *cfg = nvs_config_get();
-    ESP_LOGI(TAG, "Auto-Duty start_with_temp called: auto_duty_en=%d", cfg->auto_duty_en);
-    
-    if (!cfg->auto_duty_en) {
-        ESP_LOGW(TAG, "Auto-Duty not enabled in config");
-        return;
-    }
-
     s_autoduty_enabled = true;
+    app_config_t *cfg = nvs_config_get();
     s_autoduty_duty = cfg->auto_duty_duty;
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
     s_autoduty_step = 16;  // Startwert
