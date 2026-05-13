@@ -14,6 +14,7 @@
 #include "esp_system.h"
 #include "ota.h"
 #include "data_logger.h"
+#include "task_monitor.h"
 
 static const char *TAG = "main";
 
@@ -168,6 +169,10 @@ void app_main(void) {
 
     xTaskCreate(task_data_logger, "data_logger", 4096,
                 NULL, 3, NULL);
+
+    // 6.5. Initialize task monitor
+    task_monitor_init();
+    task_monitor_start();
 
     // 5. Start OTA task
     ota_init();

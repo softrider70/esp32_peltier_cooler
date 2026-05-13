@@ -8,6 +8,7 @@
 #include "wifi.h"
 #include "ota.h"
 #include "data_logger.h"
+#include "task_monitor.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -120,6 +121,40 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cost_total, cost_day, cost_week, cost_month,
         BUILD_NUMBER);
 
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, buf, len);
+    return ESP_OK;
+}
+
+static esp_err_t handler_api_tasks(httpd_req_t *req) {
+    system_stat_t stats = task_monitor_get_stats();
+    
+    char buf[2048];
+    int len = snprintf(buf, sizeof(buf),
+        "{\"free_heap\":%lu,\"min_free_heap\":%lu,\"task_count\":%lu,\"tasks\":[",
+        stats.free_heap, stats.min_free_heap, stats.task_count);
+    
+    // Tasks durchlaufen
+    for (uint32_t i = 0; i < stats.task_count; i++) {
+        char task_buf[256];
+        int task_len = snprintf(task_buf, sizeof(task_buf),
+            "%s{\"name\":\"%s\",\"cpu\":%lu,\"stack_free\":%u,\"cpu_warn\":%s,\"stack_warn\":%s}",
+            i > 0 ? "," : "",
+            stats.tasks[i].name,
+            stats.tasks[i].runtime_pct,
+            stats.tasks[i].stack_high_water,
+            stats.tasks[i].cpu_warning ? "true" : "false",
+            stats.tasks[i].stack_warning ? "true" : "false");
+        
+        if (len + task_len < (int)sizeof(buf)) {
+            strcat(buf, task_buf);
+            len += task_len;
+        }
+    }
+    
+    strcat(buf, "]}");
+    len = strlen(buf);
+    
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, buf, len);
     return ESP_OK;
@@ -506,6 +541,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_status = {
         .uri = "/api/status", .method = HTTP_GET, .handler = handler_api_status
     };
+    httpd_uri_t uri_api_tasks = {
+        .uri = "/api/tasks", .method = HTTP_GET, .handler = handler_api_tasks
+    };
     httpd_uri_t uri_api_config = {
         .uri = "/api/config", .method = HTTP_POST, .handler = handler_api_config
     };
@@ -546,6 +584,7 @@ void webserver_init(void) {
 
     httpd_register_uri_handler(s_server, &uri_index);
     httpd_register_uri_handler(s_server, &uri_api_status);
+    httpd_register_uri_handler(s_server, &uri_api_tasks);
     httpd_register_uri_handler(s_server, &uri_api_config);
     httpd_register_uri_handler(s_server, &uri_api_wifi);
     httpd_register_uri_handler(s_server, &uri_api_ota);
