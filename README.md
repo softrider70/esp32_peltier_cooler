@@ -102,31 +102,14 @@ Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
 - Dazwischen: Hysterese-Band, Zustand bleibt unveraendert
 - **Notabschaltung** wenn Kuehlblock >= `temp_max` (Default: 60°C)
 
-### Luefter-PID-Regelung
-
-Der Lüfter ist direkt an den Peltier-Zustand gekoppelt:
-
-**Wenn Peltier AN:**
-- Lüfter startet sofort mit min. 50% PWM
-- PID-Regelung übernimmt Feinregulierung (Ziel: Kuehlblock-Temperatur)
-- Minimale Drehzahl: 50% PWM (wenn Kuehlblock unter Ziel)
-- Maximale Drehzahl: 100% PWM (bei hoher Uebertemperatur)
-
-**Wenn Peltier AUS:**
-- Lüfter läuft 30 Sekunden nach (Cooldown) bei 30% PWM
-- Nach Cooldown: Lüfter aus
-- Ziel: Restwärme abführen
-
-PID-Startwerte: Kp=2.0, Ki=0.5, Kd=1.0 — ueber Webinterface live anpassbar.
-
 ### PWM Auto-Duty Regelung
 
 Die Auto-Duty Regelung passt den PWM Duty Cycle automatisch basierend auf der Innentemperatur an, um die Kühlleistung zu optimieren.
 
 **Funktionsweise:**
 - Alle `peltier_pwm_interval` Sekunden wird die aktuelle Innentemperatur mit der Referenztemperatur verglichen
-- **Temperatur sinkt (>0.1°C):** Duty reduzieren (um `duty_step`%, min 5%)
-- **Temperatur steigt (>0.1°C):** Duty erhöhen (um `duty_step`%, max 20%)
+- **Temperatur sinkt (>=0.1°C):** Duty reduzieren (um `duty_step`%, min 5%)
+- **Temperatur steigt (>=0.1°C):** Duty erhöhen (um `duty_step`%, max 20%)
 - **Temperatur stabil (<0.1°C):** Counter erhöht → bei 2x stabil Duty erhöhen
 
 **Adaptive Schrittweite:**
@@ -176,7 +159,7 @@ main/
 ### Monitor-Seite (STA-Modus)
 
 - Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty, Auto-Duty Countdown
-- Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, PWM-Parameter (Period, Duty, Auto-Duty, Interval), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
+- Einstellbar: Temperatur-Schwellen (on/off/max), PWM-Parameter (Period, Duty, Auto-Duty, Interval), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
 - WiFi-Reset: Rot markierter Button zum Löschen der WiFi-Credentials und Starten des AP-Modus
 - Auto-Refresh alle 3 Sekunden
 - REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`
@@ -214,10 +197,6 @@ Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert un
 | Peltier AN | `temp_on` | 25.0°C | Einschalt-Schwelle Innenraum |
 | Peltier AUS | `temp_off` | 22.0°C | Ausschalt-Schwelle Innenraum |
 | Kuehlblock Max | `temp_max` | 60.0°C | Sicherheits-Cutoff |
-| Kuehlblock Ziel | `temp_tgt` | 45.0°C | PID-Sollwert |
-| PID Kp | `pid_kp` | 2.0 | Proportional-Anteil |
-| PID Ki | `pid_ki` | 0.5 | Integral-Anteil |
-| PID Kd | `pid_kd` | 1.0 | Differential-Anteil |
 | PWM Period | `pwm_period` | 10s | PWM Period (Dauer eines Zyklus) |
 | PWM Duty | `pwm_duty` | 10% | PWM Duty Cycle (5-20%) |
 | PWM Auto-Duty | `pwm_auto` | false | Automatische Duty-Anpassung |
@@ -238,14 +217,6 @@ idf.py build
 idf.py -p COMx flash monitor
 ```
 
-## PID-Tuning (Inbetriebnahme)
-
-1. Webinterface oeffnen, Ki=0, Kd=0 setzen
-2. Kp erhoehen bis Luefter bei ~5°C ueber Zieltemp auf ~80% laeuft
-3. Ki langsam erhoehen (0.1-Schritte) bis stationaere Abweichung verschwindet
-4. Falls Luefter pendelt: Kd erhoehen (0.5-Schritte) zur Daempfung
-5. Alle Werte werden sofort in NVS persistiert
-
 ## RPM-Kalibrierung
 
 Die RPM-Messung des Luefters kann kalibriert werden, falls die angezeigten Werte von den tatsaechlichen Umdrehungen abweichen.
@@ -253,7 +224,7 @@ Die RPM-Messung des Luefters kann kalibriert werden, falls die angezeigten Werte
 **Voraussetzung:** Tacho muss korrekt angeschlossen sein (direkt mit GPIO18, kein Spannungsteiler, GND gemeinsam).
 
 Kalibrierung:
-1. Luefter auf 100% PWM setzen (z.B. PID Kp erhoehen)
+1. Luefter auf 100% PWM setzen (z.B. über Webinterface)
 2. RPM-Wert im Serial Monitor ablesen (`interrupts > 0` pruefen)
 3. Kalibrierungsfaktor berechnen: `Faktor = Ziel-RPM / Gemessene-RPM`
 4. Faktor in `config.h` anpassen: `#define RPM_CALIBRATION_FACTOR X.Xf`
