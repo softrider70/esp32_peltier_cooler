@@ -81,21 +81,14 @@ static void autoduty_callback(void* arg) {
 
     // Regellogik
     if (temp_diff < 0) {
-        // Temperatur sinkt → duty - 4
-        s_autoduty_duty -= 4;
+        // Temperatur sinkt → duty - 2
+        s_autoduty_duty -= 2;
         // Step zurücksetzen
         s_autoduty_step = 4;
         s_autoduty_constant_counter = 0;
         ESP_LOGI(TAG, "Auto-Duty: Temp falling, duty decreased to %u, step=4", s_autoduty_duty);
-    } else if (temp_diff > 0) {
-        // Temperatur steigt → duty + 4
-        s_autoduty_duty += 4;
-        // Step zurücksetzen
-        s_autoduty_step = 4;
-        s_autoduty_constant_counter = 0;
-        ESP_LOGI(TAG, "Auto-Duty: Temp rising, duty increased to %u, step=4", s_autoduty_duty);
     } else {
-        // Temperatur exakt gleich → duty + step, step erhöhen
+        // Temperatur steigt oder gleich → duty + 4, step erhöhen
         s_autoduty_constant_counter++;
         if (s_autoduty_constant_counter >= 2) {
             s_autoduty_duty += s_autoduty_step;
@@ -104,7 +97,7 @@ static void autoduty_callback(void* arg) {
                 s_autoduty_step <<= 1;
             }
             s_autoduty_constant_counter = 0;
-            ESP_LOGI(TAG, "Auto-Duty: Temp constant, duty increased to %u, step=%u", s_autoduty_duty, s_autoduty_step);
+            ESP_LOGI(TAG, "Auto-Duty: Temp rising/constant, duty increased to %u, step=%u", s_autoduty_duty, s_autoduty_step);
         }
     }
 
