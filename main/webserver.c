@@ -110,7 +110,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
         cfg->peltier_pwm_period, peltier_get_duty(),  // Aktuellen Duty-Wert verwenden
-        cfg->auto_duty_en ? "true" : "false", cfg->auto_duty_duty, cfg->auto_duty_cycle,
+        cfg->auto_duty_en ? "true" : "false", peltier_get_autoduty_duty(), cfg->auto_duty_cycle,  // Aktuellen Auto-Duty Duty verwenden
         peltier_get_autoduty_countdown(), peltier_get_autoduty_step(),
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
