@@ -78,6 +78,10 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     float cost_day = cfg->energy_day * PELTIER_COST_PER_KWH / 1000.0f;
     float cost_week = cfg->energy_week * PELTIER_COST_PER_KWH / 1000.0f;
     float cost_month = cfg->energy_month * PELTIER_COST_PER_KWH / 1000.0f;
+    
+    // Calculate current power based on PWM duty
+    uint8_t current_duty = peltier_get_duty();
+    float current_power = PELTIER_POWER * (current_duty / 100.0f);
 
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
@@ -90,7 +94,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
-        "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,"
+        "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_power\":%.1f,"
         "\"auto_duty_en\":%s,\"auto_duty_duty\":%d,\"auto_duty_cycle\":%d,"
         "\"auto_duty_countdown\":%d,\"auto_duty_step\":%d,"
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
@@ -109,7 +113,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->sched_off[0]/60, cfg->sched_off[1]/60, cfg->sched_off[2]/60, cfg->sched_off[3]/60, cfg->sched_off[4]/60, cfg->sched_off[5]/60, cfg->sched_off[6]/60,
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
-        cfg->peltier_pwm_period, peltier_get_duty(),  // Aktuellen Duty-Wert verwenden
+        cfg->peltier_pwm_period, peltier_get_duty(), current_power,  // Aktuelle Leistung
         cfg->auto_duty_en ? "true" : "false", peltier_get_autoduty_duty(), peltier_get_autoduty_cycle(),  // Aktuelle Auto-Duty Werte verwenden
         peltier_get_autoduty_countdown(), peltier_get_autoduty_step(),
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
