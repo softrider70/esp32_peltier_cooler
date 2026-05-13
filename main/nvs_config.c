@@ -210,7 +210,8 @@ ESP_LOGI(TAG, "Saving data_log_interval to NVS: %u", s_config.data_log_interval)
     nvs_set_u16(handle, NVS_KEY_AUTO_DUTY_CYCLE, s_config.auto_duty_cycle);
     ESP_LOGI(TAG, "Saving auto_duty_cycle to NVS: %u", s_config.auto_duty_cycle);
 
-    nvs_commit(handle);
+    esp_err_t err = nvs_commit(handle);
+    ESP_LOGI(TAG, "NVS commit result: %d (0=success)", err);
     nvs_close(handle);
     ESP_LOGI(TAG, "Config saved to NVS");
 }
