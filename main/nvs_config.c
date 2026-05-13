@@ -22,8 +22,6 @@ static void load_defaults(void) {
     s_config.last_date = 0;
     s_config.peltier_pwm_period = PELTIER_PWM_PERIOD_DEFAULT;
     s_config.peltier_pwm_duty = PELTIER_PWM_DUTY_DEFAULT;
-    s_config.peltier_pwm_auto = true;  // Auto-Duty standardmäßig aktiviert (verbesserte Logik)
-    s_config.peltier_pwm_interval = PELTIER_PWM_INTERVAL_DEFAULT;  // 1 Minute
     
     // Default schedule: Alle Tage 8-23
     for (int i = 0; i < 7; i++) {
@@ -117,22 +115,8 @@ void nvs_config_init(void) {
         } else {
             ESP_LOGI(TAG, "peltier_pwm_duty not found in NVS, using default: %u", s_config.peltier_pwm_duty);
         }
-        uint8_t auto_val;
-        if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, &auto_val) == ESP_OK) {
-            s_config.peltier_pwm_auto = auto_val;
-            ESP_LOGI(TAG, "Loaded peltier_pwm_auto from NVS: %d", s_config.peltier_pwm_auto);
-        } else {
-            ESP_LOGI(TAG, "peltier_pwm_auto not found in NVS, using default: %d", s_config.peltier_pwm_auto);
-        }
-        uint16_t interval_val;
-        if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, &interval_val) == ESP_OK) {
-            s_config.peltier_pwm_interval = interval_val;
-            ESP_LOGI(TAG, "Loaded peltier_pwm_interval from NVS: %u", s_config.peltier_pwm_interval);
-        } else {
-            ESP_LOGI(TAG, "peltier_pwm_interval not found in NVS, using default: %u", s_config.peltier_pwm_interval);
-        }
-        ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u, pwm_auto=%d, pwm_interval=%u",
-                 s_config.peltier_pwm_period, s_config.peltier_pwm_duty, s_config.peltier_pwm_auto, s_config.peltier_pwm_interval);
+        ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u",
+                 s_config.peltier_pwm_period, s_config.peltier_pwm_duty);
 
         nvs_close(handle);
         ESP_LOGI(TAG, "Config loaded from NVS");
@@ -191,10 +175,6 @@ ESP_LOGI(TAG, "Saving data_log_interval to NVS: %u", s_config.data_log_interval)
     ESP_LOGI(TAG, "Saving peltier_pwm_period to NVS: %u", s_config.peltier_pwm_period);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, s_config.peltier_pwm_duty);
     ESP_LOGI(TAG, "Saving peltier_pwm_duty to NVS: %u", s_config.peltier_pwm_duty);
-    nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, s_config.peltier_pwm_auto);
-    ESP_LOGI(TAG, "Saving peltier_pwm_auto to NVS: %d", s_config.peltier_pwm_auto);
-    nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, s_config.peltier_pwm_interval);
-    ESP_LOGI(TAG, "Saving peltier_pwm_interval to NVS: %u", s_config.peltier_pwm_interval);
 
     nvs_commit(handle);
     nvs_close(handle);

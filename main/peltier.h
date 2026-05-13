@@ -32,17 +32,3 @@ uint8_t peltier_get_duty(void);
 
 // PWM-Status lesen
 bool peltier_pwm_is_enabled(void);
-
-// ===== Auto-Duty Regelung =====
-
-// Auto-Duty starten
-void peltier_autoduty_start(void);
-
-// Auto-Duty stoppen
-void peltier_autoduty_stop(void);
-
-// Duty-Faktor zurückgeben
-uint8_t peltier_get_duty_factor(void);
-
-// Auto-Duty Countdown zurückgeben (Sekunden bis zur nächsten Kontrolle)
-uint32_t peltier_get_autoduty_countdown(void);
