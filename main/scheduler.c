@@ -30,7 +30,7 @@ static bool check_time_window(void) {
     // Check if time is valid (year > 2020)
     if (timeinfo.tm_year < (2020 - 1900)) {
         if (!s_time_synced) {
-            return true;  // Default to active until time is synced
+            return false;  // Default to inactive until time is synced (safety)
         }
         return s_active;  // Keep last state
     }
