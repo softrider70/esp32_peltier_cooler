@@ -12,7 +12,7 @@ Temperaturgeregelte Kuehlung eines Innenraums mittels Peltier-Element, gesteuert
 **Lüftersteuerung:**
 - Der Lüfter ist direkt an den Peltier-Zustand gekoppelt
 - **Peltier AN →** Lüfter startet sofort (min. 50% PWM), PID übernimmt Feinregulierung
-- **Peltier AUS →** Lüfter läuft 30 Sekunden bei 40% PWM nach, bis Kühlblock unter 30°C fällt
+- **Peltier AUS →** Lüfter läuft bei 40% PWM nach, bis Kühlblock unter 30°C fällt
 - Ziel: Vermeidung von Temperaturüberschreitung und Lärmreduktion (unter 70% PWM)
 
 ## Aufgabe
