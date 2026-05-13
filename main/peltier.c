@@ -25,7 +25,7 @@ static bool s_autoduty_enabled = false;
 static esp_timer_handle_t s_autoduty_timer = NULL;
 static float s_autoduty_temp_ref = 0.0f;  // Temperatur-Referenz am Zyklusstart
 static uint8_t s_autoduty_duty = 0;       // Aktueller Duty-Wert (0-100%)
-static uint8_t s_autoduty_step = 4;       // Step-Wert (wird auf 2 oder 4 gesetzt)
+static uint8_t s_autoduty_step = 6;       // Step-Wert (wird auf 1 oder 6 gesetzt)
 static uint8_t s_autoduty_constant_counter = 0;  // Zähler für konstante Temperatur (2 Zyklen)
 static uint64_t s_autoduty_cycle_us = 0;  // Zyklusdauer in Mikrosekunden
 static int64_t s_autoduty_last_callback_us = 0;  // Zeitpunkt des letzten Callbacks
@@ -81,17 +81,17 @@ static void autoduty_callback(void* arg) {
 
     // Regellogik
     if (temp_diff < 0) {
-        // Temperatur sinkt → duty - step, step = 2
+        // Temperatur sinkt → duty - step, step auf 1 setzen (weniger aggressiv reduzieren)
         s_autoduty_duty -= s_autoduty_step;
-        s_autoduty_step = 2;  // Auf 2 setzen
+        s_autoduty_step = 1;  // Auf 1 setzen für sanfte Reduktion
         s_autoduty_constant_counter = 0;
-        ESP_LOGI(TAG, "Auto-Duty: Temp falling, duty decreased to %u, step=2", s_autoduty_duty);
+        ESP_LOGI(TAG, "Auto-Duty: Temp falling, duty decreased to %u, step=1", s_autoduty_duty);
     } else {
-        // Temperatur steigt oder gleich → duty + step, step = 4, step verdoppeln
+        // Temperatur steigt oder gleich → duty + step, step auf 6 setzen, step verdoppeln
         s_autoduty_constant_counter++;
         if (s_autoduty_constant_counter >= 2) {
             s_autoduty_duty += s_autoduty_step;
-            s_autoduty_step = 4;  // Auf 4 setzen
+            s_autoduty_step = 6;  // Auf 6 setzen für schnellere Kühlung
             // Step verdoppeln (max 32)
             if (s_autoduty_step < 32) {
                 s_autoduty_step <<= 1;
@@ -247,7 +247,7 @@ void peltier_autoduty_start(void) {
     // Aktuellen PWM Duty übernehmen, nicht den gespeicherten AD Duty
     s_autoduty_duty = peltier_get_duty();
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
-    s_autoduty_step = 4;  // Basis-Step-Wert
+    s_autoduty_step = 6;  // Basis-Step-Wert für schnellere Kühlung
     s_autoduty_constant_counter = 0;
     
     if (sd.indoor_valid) {
@@ -276,7 +276,7 @@ void peltier_autoduty_start_with_temp(float temp_indoor) {
     // Aktuellen PWM Duty übernehmen, nicht den gespeicherten AD Duty
     s_autoduty_duty = peltier_get_duty();
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
-    s_autoduty_step = 4;  // Basis-Step-Wert
+    s_autoduty_step = 6;  // Basis-Step-Wert für schnellere Kühlung
     s_autoduty_constant_counter = 0;
     s_autoduty_temp_ref = temp_indoor;
     s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt

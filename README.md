@@ -134,9 +134,10 @@ Automatische Anpassung des PWM Duty-Cycles basierend auf Temperaturverlauf.
 
 **Regellogik:**
 - Toleranz: 0.1°C (Temperatur muss sich um mindestens 0.1°C ändern)
-- Innen temp sinkt im Zyklus (diff < -0.1°C) → duty - step, step auf 2 setzen
-- Innen temp steigt oder gleich (diff >= -0.1°C) für 2 Zyklen → duty + step, step auf 4 setzen, step verdoppeln (4→8→16→32, max 32%)
-- Startwert Step: 4%
+- Zyklus: 3s (schnellere Reaktion auf Temperaturänderungen)
+- Innen temp sinkt im Zyklus (diff < -0.1°C) → duty - step, step auf 1 setzen (weniger aggressiv reduzieren, energiesparend)
+- Innen temp steigt oder gleich (diff >= -0.1°C) für 2 Zyklen → duty + step, step auf 6 setzen, step verdoppeln (6→12→24, max 32%)
+- Startwert Step: 6%
 - Startwert Duty: Aktueller PWM Duty beim Aktivieren
 
 ## Software-Architektur
