@@ -59,7 +59,6 @@ static void IRAM_ATTR pwm_off_callback(void* arg) {
 // Auto-Duty Timer Callback
 static void autoduty_callback(void* arg) {
     s_autoduty_callback_count++;
-    ESP_LOGI(TAG, "Auto-Duty callback #%u - enabled=%d", s_autoduty_callback_count, s_autoduty_enabled);
     
     if (!s_autoduty_enabled) {
         return;
@@ -67,17 +66,6 @@ static void autoduty_callback(void* arg) {
 
     // Zeitpunkt des Callbacks speichern
     s_autoduty_last_callback_us = esp_timer_get_time();
-
-    // TEST: Duty und Step regelmäßig ändern um Funktion zu prüfen
-    if (s_autoduty_callback_count % 2 == 0) {
-        s_autoduty_duty += 5;
-        if (s_autoduty_duty > 100) s_autoduty_duty = 10;
-        ESP_LOGI(TAG, "TEST: Duty changed to %u", s_autoduty_duty);
-    }
-    if (s_autoduty_callback_count % 4 == 0) {
-        s_autoduty_step = (s_autoduty_step == 16) ? 8 : 16;
-        ESP_LOGI(TAG, "TEST: Step changed to %u", s_autoduty_step);
-    }
 
     ESP_LOGI(TAG, "Auto-Duty callback: duty=%u, step=%u, temp_ref=%.1f", s_autoduty_duty, s_autoduty_step, s_autoduty_temp_ref);
 
