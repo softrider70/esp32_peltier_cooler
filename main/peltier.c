@@ -243,7 +243,7 @@ void peltier_set_duty(uint8_t duty) {
     if (duty < 1) duty = 1;
     if (duty > 100) duty = 100;
     s_pwm_duty = duty;
-    ESP_LOGI(TAG, "PWM duty set to %u%%", duty);
+    ESP_LOGI(TAG, "PWM duty set to %u%% (pwm_enabled=%d, main_state=%d)", duty, s_pwm_enabled, s_main_state);
 }
 
 uint8_t peltier_get_duty(void) {
