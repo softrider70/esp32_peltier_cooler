@@ -3,7 +3,6 @@
 #include "nvs_config.h"
 #include "config.h"
 #include "esp_log.h"
-#include <math.h>
 #include <stdbool.h>
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -62,7 +61,7 @@ static void IRAM_ATTR pwm_off_callback(void* arg) {
 }
 
 // Auto-Duty Timer Callback
-static void IRAM_ATTR autoduty_callback(void* arg) {
+static void autoduty_callback(void* arg) {
     if (!s_autoduty_enabled) {
         return;
     }
@@ -79,21 +78,11 @@ static void IRAM_ATTR autoduty_callback(void* arg) {
     }
 
     float temp_diff = sd.temp_indoor - s_autoduty_temp_ref;
-    float tolerance = 0.1f;  // Sensor-Toleranz
 
     ESP_LOGI(TAG, "Auto-Duty: temp_indoor=%.1f, temp_diff=%.2f", sd.temp_indoor, temp_diff);
 
     // Regellogik
-    if (fabs(temp_diff) < tolerance) {
-        // Temperatur konstant
-        s_autoduty_constant_counter++;
-        if (s_autoduty_constant_counter >= 2) {
-            // 2 Zyklen konstant → duty + step
-            s_autoduty_duty += s_autoduty_step;
-            s_autoduty_constant_counter = 0;
-            ESP_LOGI(TAG, "Auto-Duty: Temp constant, duty increased to %u", s_autoduty_duty);
-        }
-    } else if (temp_diff < -tolerance) {
+    if (temp_diff < 0) {
         // Temperatur sinkt → duty - step
         s_autoduty_duty -= s_autoduty_step;
         // Step exponential senken (Bitverschiebung rechts)
@@ -102,7 +91,7 @@ static void IRAM_ATTR autoduty_callback(void* arg) {
         }
         s_autoduty_constant_counter = 0;
         ESP_LOGI(TAG, "Auto-Duty: Temp falling, duty decreased to %u, step=%u", s_autoduty_duty, s_autoduty_step);
-    } else if (temp_diff > tolerance) {
+    } else if (temp_diff > 0) {
         // Temperatur steigt → duty + step
         s_autoduty_duty += s_autoduty_step;
         // Step exponential steigern (Bitverschiebung links)
@@ -111,10 +100,19 @@ static void IRAM_ATTR autoduty_callback(void* arg) {
         }
         s_autoduty_constant_counter = 0;
         ESP_LOGI(TAG, "Auto-Duty: Temp rising, duty increased to %u, step=%u", s_autoduty_duty, s_autoduty_step);
+    } else {
+        // Temperatur exakt gleich → duty + step nach 2 Zyklen
+        s_autoduty_constant_counter++;
+        if (s_autoduty_constant_counter >= 2) {
+            s_autoduty_duty += s_autoduty_step;
+            s_autoduty_constant_counter = 0;
+            ESP_LOGI(TAG, "Auto-Duty: Temp constant, duty increased to %u", s_autoduty_duty);
+        }
     }
 
     // Grenzen prüfen (duty: 0-100%)
     if (s_autoduty_duty > 100) s_autoduty_duty = 100;
+    if (s_autoduty_duty < 1) s_autoduty_duty = 1;  // Untere Grenze hinzugefügt
 
     // Grenzen prüfen (step: 1-32%)
     if (s_autoduty_step > 32) s_autoduty_step = 32;
