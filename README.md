@@ -102,6 +102,33 @@ Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
 - Dazwischen: Hysterese-Band, Zustand bleibt unveraendert
 - **Notabschaltung** wenn Kuehlblock >= `temp_max` (Default: 53°C)
 
+### Auto-Duty Regelung (PWM)
+
+Automatische Anpassung des PWM Duty-Cycles basierend auf Temperaturverlauf.
+
+**Voraussetzung:** Nur aktiv, wenn Peltier aktiv ist.
+
+**Konfiguration (Webinterface):**
+- Hauptschalter unter Konfig, wird gleich im NVS gespeichert
+- Duty% auf Konfigseite (default 80%), per Return und Speicherbutton in NVS
+- Zyklus auf Konfigseite (default 5s), per Return und Speicherbutton in NVS
+- Countdown auf Konfigseite wann der nächste Zyklus beginnt
+
+**Status-Anzeige:**
+- Hauptschalterzustand bunt dargestellt
+- PWM Zyklus
+- PWM Duty%
+- PWM Duty Step %
+
+**Regellogik:**
+- Innen temp im Zyklus konstant für 2 Zyklen → duty + step
+- Innen temp sinkt im Zyklus → duty - step
+- Innen temp steigt im Zyklus → duty + step
+- Innen temp konstant im Zyklus → step unverändert
+- Innen temp sinkt im Zyklus → step exponential senken (Bitverschiebung: 32-16-8-4-2-1), min. 1%
+- Innen temp steigt im Zyklus → step exponential steigern (Bitverschiebung: 1-2-4-8-16-32), max 40%
+- Startwert Step: 16%
+
 ## Software-Architektur
 
 ### FreeRTOS Tasks
@@ -137,7 +164,7 @@ main/
 ### Monitor-Seite (STA-Modus)
 
 - Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty
-- Einstellbar: Temperatur-Schwellen (on/off/max), PWM-Parameter (Period, Duty), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
+- Einstellbar: Temperatur-Schwellen (on/off/max), PWM-Parameter (Period, Duty), Auto-Duty (Hauptschalter, Duty%, Zyklus), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
 - WiFi-Reset: Rot markierter Button zum Löschen der WiFi-Credentials und Starten des AP-Modus
 - Auto-Refresh alle 3 Sekunden
 - REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`
@@ -204,6 +231,9 @@ Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert un
 | Kuehlblock Max | `temp_max` | 60.0°C | Sicherheits-Cutoff |
 | PWM Period | `pwm_period` | 10s | PWM Period (Dauer eines Zyklus) |
 | PWM Duty | `pwm_duty` | 10% | PWM Duty Cycle (5-20%) |
+| Auto-Duty Hauptschalter | `auto_duty_en` | true | auto-duty regelung aktivieren |
+| Auto-Duty Duty% | `auto_duty_duty` | 80% | PWM Duty-Cycle für Auto-Duty |
+| Auto-Duty Zyklus | `auto_duty_cycle` | 5s | Zyklusdauer für Auto-Duty Regelung |
 | OTA URL | `ota_url` | http://192.168.1.191:8080/firmware.bin | Firmware-Update Server URL |
 | Mo-Fr AN | `sch_mo_on` ... `sch_do_on` | 11:00 | Betriebsstart Mo-Do (Stunden 0-23) |
 | Mo-Fr AUS | `sch_mo_off` ... `sch_do_off` | 19:00 | Betriebsende Mo-Do |
