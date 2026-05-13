@@ -265,10 +265,17 @@ void sensor_init(void) {
 }
 
 sensor_data_t sensor_get_data(void) {
-    sensor_data_t data;
-    xSemaphoreTake(s_data_mutex, portMAX_DELAY);
-    data = s_sensor_data;
-    xSemaphoreGive(s_data_mutex);
+    sensor_data_t data = {0};  // Default: alle Werte 0, valid=false
+    
+    // Timeout 10ms um Blockierung zu vermeiden
+    if (xSemaphoreTake(s_data_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        data = s_sensor_data;
+        xSemaphoreGive(s_data_mutex);
+    } else {
+        ESP_LOGW(TAG, "sensor_get_data() mutex timeout - returning invalid data");
+        data.indoor_valid = false;
+        data.heatsink_valid = false;
+    }
     return data;
 }
 
@@ -337,9 +344,13 @@ void task_sensor(void *pvParameters) {
             }
         }
 
-        xSemaphoreTake(s_data_mutex, portMAX_DELAY);
-        s_sensor_data = new_data;
-        xSemaphoreGive(s_data_mutex);
+        // Schreibvorgang mit Timeout um Blockierung zu vermeiden
+        if (xSemaphoreTake(s_data_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+            s_sensor_data = new_data;
+            xSemaphoreGive(s_data_mutex);
+        } else {
+            ESP_LOGE(TAG, "task_sensor() mutex timeout - data not updated!");
+        }
 
         ESP_LOGI(TAG, "Read: Indoor=%.1f°C%s, Heatsink=%.1f°C%s",
                  new_data.temp_indoor, new_data.indoor_valid ? "" : "(invalid)",
