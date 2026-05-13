@@ -216,25 +216,20 @@ void task_fan(void *pvParameters) {
             continue;
         }
 
-        // ---- Hardwired Safety: Peltier AN → Lüfter immer mindestens 40% ----
-        // Unabhängig von Scheduler oder Sensor-Status
-        bool peltier_main_state = peltier_get_main_state();
-        if (peltier_main_state) {
-            // Wenn Peltier AN ist, Lüfter mindestens 40%
-            // Überschreibt alle anderen Bedingungen
-            ESP_LOGW(TAG, "HARDWIRED SAFETY: Peltier ON → Fan minimum 40%");
-        }
-
         // ---- System inactive or no heatsink sensor: everything off ----
-        // ABER: Wenn Peltier AN ist, Lüfter mindestens 40% (Hardwired Safety)
+        // Peltier MUSS sofort ausgeschaltet werden bei inaktivem System
+        bool peltier_main_state = peltier_get_main_state();
         if (!active || !sd.heatsink_valid) {
-            if (peltier_main_state) {
-                // Hardwired Safety: Peltier AN → Lüfter mindestens 40%
-                fan_set_duty(102);  // 40% von 255
-                ESP_LOGW(TAG, "HARDWIRED SAFETY: System inactive/invalid sensor but Peltier ON → Fan 40%");
+            peltier_off();  // Peltier sofort ausschalten
+            
+            // Lüfter für Cooldown weiterlaufen lassen
+            if (s_peltier_off_counter < FAN_COOLDOWN_SECONDS) {
+                fan_set_duty((uint8_t)FAN_COOLDOWN_DUTY);  // 30% für Cooldown
+                s_peltier_off_counter++;
+                ESP_LOGW(TAG, "System inactive/invalid sensor: Peltier OFF, Fan cooldown %d/%d", s_peltier_off_counter, FAN_COOLDOWN_SECONDS);
             } else {
-                fan_set_duty(0);
-                peltier_off();
+                fan_set_duty(0);  // Cooldown vorbei → Lüfter aus
+                ESP_LOGW(TAG, "System inactive/invalid sensor: Peltier OFF, Fan OFF (cooldown done)");
             }
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
