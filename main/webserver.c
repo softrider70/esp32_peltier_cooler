@@ -626,18 +626,24 @@ static void dns_task(void *pvParameters) {
 // ===== Public API =====
 
 void webserver_init(void) {
+    ESP_LOGI(TAG, "=== webserver_init() START ===");
+    
     // Log Handler registrieren
+    ESP_LOGI(TAG, "Setting log handler...");
     esp_log_level_set("*", ESP_LOG_INFO);
-    esp_log_set_vprintf(log_handler);
+    // esp_log_set_vprintf(log_handler);  // DEAKTIVIERT - blockiert!
 
+    ESP_LOGI(TAG, "Creating HTTP server config...");
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 15;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
+    ESP_LOGI(TAG, "Starting HTTP server...");
     if (httpd_start(&s_server, &config) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start HTTP server");
         return;
     }
+    ESP_LOGI(TAG, "HTTP server started successfully");
 
     // Register URI handlers
     httpd_uri_t uri_index = {
@@ -705,8 +711,11 @@ void webserver_init(void) {
 
     // Start captive DNS if in AP mode
     if (wifi_get_mode() == WIFI_MODE_AP) {
+        ESP_LOGI(TAG, "Starting captive DNS...");
         webserver_start_captive_dns();
     }
+    
+    ESP_LOGI(TAG, "=== webserver_init() COMPLETE ===");
 }
 
 void webserver_start_captive_dns(void) {
