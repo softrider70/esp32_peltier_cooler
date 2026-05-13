@@ -20,6 +20,8 @@ static void load_defaults(void) {
     s_config.energy_week = 0.0f;
     s_config.energy_month = 0.0f;
     s_config.last_date = 0;
+    s_config.last_week = 0;
+    s_config.last_month = 0;
     s_config.peltier_pwm_period = PELTIER_PWM_PERIOD_DEFAULT;
     s_config.peltier_pwm_duty = PELTIER_PWM_DUTY_DEFAULT;
     s_config.auto_duty_en = AUTO_DUTY_EN_DEFAULT;
@@ -83,7 +85,9 @@ void nvs_config_init(void) {
             s_config.last_date = 0;
         ESP_LOGI(TAG, "Loaded from NVS: day=%.2f Wh, week=%.2f Wh, month=%.2f Wh",
                  s_config.energy_day, s_config.energy_week, s_config.energy_month);
-
+        
+        // u8 wird später deklariert (Zeile 125)
+        
         uint16_t u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_MO_ON, &u16) == ESP_OK) s_config.sched_on[0] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_MO_OFF, &u16) == ESP_OK) s_config.sched_off[0] = u16;
@@ -118,6 +122,16 @@ void nvs_config_init(void) {
         } else {
             ESP_LOGI(TAG, "peltier_pwm_duty not found in NVS, using default: %u", s_config.peltier_pwm_duty);
         }
+        
+        // Kalenderwoche und Monat für Energie-Perioden
+        if (nvs_get_u8(handle, NVS_KEY_LAST_WEEK, &u8) == ESP_OK)
+            s_config.last_week = u8;
+        else
+            s_config.last_week = 0;
+        if (nvs_get_u8(handle, NVS_KEY_LAST_MONTH, &u8) == ESP_OK)
+            s_config.last_month = u8;
+        else
+            s_config.last_month = 0;
         ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u",
                  s_config.peltier_pwm_period, s_config.peltier_pwm_duty);
 
@@ -182,6 +196,8 @@ void nvs_config_save(void) {
     nvs_set_i32(handle, NVS_KEY_ENERGY_WEEK, (int32_t)(s_config.energy_week * 100));
     nvs_set_i32(handle, NVS_KEY_ENERGY_MONTH, (int32_t)(s_config.energy_month * 100));
     nvs_set_u32(handle, NVS_KEY_LAST_DATE, s_config.last_date);
+    nvs_set_u8(handle, NVS_KEY_LAST_WEEK, s_config.last_week);
+    nvs_set_u8(handle, NVS_KEY_LAST_MONTH, s_config.last_month);
 
     nvs_set_u16(handle, NVS_KEY_SCHED_MO_ON, s_config.sched_on[0]);
     nvs_set_u16(handle, NVS_KEY_SCHED_MO_OFF, s_config.sched_off[0]);
@@ -257,6 +273,8 @@ void nvs_config_save_energy(void) {
     nvs_set_i32(handle, NVS_KEY_ENERGY_WEEK, (int32_t)(s_config.energy_week * 100));
     nvs_set_i32(handle, NVS_KEY_ENERGY_MONTH, (int32_t)(s_config.energy_month * 100));
     nvs_set_u32(handle, NVS_KEY_LAST_DATE, s_config.last_date);
+    nvs_set_u8(handle, NVS_KEY_LAST_WEEK, s_config.last_week);
+    nvs_set_u8(handle, NVS_KEY_LAST_MONTH, s_config.last_month);
     nvs_commit(handle);
     nvs_close(handle);
 

@@ -18,6 +18,8 @@ typedef struct {
     float    energy_week;           // Wochenenergie in Wh
     float    energy_month;          // Monatsenergie in Wh
     uint32_t last_date;             // Zuletzt gespeichertes Datum (YYYYMMDD)
+    uint8_t  last_week;            // Zuletzt gespeicherte Kalenderwoche (0-53)
+    uint8_t  last_month;           // Zuletzt gespeicherter Monat (0-11)
     
     // Peltier PWM (langsames PWM für Stromspar-Modus)
     uint16_t peltier_pwm_period;  // PWM-Periode in Sekunden (z.B. 10s)

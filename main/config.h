@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        287     // Build counter - increment with each flash
+#define BUILD_NUMBER        288     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -71,6 +71,8 @@
 #define NVS_KEY_ENERGY_WEEK  "energy_week"
 #define NVS_KEY_ENERGY_MONTH "energy_month"
 #define NVS_KEY_LAST_DATE    "last_date"
+#define NVS_KEY_LAST_WEEK    "last_week"
+#define NVS_KEY_LAST_MONTH   "last_month"
 #define NVS_KEY_SCHED_MO_ON  "sched_mo_on"
 #define NVS_KEY_SCHED_MO_OFF "sched_mo_off"
 #define NVS_KEY_SCHED_DI_ON  "sched_di_on"

@@ -128,23 +128,32 @@ static void update_energy_stats(float energy_increment) {
                            (timeinfo.tm_mon + 1) * 100 + 
                            timeinfo.tm_mday;
     
+    // Berechne Kalenderwoche (0-53)
+    char week_buf[8];
+    strftime(week_buf, sizeof(week_buf), "%W", &timeinfo);
+    uint8_t current_week = atoi(week_buf);
+    
     // Wenn Datum geändert hat → Tageszähler zurücksetzen
     if (cfg->last_date != 0 && current_date != cfg->last_date) {
-        // Prüfe ob sich Woche geändert hat (Montag ist Tag 1)
-        if (timeinfo.tm_wday == 1) {
+        // Prüfe ob sich Woche geändert hat (oder erster Start)
+        if (cfg->last_week == 0 || current_week != cfg->last_week) {
             cfg->energy_week = 0.0f;
-            ESP_LOGI(TAG, "New week - weekly energy reset");
+            ESP_LOGI(TAG, "New week (%u) - weekly energy reset", current_week);
         }
         
-        // Prüfe ob sich Monat geändert hat
-        if (timeinfo.tm_mday == 1) {
+        // Prüfe ob sich Monat geändert hat (oder erster Start)
+        if (cfg->last_month == 0 || timeinfo.tm_mon != cfg->last_month) {
             cfg->energy_month = 0.0f;
-            ESP_LOGI(TAG, "New month - monthly energy reset");
+            ESP_LOGI(TAG, "New month (%u) - monthly energy reset", timeinfo.tm_mon);
         }
         
         cfg->energy_day = 0.0f;
         ESP_LOGI(TAG, "New day - daily energy reset");
     }
+    
+    // Speichere aktuelle Woche und Monat
+    cfg->last_week = current_week;
+    cfg->last_month = timeinfo.tm_mon;
     
     // Aktualisiere alle Zähler
     cfg->energy_wh += energy_increment;
