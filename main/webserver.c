@@ -354,6 +354,9 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
 
     nvs_config_save();
 
+    // PWM-Duty lokal aktualisieren
+    peltier_set_duty(cfg->peltier_pwm_duty);
+
     ESP_LOGI(TAG, "After save: temp_on=%.1f, temp_off=%.1f", cfg->temp_peltier_on, cfg->temp_peltier_off);
 
     httpd_resp_set_type(req, "application/json");
