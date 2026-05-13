@@ -110,7 +110,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
         cfg->peltier_pwm_period, peltier_get_duty(),  // Aktuellen Duty-Wert verwenden
-        cfg->auto_duty_en ? "true" : "false", peltier_get_autoduty_duty(), cfg->auto_duty_cycle,  // Aktuellen Auto-Duty Duty verwenden
+        cfg->auto_duty_en ? "true" : "false", peltier_get_autoduty_duty(), peltier_get_autoduty_cycle(),  // Aktuelle Auto-Duty Werte verwenden
         peltier_get_autoduty_countdown(), peltier_get_autoduty_step(),
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
@@ -191,6 +191,8 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     if (httpd_query_key_value(buf, "auto_duty_cycle", value, sizeof(value)) == ESP_OK) {
         cfg->auto_duty_cycle = (uint16_t)atoi(value);
         ESP_LOGI(TAG, "Config update: auto_duty_cycle = %u seconds", cfg->auto_duty_cycle);
+        // Auto-Duty Cycle zur Laufzeit aktualisieren
+        peltier_autoduty_update_cycle(cfg->auto_duty_cycle);
         // Sofort in NVS speichern
         nvs_config_save();
     }

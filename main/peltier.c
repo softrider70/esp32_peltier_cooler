@@ -294,6 +294,17 @@ void peltier_autoduty_stop(void) {
     ESP_LOGI(TAG, "Auto-Duty stopped");
 }
 
+void peltier_autoduty_update_cycle(uint16_t cycle_seconds) {
+    s_autoduty_cycle_us = cycle_seconds * 1000000;  // Sekunden zu Mikrosekunden
+    
+    // Timer neu starten, falls Auto-Duty aktiv ist
+    if (s_autoduty_enabled) {
+        esp_timer_stop(s_autoduty_timer);
+        esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
+        ESP_LOGI(TAG, "Auto-Duty cycle updated to %llu us", s_autoduty_cycle_us);
+    }
+}
+
 bool peltier_autoduty_is_enabled(void) {
     return s_autoduty_enabled;
 }
@@ -304,6 +315,10 @@ uint8_t peltier_get_autoduty_duty(void) {
 
 uint8_t peltier_get_autoduty_step(void) {
     return s_autoduty_step;
+}
+
+uint16_t peltier_get_autoduty_cycle(void) {
+    return (uint16_t)(s_autoduty_cycle_us / 1000000);  // Mikrosekunden zu Sekunden
 }
 
 uint16_t peltier_get_autoduty_countdown(void) {
