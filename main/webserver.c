@@ -96,7 +96,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_power\":%.1f,"
         "\"auto_duty_en\":%s,\"auto_duty_duty\":%d,\"auto_duty_cycle\":%d,"
-        "\"auto_duty_countdown\":%d,"
+        "\"auto_duty_countdown\":%d,\"auto_duty_step\":%d,"
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
         "\"build\":%d}",
@@ -115,7 +115,7 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         interval_sec, duration_hours,
         cfg->peltier_pwm_period, peltier_get_duty(), current_power,  // Aktuelle Leistung
         cfg->auto_duty_en ? "true" : "false", peltier_get_autoduty_duty(), peltier_get_autoduty_cycle(),  // Aktuelle Auto-Duty Werte verwenden
-        peltier_get_autoduty_countdown(),
+        peltier_get_autoduty_countdown(), peltier_get_autoduty_step(),
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
         BUILD_NUMBER);

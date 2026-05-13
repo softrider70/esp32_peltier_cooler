@@ -74,6 +74,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label>Leistung:</label><span id="st_peltier_power">--W</span></div>
 <div class="row"><label>Auto-Duty:</label><button id="st_autoduty" style="background:#444;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;cursor:default">--</button></div>
 <div class="row"><label>AD Cycle:</label><span id="st_autoduty_cycle">--s</span></div>
+<div class="row"><label>AD Step:</label><span id="st_autoduty_step">--%</span></div>
 <div class="row"><label>AD Countdown:</label><span id="st_autoduty_countdown">--s</span></div>
 </div>
 <div class="card">
@@ -293,6 +294,7 @@ var autodutyBtn=document.getElementById('st_autoduty');
 autodutyBtn.textContent=d.auto_duty_en?'AN':'AUS';
 autodutyBtn.style.background=d.auto_duty_en?'#e74c3c':'#2ecc71';
 document.getElementById('st_autoduty_cycle').textContent=d.auto_duty_cycle+'s';
+document.getElementById('st_autoduty_step').textContent=d.auto_duty_step+'%';
 document.getElementById('st_autoduty_countdown').textContent=d.auto_duty_countdown+'s';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
 document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
