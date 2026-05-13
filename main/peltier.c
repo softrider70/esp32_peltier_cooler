@@ -29,6 +29,7 @@ static uint8_t s_autoduty_duty = 0;       // Aktueller Duty-Wert (0-100%)
 static uint8_t s_autoduty_step = 16;      // Step-Wert (Bitverschiebung: 1-2-4-8-16-32)
 static uint8_t s_autoduty_constant_counter = 0;  // Zähler für konstante Temperatur (2 Zyklen)
 static uint64_t s_autoduty_cycle_us = 0;  // Zyklusdauer in Mikrosekunden
+static int64_t s_autoduty_last_callback_us = 0;  // Zeitpunkt des letzten Callbacks
 
 // PWM Timer Callback: GPIO ein
 static void IRAM_ATTR pwm_on_callback(void* arg) {
@@ -65,6 +66,9 @@ static void IRAM_ATTR autoduty_callback(void* arg) {
     if (!s_autoduty_enabled) {
         return;
     }
+
+    // Zeitpunkt des Callbacks speichern
+    s_autoduty_last_callback_us = esp_timer_get_time();
 
     ESP_LOGI(TAG, "Auto-Duty callback: duty=%u, step=%u, temp_ref=%.1f", s_autoduty_duty, s_autoduty_step, s_autoduty_temp_ref);
 
@@ -263,6 +267,7 @@ void peltier_autoduty_start(void) {
     s_autoduty_step = 16;  // Startwert
     s_autoduty_constant_counter = 0;
     s_autoduty_temp_ref = sd.temp_indoor;
+    s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
 
     peltier_set_duty(s_autoduty_duty);
     esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
@@ -283,6 +288,7 @@ void peltier_autoduty_start_with_temp(float temp_indoor) {
     s_autoduty_step = 16;  // Startwert
     s_autoduty_constant_counter = 0;
     s_autoduty_temp_ref = temp_indoor;
+    s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
 
     peltier_set_duty(s_autoduty_duty);
     esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
@@ -292,6 +298,7 @@ void peltier_autoduty_start_with_temp(float temp_indoor) {
 
 void peltier_autoduty_stop(void) {
     s_autoduty_enabled = false;
+    s_autoduty_last_callback_us = 0;  // Zeitpunkt zurücksetzen
     esp_timer_stop(s_autoduty_timer);
     ESP_LOGI(TAG, "Auto-Duty stopped");
 }
@@ -313,14 +320,15 @@ uint16_t peltier_get_autoduty_countdown(void) {
         return 0;
     }
 
-    // Für periodische Timer gibt get_expiry_time die Zeit des nächsten Callbacks zurück
-    uint64_t expiry_us = 0;
-    if (esp_timer_get_expiry_time(s_autoduty_timer, &expiry_us) == ESP_OK) {
-        uint64_t now_us = esp_timer_get_time();
-        int64_t remaining_us = expiry_us - now_us;
-        if (remaining_us < 0) remaining_us = 0;
-        return (uint16_t)(remaining_us / 1000000);  // Mikrosekunden zu Sekunden
+    // Verbleibende Zeit basierend auf letztem Callback berechnen
+    if (s_autoduty_last_callback_us == 0) {
+        return (uint16_t)(s_autoduty_cycle_us / 1000000);  // Fallback: Zykluszeit
     }
-    // Fallback: Zykluszeit zurückgeben
-    return (uint16_t)(s_autoduty_cycle_us / 1000000);
+
+    int64_t now_us = esp_timer_get_time();
+    int64_t elapsed_us = now_us - s_autoduty_last_callback_us;
+    int64_t remaining_us = s_autoduty_cycle_us - elapsed_us;
+
+    if (remaining_us < 0) remaining_us = 0;
+    return (uint16_t)(remaining_us / 1000000);  // Mikrosekunden zu Sekunden
 }
