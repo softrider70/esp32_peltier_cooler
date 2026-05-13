@@ -631,7 +631,7 @@ static void dns_task(void *pvParameters) {
 void webserver_init(void) {
     // Log Handler registrieren
     esp_log_level_set("*", ESP_LOG_INFO);
-    esp_log_set_vprintf(log_handler);
+    // esp_log_set_vprintf(log_handler);  // DEAKTIVIERT - blockiert!
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 15;
