@@ -110,7 +110,9 @@ Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
 **Sicherheitsmechanismen:**
 - Peltier-GPIO hat Hardware-Pulldown → AUS bei ESP32-Reset/Brownout
 - Bei Sensorfehlern: Vorheriger gueltiger Wert wird behalten
-- Bei 5 aufeinanderfolgenden Sensorfehlern: Notmodus aktiv (Luefter 100%, Peltier AUS)
+- Bei 1 Sensorfehler: Notmodus aktiv (Luefter 100%, Peltier AUS) - sofortige Reaktion
+- **Hardwired Safety**: Lüfter läuft immer mindestens 40% wenn Peltier AN ist, unabhängig von Scheduler oder Sensor-Status
+- **Manuelle Notabschaltung**: 3x kurzer Druck auf BOOT/RESET Button innerhalb von 2 Sekunden → Lüfter 100% (nur wenn Peltier AN ist)
 - Notmodus wird bei naechster gueltigen Messung automatisch deaktiviert
 - Scheduler inaktiv → alles aus
 

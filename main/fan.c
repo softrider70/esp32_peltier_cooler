@@ -207,6 +207,7 @@ void task_fan(void *pvParameters) {
         s_was_active = active;
 
         // ---- Emergency mode: sensor errors → fan full, peltier off ----
+        // Schon bei 1 Fehler aktivieren für schnellere Reaktion
         if (sensor_get_emergency_mode()) {
             peltier_off();
             fan_set_duty(255);
@@ -215,10 +216,26 @@ void task_fan(void *pvParameters) {
             continue;
         }
 
+        // ---- Hardwired Safety: Peltier AN → Lüfter immer mindestens 40% ----
+        // Unabhängig von Scheduler oder Sensor-Status
+        bool peltier_main_state = peltier_get_main_state();
+        if (peltier_main_state) {
+            // Wenn Peltier AN ist, Lüfter mindestens 40%
+            // Überschreibt alle anderen Bedingungen
+            ESP_LOGW(TAG, "HARDWIRED SAFETY: Peltier ON → Fan minimum 40%");
+        }
+
         // ---- System inactive or no heatsink sensor: everything off ----
+        // ABER: Wenn Peltier AN ist, Lüfter mindestens 40% (Hardwired Safety)
         if (!active || !sd.heatsink_valid) {
-            fan_set_duty(0);
-            peltier_off();
+            if (peltier_main_state) {
+                // Hardwired Safety: Peltier AN → Lüfter mindestens 40%
+                fan_set_duty(102);  // 40% von 255
+                ESP_LOGW(TAG, "HARDWIRED SAFETY: System inactive/invalid sensor but Peltier ON → Fan 40%");
+            } else {
+                fan_set_duty(0);
+                peltier_off();
+            }
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
@@ -246,7 +263,7 @@ void task_fan(void *pvParameters) {
 #endif
 
         // ---- Peltier: digital on/off based on indoor temperature range ----
-        bool peltier_main_state = peltier_get_main_state();  // Zustand aus peltier-Modul holen
+        // peltier_main_state wurde bereits oben abgerufen
 
         if (sd.indoor_valid) {
             // Hysterese: Nur schalten wenn Schwellwerte überschritten werden

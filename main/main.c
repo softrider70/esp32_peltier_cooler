@@ -31,10 +31,15 @@ void reset_button_task(void *pvParameters) {
     };
     gpio_config(&io_conf);
 
-    ESP_LOGI(TAG, "Reset button monitoring started (GPIO %d): Short press = ESP32 reset, Long press = WiFi reset", GPIO_RESET_BUTTON);
+    ESP_LOGI(TAG, "Reset button monitoring started (GPIO %d): Short press = ESP32 reset, Long press = WiFi reset, 3x press = Emergency Fan (100%%)", GPIO_RESET_BUTTON);
 
     uint64_t press_start_time = 0;
     bool button_pressed = false;
+    
+    // Notabschaltung: 3x kurzer Druck innerhalb von 2 Sekunden
+    int press_count = 0;
+    uint64_t last_press_time = 0;
+    bool emergency_fan_active = false;
 
     while (1) {
         int button_level = gpio_get_level(GPIO_RESET_BUTTON);
@@ -61,12 +66,51 @@ void reset_button_task(void *pvParameters) {
             if (button_pressed) {
                 uint64_t press_duration = current_time - press_start_time;
                 if (press_duration < RESET_BUTTON_HOLD_MS && press_duration >= 100) {
-                    // Short press (100ms to 3s) → ESP32 reset
-                    ESP_LOGW(TAG, "Reset button short press (%llu ms) → restarting ESP32", press_duration);
-                    esp_restart();
+                    // Short press (100ms to 3s)
+                    press_count++;
+                    ESP_LOGI(TAG, "Reset button short press #%d (%llu ms)", press_count, press_duration);
+                    
+                    // Prüfe auf 3x kurzer Druck innerhalb von 2 Sekunden
+                    if (current_time - last_press_time < 2000) {
+                        if (press_count >= 3) {
+                            // Notabschaltung: Lüfter 100% bei Peltier AN
+                            if (peltier_get_main_state()) {
+                                emergency_fan_active = !emergency_fan_active;
+                                if (emergency_fan_active) {
+                                    fan_set_duty(255);
+                                    ESP_LOGE(TAG, "EMERGENCY FAN ACTIVATED: Fan 100%% (Peltier ON)");
+                                } else {
+                                    ESP_LOGI(TAG, "EMERGENCY FAN DEACTIVATED: Normal operation");
+                                }
+                            } else {
+                                ESP_LOGW(TAG, "Emergency fan ignored: Peltier is OFF");
+                            }
+                            press_count = 0;
+                        }
+                    } else {
+                        // Zu lange zwischen den Drücken → Counter zurücksetzen
+                        press_count = 1;
+                    }
+                    last_press_time = current_time;
+                    
+                    if (press_count == 1) {
+                        // Erster kurzer Druck → ESP32 reset nach kurzer Verzögerung (wenn nicht 3x)
+                        // Aber wir warten erst mal auf weitere Drücke
+                        vTaskDelay(pdMS_TO_TICKS(500));
+                        if (press_count == 1) {
+                            // Nur 1x Druck → ESP32 reset
+                            ESP_LOGW(TAG, "Reset button single press → restarting ESP32");
+                            esp_restart();
+                        }
+                    }
                 }
                 button_pressed = false;
             }
+        }
+
+        // Counter zurücksetzen wenn zu lange kein Druck
+        if (current_time - last_press_time > 2000 && press_count > 0) {
+            press_count = 0;
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));  // Check every 100ms
