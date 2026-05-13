@@ -93,14 +93,26 @@ Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
 
 **Hinweis:** Der NPN Transistor invertiert das PWM-Signal, wird im Software automatisch korrigiert.
 
-## Regellogik
+## Regellogik und Sicherheit
 
-### Peltier-Steuerung (digital Ein/Aus)
+### Peltier-Steuerung und Kühlblocksicherheit
 
+**Temperaturbereich (Innenraum):**
 - **EIN** wenn Innenraumtemperatur >= `temp_on` (Default: 13°C)
 - **AUS** wenn Innenraumtemperatur <= `temp_off` (Default: 11°C)
 - Dazwischen: Hysterese-Band, Zustand bleibt unveraendert
-- **Notabschaltung** wenn Kuehlblock >= `temp_max` (Default: 53°C)
+
+**Kühlblocksicherheit:**
+- **Notabschaltung** wenn Kuehlblock >= `temp_max` (Default: 52°C)
+- Bei Ueberschreitung: sofortige Peltier-Abschaltung + Luefter 100%
+- Kuehlblock-Temperatur wird alle 2s geprueft
+
+**Sicherheitsmechanismen:**
+- Peltier-GPIO hat Hardware-Pulldown → AUS bei ESP32-Reset/Brownout
+- Bei Sensorfehlern: Vorheriger gueltiger Wert wird behalten
+- Bei 5 aufeinanderfolgenden Sensorfehlern: Notmodus aktiv (Luefter 100%, Peltier AUS)
+- Notmodus wird bei naechster gueltigen Messung automatisch deaktiviert
+- Scheduler inaktiv → alles aus
 
 ### Auto-Duty Regelung (PWM)
 
@@ -288,16 +300,6 @@ Kalibrierung:
 5. Neu flashen
 
 Standard: `RPM_CALIBRATION_FACTOR = 1.0f` (nicht kalibriert)
-
-## Sicherheit
-
-- Peltier-GPIO hat Hardware-Pulldown → AUS bei ESP32-Reset/Brownout
-- Kuehlblock-Temperatur wird alle 2s geprueft
-- Bei Ueberschreitung von `temp_max`: sofortige Peltier-Abschaltung + Luefter 100%
-- Bei Sensorfehlern: Vorheriger gueltiger Wert wird behalten
-- Bei 5 aufeinanderfolgenden Sensorfehlern: Notmodus aktiv (Luefter 100%, Peltier AUS)
-- Notmodus wird bei naechster gueltigen Messung automatisch deaktiviert
-- Scheduler inaktiv → alles aus
 
 ## Lizenz
 
