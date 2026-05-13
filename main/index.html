@@ -57,20 +57,20 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="card-grid">
 <div class="card">
 <h2>Temperaturen</h2>
-<div class="row"><label>Innen:</label><span id="st_indoor">--°C</span> <span id="trend_indoor"></span> <span id="indoor_symbol_series" style="font-size:.7rem;color:#888"></span></div>
+<div class="row"><label>Innen:</label><span id="st_indoor">--°C</span></div>
 <div class="row"><label>(min:</label><span id="st_temp_off">--°C</span> <label>/ max:</label><span id="st_temp_on">--°C</span>)</div>
-<div class="row"><label>Kühlblock:</label><span id="st_heatsink">--°C</span> <span id="trend_heatsink"></span> <span id="heatsink_symbol_series" style="font-size:.7rem;color:#888"></span></div>
+<div class="row"><label>Kühlblock:</label><span id="st_heatsink">--°C</span></div>
 </div>
 <div class="card">
 <h2>Luefter</h2>
-<div class="row"><label>PWM:</label><span id="st_fan">--%</span> <span id="trend_fan_duty"></span> <span id="fan_duty_symbol_series" style="font-size:.7rem;color:#888"></span></div>
+<div class="row"><label>PWM:</label><span id="st_fan">--%</span></div>
 <div class="row"><label>RPM:</label><span id="st_rpm">--</span></div>
 </div>
 <div class="card">
 <h2>Peltier</h2>
 <div class="row"><label>Status:</label><button id="st_peltier" style="background:#444;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;cursor:default">--</button></div>
 <div class="row"><label>PWM Period:</label><span id="st_pwm_period">--s</span></div>
-<div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span> <span id="pwm_duty_symbol_series" style="font-size:.7rem;color:#888"></span></div>
+<div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span></div>
 <div class="row"><label>Auto-Duty:</label><span id="st_pwm_auto">--</span></div>
 <div class="row"><label>Auto-Duty Intervall:</label><span id="st_pwm_interval">--s</span></div>
 <div class="row"><label>Duty-Faktor:</label><span id="st_duty_factor">--%</span></div>
@@ -279,41 +279,19 @@ legend:{labels:{color:'#e0e0e0'}}
 }).catch(e=>console.error('Graph error:',e));
 }
 
-function getTrendSymbol(trend){
-if(trend===1)return'↑';
-if(trend===-1)return'↓';
-return'→';
-}
-
-function getTrendColor(trend){
-if(trend===1)return'var(--warn-color)';
-if(trend===-1)return'var(--ok-color)';
-return'#888';
-}
-
 function refresh(){
 fetch('/api/status').then(r=>r.json()).then(d=>{
 document.getElementById('st_indoor').textContent=d.indoor.toFixed(1)+'°C';
 document.getElementById('st_temp_off').textContent=d.temp_off.toFixed(1)+'°C';
 document.getElementById('st_temp_on').textContent=d.temp_on.toFixed(1)+'°C';
-document.getElementById('trend_indoor').textContent=getTrendSymbol(d.trend_indoor);
-document.getElementById('trend_indoor').style.color=getTrendColor(d.trend_indoor);
-document.getElementById('indoor_symbol_series').textContent=d.indoor_symbol_series;
 document.getElementById('st_heatsink').textContent=d.heatsink_valid?d.heatsink.toFixed(1)+'°C':'--';
-document.getElementById('trend_heatsink').textContent=getTrendSymbol(d.trend_heatsink);
-document.getElementById('trend_heatsink').style.color=getTrendColor(d.trend_heatsink);
-document.getElementById('heatsink_symbol_series').textContent=d.heatsink_symbol_series;
 document.getElementById('st_fan').textContent=Math.round(d.fan_duty/2.55)+'%';
-document.getElementById('trend_fan_duty').textContent=getTrendSymbol(d.trend_fan_duty);
-document.getElementById('trend_fan_duty').style.color=getTrendColor(d.trend_fan_duty);
-document.getElementById('fan_duty_symbol_series').textContent=d.fan_duty_symbol_series;
 document.getElementById('st_rpm').textContent=d.fan_rpm+' RPM';
 var peltierBtn=document.getElementById('st_peltier');
 peltierBtn.textContent=d.peltier_on?'AN':'AUS';
 peltierBtn.style.background=d.peltier_on?'#e74c3c':'#2ecc71';
 document.getElementById('st_pwm_period').textContent=d.peltier_pwm_period+'s';
 document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
-document.getElementById('pwm_duty_symbol_series').textContent=d.pwm_duty_symbol_series;
 document.getElementById('st_pwm_auto').textContent=d.peltier_pwm_auto?'AN':'AUS';
 document.getElementById('st_pwm_interval').textContent=d.peltier_pwm_interval+'s';
 document.getElementById('st_duty_factor').textContent=d.peltier_duty_factor+'%';

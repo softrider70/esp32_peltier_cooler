@@ -19,25 +19,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Statische Variablen für Trend-Berechnung (3 Messwerte)
-static float s_indoor_history[3] = {0};
-static float s_heatsink_history[3] = {0};
-static float s_fan_duty_history[3] = {0};
-static int s_history_index = 0;
-static bool s_history_filled = false;
-
-// Historie für Symbolreihen (20 Werte)
-static float s_indoor_series[20] = {0};
-static float s_heatsink_series[20] = {0};
-static uint8_t s_fan_duty_series[20] = {0};
-static int s_series_index = 0;
-static bool s_series_filled = false;
-
-// PWM Duty Historie für Symbolreihe (20 Werte)
-static uint8_t s_pwm_duty_history[20] = {0};
-static int s_pwm_duty_history_index = 0;
-static bool s_pwm_duty_history_filled = false;
-
 static const char *TAG = "webserver";
 static httpd_handle_t s_server = NULL;
 static TaskHandle_t s_dns_task = NULL;
@@ -78,57 +59,6 @@ extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 extern const uint8_t captive_html_start[] asm("_binary_captive_html_start");
 extern const uint8_t captive_html_end[]   asm("_binary_captive_html_end");
-
-// Trend-Berechnung über 3 Messwerte: 1=steigend, -1=fallend, 0=stabil
-static int calculate_trend(float current, float history[], int size, float threshold) {
-if (!s_history_filled) return 0;
-
-// Berechne Durchschnitt der letzten 3 Werte
-float avg = 0;
-for (int i = 0; i < size; i++) {
-avg += history[i];
-}
-avg /= size;
-
-if (current > avg + threshold) return 1;   // Steigend
-if (current < avg - threshold) return -1;  // Fallend
-return 0;                                   // Stabil
-}
-
-// Symbolreihe für PWM Duty generieren (links nach rechts: neu → alt)
-static void generate_pwm_duty_symbol_series(char *buf, int buf_size, int actual_count) {
-    if (actual_count < 2) {
-        snprintf(buf, buf_size, "->");
-        return;
-    }
-    int len = 0;
-    for (int i = 0; i < actual_count && len < buf_size - 1; i++) {
-        uint8_t prev = i < actual_count - 1 ? s_pwm_duty_history[i + 1] : s_pwm_duty_history[i];
-        uint8_t curr = s_pwm_duty_history[i];
-        if (curr > prev) len += snprintf(buf + len, buf_size - len, "^");
-        else if (curr < prev) len += snprintf(buf + len, buf_size - len, "v");
-        else len += snprintf(buf + len, buf_size - len, "-");
-    }
-    buf[len] = '\0';
-}
-
-// Generische Symbolreihe für Float-Werte (links nach rechts: neu → alt)
-static void generate_float_symbol_series(char *buf, int buf_size, float series[], int actual_count, float threshold) {
-    if (actual_count < 2) {
-        snprintf(buf, buf_size, "->");
-        return;
-    }
-    int len = 0;
-    for (int i = 0; i < actual_count && len < buf_size - 1; i++) {
-        float prev = i < actual_count - 1 ? series[i + 1] : series[i];
-        float curr = series[i];
-        float diff = curr - prev;  // Aktueller - Vorheriger
-        if (diff > threshold) len += snprintf(buf + len, buf_size - len, "^");
-        else if (diff < -threshold) len += snprintf(buf + len, buf_size - len, "v");
-        else len += snprintf(buf + len, buf_size - len, "-");
-    }
-    buf[len] = '\0';
-}
 
 // ===== Handlers =====
 
@@ -174,67 +104,6 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     float cost_week = cfg->energy_week * PELTIER_COST_PER_KWH / 1000.0f;
     float cost_month = cfg->energy_month * PELTIER_COST_PER_KWH / 1000.0f;
 
-    // Calculate trends
-    int trend_indoor = calculate_trend(sd.temp_indoor, s_indoor_history, 3, 0.1f);
-    int trend_heatsink = calculate_trend(sd.temp_heatsink, s_heatsink_history, 3, 0.1f);
-    int trend_fan_duty = calculate_trend((float)fan_get_duty(), s_fan_duty_history, 3, 2.0f);
-        
-    // Update history (Ring Buffer mit 3 Werten)
-    s_indoor_history[s_history_index] = sd.temp_indoor;
-    s_heatsink_history[s_history_index] = sd.temp_heatsink;
-    s_fan_duty_history[s_history_index] = fan_get_duty();
-
-    s_history_index = (s_history_index + 1) % 3;
-    if (s_history_index == 0) s_history_filled = true;
-
-    // Update Symbolreihen (20 Werte) - neue Daten links, alte nach rechts schieben
-    if (!s_series_filled) {
-        // Array noch nicht gefüllt - direkt an aktueller Position schreiben
-        s_indoor_series[s_series_index] = sd.temp_indoor;
-        s_heatsink_series[s_series_index] = sd.temp_heatsink;
-        s_fan_duty_series[s_series_index] = fan_get_duty();
-    } else {
-        // Array gefüllt - alles nach rechts schieben, neue Daten am Anfang
-        for (int i = 19; i > 0; i--) {
-            s_indoor_series[i] = s_indoor_series[i - 1];
-            s_heatsink_series[i] = s_heatsink_series[i - 1];
-            s_fan_duty_series[i] = s_fan_duty_series[i - 1];
-        }
-        s_indoor_series[0] = sd.temp_indoor;
-        s_heatsink_series[0] = sd.temp_heatsink;
-        s_fan_duty_series[0] = fan_get_duty();
-    }
-
-    s_series_index++;
-    if (s_series_index >= 20) s_series_filled = true;
-
-    // Update PWM Duty Historie (20 Werte) - neue Daten links, alte nach rechts schieben
-    if (!s_pwm_duty_history_filled) {
-        // Array noch nicht gefüllt - direkt an aktueller Position schreiben
-        s_pwm_duty_history[s_pwm_duty_history_index] = cfg->peltier_pwm_duty;
-    } else {
-        // Array gefüllt - alles nach rechts schieben, neue Daten am Anfang
-        for (int i = 19; i > 0; i--) {
-            s_pwm_duty_history[i] = s_pwm_duty_history[i - 1];
-        }
-        s_pwm_duty_history[0] = cfg->peltier_pwm_duty;
-    }
-
-    s_pwm_duty_history_index++;
-    if (s_pwm_duty_history_index >= 20) s_pwm_duty_history_filled = true;
-
-    // Symbolreihen generieren
-    char indoor_symbol_series[25] = {0};
-    char heatsink_symbol_series[25] = {0};
-    char fan_duty_symbol_series[25] = {0};
-    char pwm_duty_symbol_series[25] = {0};
-    int actual_count = s_series_filled ? 20 : s_series_index;
-    int pwm_actual_count = s_pwm_duty_history_filled ? 20 : s_pwm_duty_history_index;
-    generate_float_symbol_series(indoor_symbol_series, sizeof(indoor_symbol_series), s_indoor_series, actual_count, 0.1f);
-    generate_float_symbol_series(heatsink_symbol_series, sizeof(heatsink_symbol_series), s_heatsink_series, actual_count, 0.1f);
-    generate_float_symbol_series(fan_duty_symbol_series, sizeof(fan_duty_symbol_series), (float*)s_fan_duty_series, actual_count, 2.0f);
-    generate_pwm_duty_symbol_series(pwm_duty_symbol_series, sizeof(pwm_duty_symbol_series), pwm_actual_count);
-
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
         "\"indoor_valid\":%s,\"heatsink_valid\":%s,"
@@ -247,10 +116,8 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
         "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_pwm_auto\":%s,\"peltier_pwm_interval\":%d,\"peltier_duty_factor\":%u,\"peltier_autoduty_countdown\":%lu,"
-        "\"indoor_symbol_series\":\"%s\",\"heatsink_symbol_series\":\"%s\",\"fan_duty_symbol_series\":\"%s\",\"pwm_duty_symbol_series\":\"%s\","
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
-        "\"trend_indoor\":%d,\"trend_heatsink\":%d,\"trend_fan_duty\":%d,"
         "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
@@ -266,10 +133,8 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
         cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false", cfg->peltier_pwm_interval, peltier_get_duty_factor(), peltier_get_autoduty_countdown(),
-        indoor_symbol_series, heatsink_symbol_series, fan_duty_symbol_series, pwm_duty_symbol_series,
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
-        trend_indoor, trend_heatsink, trend_fan_duty,
         BUILD_NUMBER);
 
     httpd_resp_set_type(req, "application/json");
