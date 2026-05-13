@@ -186,6 +186,33 @@ Der ESP32 bietet zwei Möglichkeiten zum Zurücksetzen der WiFi-Credentials:
 - Bestätigungsdialog vor dem Reset
 - Gleiche Funktion wie physischer Button
 
+## OTA (Over-The-Air Update)
+
+Die OTA-Funktion ermoeglicht Firmware-Updates ueber HTTP ohne physischen Zugriff auf den ESP32.
+
+**Funktionsweise:**
+- Firmware wird von konfigurierbarer URL heruntergeladen (Default: `http://192.168.1.191:8080/firmware.bin`)
+- Download in 4KB-Blöcken in die zweite OTA-Partition
+- Nach Download: Reboot und Boot-Partition umschalten
+- A/B-Update mit Rollback-Schutz (zwei Partitionen: ota_0, ota_1)
+
+**Self-Check nach Update:**
+- Nach erfolgreichen Boot: 30 Sekunden Wartezeit
+- **Self-Check 1:** Sensoren verfügbar (3 Wiederholungen à 2 Sekunden)
+- **Self-Check 2:** WiFi verbunden (optional, nur Warnung)
+- Bei Erfolg: Firmware als gueltig markieren
+- Bei Fehler: Automatischer Rollback zur vorherigen Firmware
+
+**Parameter:**
+- HTTP-Timeout: 30 Sekunden
+- Buffer-Größe: 4096 Bytes
+- OTA-URL konfigurierbar über Webinterface (in NVS gespeichert)
+
+**Webinterface:**
+- OTA-URL konfigurierbar im Settings-Tab
+- Status-Anzeige: IDLE, IN_PROGRESS, SUCCESS, FAILED
+- Fehlermeldung bei Fehlschlag
+
 ## Konfiguration (NVS)
 
 Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert und ueberleben Neustarts:
@@ -201,10 +228,35 @@ Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert un
 | PWM Duty | `pwm_duty` | 10% | PWM Duty Cycle (5-20%) |
 | PWM Auto-Duty | `pwm_auto` | false | Automatische Duty-Anpassung |
 | PWM Interval | `pwm_interval` | 60s | Interval zwischen Auto-Duty-Kontrollen |
+| OTA URL | `ota_url` | http://192.168.1.191:8080/firmware.bin | Firmware-Update Server URL |
 | Mo-Fr AN | `sch_mo_on` ... `sch_do_on` | 11:00 | Betriebsstart Mo-Do (Stunden 0-23) |
 | Mo-Fr AUS | `sch_mo_off` ... `sch_do_off` | 19:00 | Betriebsende Mo-Do |
 | Fr-So AN | `sch_fr_on` ... `sch_so_on` | 11:00 | Betriebsstart Fr-So |
 | Fr-So AUS | `sch_fr_off` ... `sch_so_off` | 21:00 | Betriebsende Fr-So |
+
+## NVS-Schreibzugriffe
+
+Der Non-Volatile Storage (NVS) wird bei folgenden Aktionen beschrieben:
+
+**Hauptkonfiguration (nvs_config_save):**
+- Konfigurationsänderungen über Webinterface
+- WiFi-Setup (SSID/Passwort)
+- Factory Reset (Defaults speichern)
+
+**Energiedaten (nvs_config_save_energy):**
+- Nur wenn Peltier von AN → AUS wechselt
+- Nur wenn Energiedifferenz > 0.1 Wh
+- Reduziert NVS-Schreibzyklen für Flash-Lebensdauer
+
+**OTA-URL:**
+- Änderung der OTA-URL über Webinterface
+
+**Graph-Daten (data_logger_save_to_nvs):**
+- Bei Scheduler-Deaktivierung (720 Datenpunkte als Blob)
+
+**Optimierung:**
+- Energiedaten werden nur beim Peltier-Ausschalten gespeichert
+- Schwellenwert von 0.1 Wh reduziert Schreibzugriffe um Faktor 10
 
 ## Build & Flash
 
