@@ -140,6 +140,8 @@ void nvs_config_init(void) {
             ESP_LOGI(TAG, "Loaded auto_duty_cycle from NVS: %u", s_config.auto_duty_cycle);
         } else {
             ESP_LOGI(TAG, "auto_duty_cycle not found in NVS, using default: %u", s_config.auto_duty_cycle);
+            esp_err_t err = nvs_get_u16(handle, NVS_KEY_AUTO_DUTY_CYCLE, &u16);
+            ESP_LOGI(TAG, "Direct read attempt result: %d", err);
         }
         ESP_LOGI(TAG, "Loaded from NVS: auto_duty_en=%s, auto_duty_duty=%u, auto_duty_cycle=%u",
                  s_config.auto_duty_en ? "true" : "false", s_config.auto_duty_duty, s_config.auto_duty_cycle);
