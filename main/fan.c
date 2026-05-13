@@ -18,7 +18,6 @@ static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
 static bool s_was_active = false;  // Track previous active state for NVS save
 static bool s_peltier_main_was_on = false;  // Track Peltier main state for NVS save
-static int s_peltier_off_counter = 0;  // Counter for fan cooldown after peltier off
 
 // ===== Energy Consumption Tracking =====
 static uint32_t s_peltier_run_time_sec = 0;  // Total Peltier run time in seconds
@@ -26,8 +25,8 @@ static float s_last_energy_wh = 0.0f;  // Last saved energy value (for change de
 
 // ===== Fan Control Parameters =====
 #define FAN_START_DUTY_WHEN_PELTIER_ON  127.0f  // 50% PWM when Peltier turns on (under 70%)
-#define FAN_COOLDOWN_DUTY              76.0f   // 30% PWM during cooldown
-#define FAN_COOLDOWN_SECONDS            30      // Cooldown time after Peltier off
+#define FAN_COOLDOWN_DUTY              102.0f  // 40% PWM during cooldown
+#define FAN_COOLDOWN_TEMP              30.0f   // Cooldown until heatsink temp <= 30°C
 
 // RPM measurement variables
 static volatile uint32_t s_tacho_pulses = 0;
@@ -222,14 +221,13 @@ void task_fan(void *pvParameters) {
         if (!active || !sd.heatsink_valid) {
             peltier_off();  // Peltier sofort ausschalten
             
-            // Lüfter für Cooldown weiterlaufen lassen
-            if (s_peltier_off_counter < FAN_COOLDOWN_SECONDS) {
-                fan_set_duty((uint8_t)FAN_COOLDOWN_DUTY);  // 30% für Cooldown
-                s_peltier_off_counter++;
-                ESP_LOGW(TAG, "System inactive/invalid sensor: Peltier OFF, Fan cooldown %d/%d", s_peltier_off_counter, FAN_COOLDOWN_SECONDS);
+            // Lüfter für Cooldown weiterlaufen lassen bis Kühlblocktemp <= 30°C
+            if (sd.heatsink_valid && sd.temp_heatsink > FAN_COOLDOWN_TEMP) {
+                fan_set_duty((uint8_t)FAN_COOLDOWN_DUTY);  // 40% für Cooldown
+                ESP_LOGW(TAG, "System inactive/invalid sensor: Peltier OFF, Fan cooldown at %.1f°C (target %.1f°C)", sd.temp_heatsink, FAN_COOLDOWN_TEMP);
             } else {
-                fan_set_duty(0);  // Cooldown vorbei → Lüfter aus
-                ESP_LOGW(TAG, "System inactive/invalid sensor: Peltier OFF, Fan OFF (cooldown done)");
+                fan_set_duty(0);  // Kühlblocktemp <= 30°C → Lüfter aus
+                ESP_LOGW(TAG, "System inactive/invalid sensor: Peltier OFF, Fan OFF (heatsink %.1f°C <= %.1f°C)", sd.temp_heatsink, FAN_COOLDOWN_TEMP);
             }
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
@@ -282,7 +280,6 @@ void task_fan(void *pvParameters) {
         // ---- Hardware-Steuerung: direkt AN/AUS ----
         if (peltier_main_state) {
             peltier_on();
-            s_peltier_off_counter = 0;
         } else {
             peltier_off();
         }
@@ -345,15 +342,15 @@ void task_fan(void *pvParameters) {
 
             fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
-            // Peltier-Hauptzustand ist AUS → Lüfter nachlaufen für Restwärme
-            if (s_peltier_off_counter < FAN_COOLDOWN_SECONDS) {
+            // Peltier-Hauptzustand ist AUS → Lüfter nachlaufen bis Kühlblocktemp <= 30°C
+            if (sd.heatsink_valid && sd.temp_heatsink > FAN_COOLDOWN_TEMP) {
                 // Cooldown-Phase
-                fan_output = FAN_COOLDOWN_DUTY;
-                s_peltier_off_counter++;
-                ESP_LOGI(TAG, "Cooldown: %d/%d seconds", s_peltier_off_counter, FAN_COOLDOWN_SECONDS);
+                fan_output = FAN_COOLDOWN_DUTY;  // 40%
+                ESP_LOGI(TAG, "Cooldown: heatsink %.1f°C > %.1f°C, fan 40%%", sd.temp_heatsink, FAN_COOLDOWN_TEMP);
             } else {
-                // Cooldown vorbei → Lüfter aus
+                // Kühlblocktemp <= 30°C → Lüfter aus
                 fan_output = 0.0f;
+                ESP_LOGI(TAG, "Cooldown done: heatsink %.1f°C <= %.1f°C, fan OFF", sd.temp_heatsink, FAN_COOLDOWN_TEMP);
             }
         }
 
