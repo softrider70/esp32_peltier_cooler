@@ -154,7 +154,7 @@ static void update_energy_stats(float energy_increment) {
     cfg->last_date = current_date;
 }
 
-void task_fan_pid(void *pvParameters) {
+void task_fan(void *pvParameters) {
     (void)pvParameters;
 
 #if TACHO_ENABLED

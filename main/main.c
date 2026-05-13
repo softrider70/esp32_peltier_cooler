@@ -119,8 +119,8 @@ void app_main(void) {
     xTaskCreate(task_sensor, "sensor", TASK_STACK_SENSOR,
                 NULL, TASK_PRIO_SENSOR, NULL);
 
-    xTaskCreate(task_fan_pid, "fan_pid", TASK_STACK_PID,
-                NULL, TASK_PRIO_PID, NULL);
+    xTaskCreate(task_fan, "fan", TASK_STACK_FAN,
+                NULL, TASK_PRIO_FAN, NULL);
 
     xTaskCreate(task_scheduler, "scheduler", TASK_STACK_SCHEDULER,
                 NULL, TASK_PRIO_SCHEDULER, NULL);

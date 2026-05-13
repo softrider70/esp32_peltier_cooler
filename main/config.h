@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        254     // Build counter - increment with each flash
+#define BUILD_NUMBER        255     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -90,7 +90,7 @@
 
 // ===== Task Priorities =====
 #define TASK_PRIO_SENSOR     5
-#define TASK_PRIO_PID        4
+#define TASK_PRIO_FAN        4
 #define TASK_PRIO_PELTIER    4
 #define TASK_PRIO_SCHEDULER  3
 #define TASK_PRIO_WEBSERVER  2
@@ -98,7 +98,7 @@
 
 // ===== Task Stack Sizes =====
 #define TASK_STACK_SENSOR    4096
-#define TASK_STACK_PID       3072
+#define TASK_STACK_FAN       3072
 #define TASK_STACK_PELTIER   3072
 #define TASK_STACK_SCHEDULER 3072
 #define TASK_STACK_WEBSERVER 8192
