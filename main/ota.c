@@ -29,11 +29,20 @@ static void ota_verify_task(void *pvParameters) {
 
     ESP_LOGI(TAG, "Starting OTA self-checks");
 
-    // Self-Check 1: Sensoren verfügbar
-    sensor_data_t sd = sensor_get_data();
-    bool sensors_ok = sd.indoor_valid || sd.heatsink_valid;
+    // Self-Check 1: Sensoren verfügbar (mit Wiederholung)
+    bool sensors_ok = false;
+    for (int i = 0; i < 3; i++) {
+        sensor_data_t sd = sensor_get_data();
+        sensors_ok = sd.indoor_valid || sd.heatsink_valid;
+        if (sensors_ok) {
+            break;
+        }
+        ESP_LOGW(TAG, "Self-check retry %d: No valid sensors yet", i + 1);
+        vTaskDelay(pdMS_TO_TICKS(2000));  // 2 Sekunden warten und erneut prüfen
+    }
+
     if (!sensors_ok) {
-        ESP_LOGE(TAG, "Self-check FAILED: No valid sensors");
+        ESP_LOGE(TAG, "Self-check FAILED: No valid sensors after retries");
         esp_ota_mark_app_invalid_rollback_and_reboot();
         vTaskDelete(NULL);
         return;
@@ -48,9 +57,6 @@ static void ota_verify_task(void *pvParameters) {
             // Nicht kritisch - trotzdem fortfahren
         }
     }
-
-    // Self-Check 3: Keine kritischen Fehler
-    // (kann später erweitert werden)
 
     // Alle Checks bestanden
     ESP_LOGI(TAG, "Self-check PASSED: sensors=%d, wifi=%d", sensors_ok, wifi_ok);
