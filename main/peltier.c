@@ -291,6 +291,8 @@ void peltier_autoduty_start(void) {
 
 void peltier_autoduty_start_with_temp(float temp_indoor) {
     app_config_t *cfg = nvs_config_get();
+    ESP_LOGI(TAG, "Auto-Duty start_with_temp called: auto_duty_en=%d", cfg->auto_duty_en);
+    
     if (!cfg->auto_duty_en) {
         ESP_LOGW(TAG, "Auto-Duty not enabled in config");
         return;
@@ -306,7 +308,9 @@ void peltier_autoduty_start_with_temp(float temp_indoor) {
     s_autoduty_callback_count = 0;  // Zähler zurücksetzen
 
     peltier_set_duty(s_autoduty_duty);
-    esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
+    
+    esp_err_t ret = esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
+    ESP_LOGI(TAG, "Auto-Duty timer start result: %d (0=success)", ret);
 
     ESP_LOGI(TAG, "Auto-Duty started with temp: duty=%u%%, cycle=%llu us, temp_ref=%.1f", s_autoduty_duty, s_autoduty_cycle_us, s_autoduty_temp_ref);
 }

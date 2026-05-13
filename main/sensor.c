@@ -295,8 +295,10 @@ void task_sensor(void *pvParameters) {
                 // Auto-Duty beim ersten validen Sensor starten
                 if (!s_autoduty_started && new_data.indoor_valid) {
                     s_autoduty_started = true;
-                    ESP_LOGI(TAG, "Sensor valid, starting Auto-Duty");
+                    ESP_LOGI(TAG, "Sensor valid (%.1f°C), starting Auto-Duty", new_data.temp_indoor);
                     peltier_autoduty_start_with_temp(new_data.temp_indoor);
+                } else if (!s_autoduty_started) {
+                    ESP_LOGW(TAG, "Sensor not valid yet, Auto-Duty not started");
                 }
             } else {
                 read_error = true;
