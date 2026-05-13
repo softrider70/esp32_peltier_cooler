@@ -29,6 +29,7 @@ static uint8_t s_autoduty_step = 16;      // Step-Wert (Bitverschiebung: 1-2-4-8
 static uint8_t s_autoduty_constant_counter = 0;  // Zähler für konstante Temperatur (2 Zyklen)
 static uint64_t s_autoduty_cycle_us = 0;  // Zyklusdauer in Mikrosekunden
 static int64_t s_autoduty_last_callback_us = 0;  // Zeitpunkt des letzten Callbacks
+static uint32_t s_autoduty_callback_count = 0;  // Callback-Zähler für Test
 
 // PWM Timer Callback: GPIO ein
 static void IRAM_ATTR pwm_on_callback(void* arg) {
@@ -62,12 +63,26 @@ static void IRAM_ATTR pwm_off_callback(void* arg) {
 
 // Auto-Duty Timer Callback
 static void autoduty_callback(void* arg) {
+    s_autoduty_callback_count++;
+    ESP_LOGI(TAG, "Auto-Duty callback #%u - enabled=%d", s_autoduty_callback_count, s_autoduty_enabled);
+    
     if (!s_autoduty_enabled) {
         return;
     }
 
     // Zeitpunkt des Callbacks speichern
     s_autoduty_last_callback_us = esp_timer_get_time();
+
+    // TEST: Duty und Step regelmäßig ändern um Funktion zu prüfen
+    if (s_autoduty_callback_count % 2 == 0) {
+        s_autoduty_duty += 5;
+        if (s_autoduty_duty > 100) s_autoduty_duty = 10;
+        ESP_LOGI(TAG, "TEST: Duty changed to %u", s_autoduty_duty);
+    }
+    if (s_autoduty_callback_count % 4 == 0) {
+        s_autoduty_step = (s_autoduty_step == 16) ? 8 : 16;
+        ESP_LOGI(TAG, "TEST: Step changed to %u", s_autoduty_step);
+    }
 
     ESP_LOGI(TAG, "Auto-Duty callback: duty=%u, step=%u, temp_ref=%.1f", s_autoduty_duty, s_autoduty_step, s_autoduty_temp_ref);
 
@@ -266,6 +281,7 @@ void peltier_autoduty_start(void) {
     s_autoduty_constant_counter = 0;
     s_autoduty_temp_ref = sd.temp_indoor;
     s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
+    s_autoduty_callback_count = 0;  // Zähler zurücksetzen
 
     peltier_set_duty(s_autoduty_duty);
     esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
@@ -287,6 +303,7 @@ void peltier_autoduty_start_with_temp(float temp_indoor) {
     s_autoduty_constant_counter = 0;
     s_autoduty_temp_ref = temp_indoor;
     s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
+    s_autoduty_callback_count = 0;  // Zähler zurücksetzen
 
     peltier_set_duty(s_autoduty_duty);
     esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
