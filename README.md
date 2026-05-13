@@ -12,7 +12,7 @@ Temperaturgeregelte Kuehlung eines Innenraums mittels Peltier-Element, gesteuert
 **Lüftersteuerung:**
 - Der Lüfter ist direkt an den Peltier-Zustand gekoppelt
 - **Peltier AN →** Lüfter startet sofort (min. 50% PWM), PID übernimmt Feinregulierung
-- **Peltier AUS →** Lüfter läuft 30 Sekunden nach (Cooldown bei 30% PWM), dann aus
+- **Peltier AUS →** Lüfter läuft 30 Sekunden bei 40% PWM nach, bis Kühlblock unter 30°C fällt
 - Ziel: Vermeidung von Temperaturüberschreitung und Lärmreduktion (unter 70% PWM)
 
 ## Aufgabe
@@ -97,10 +97,10 @@ Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
 
 ### Peltier-Steuerung (digital Ein/Aus)
 
-- **EIN** wenn Innenraumtemperatur >= `temp_on` (Default: 25°C)
-- **AUS** wenn Innenraumtemperatur <= `temp_off` (Default: 22°C)
+- **EIN** wenn Innenraumtemperatur >= `temp_on` (Default: 13°C)
+- **AUS** wenn Innenraumtemperatur <= `temp_off` (Default: 11°C)
 - Dazwischen: Hysterese-Band, Zustand bleibt unveraendert
-- **Notabschaltung** wenn Kuehlblock >= `temp_max` (Default: 60°C)
+- **Notabschaltung** wenn Kuehlblock >= `temp_max` (Default: 53°C)
 
 ## Software-Architektur
 
