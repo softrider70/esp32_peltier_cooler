@@ -119,6 +119,28 @@ Der Lüfter ist direkt an den Peltier-Zustand gekoppelt:
 
 PID-Startwerte: Kp=2.0, Ki=0.5, Kd=1.0 — ueber Webinterface live anpassbar.
 
+### PWM Auto-Duty Regelung
+
+Die Auto-Duty Regelung passt den PWM Duty Cycle automatisch basierend auf der Innentemperatur an, um die Kühlleistung zu optimieren.
+
+**Funktionsweise:**
+- Alle `peltier_pwm_interval` Sekunden wird die aktuelle Innentemperatur mit der Referenztemperatur verglichen
+- **Temperatur sinkt (>0.1°C):** Duty reduzieren (um `duty_step`%, min 5%)
+- **Temperatur steigt (>0.1°C):** Duty erhöhen (um `duty_step`%, max 20%)
+- **Temperatur stabil (<0.1°C):** Counter erhöht → bei 2x stabil Duty erhöhen
+
+**Adaptive Schrittweite:**
+- Basis-Schrittweite: 5%
+- 2x aufeinanderfolgende Änderungen → 7%
+- 4x aufeinanderfolgende Änderungen → 10%
+- Stabile Temperatur → zurück zu 5%
+
+**Parameter (NVS):**
+- `peltier_pwm_period`: PWM Period (z.B. 10s)
+- `peltier_pwm_duty`: Aktueller Duty (5-20%)
+- `peltier_pwm_auto`: Auto-Duty aktiv/inaktiv
+- `peltier_pwm_interval`: Interval in Sekunden zwischen Kontrollen
+
 ## Software-Architektur
 
 ### FreeRTOS Tasks
@@ -153,8 +175,8 @@ main/
 
 ### Monitor-Seite (STA-Modus)
 
-- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status
-- Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
+- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty, Auto-Duty Countdown
+- Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, PWM-Parameter (Period, Duty, Auto-Duty, Interval), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
 - WiFi-Reset: Rot markierter Button zum Löschen der WiFi-Credentials und Starten des AP-Modus
 - Auto-Refresh alle 3 Sekunden
 - REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`
@@ -196,6 +218,10 @@ Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert un
 | PID Kp | `pid_kp` | 2.0 | Proportional-Anteil |
 | PID Ki | `pid_ki` | 0.5 | Integral-Anteil |
 | PID Kd | `pid_kd` | 1.0 | Differential-Anteil |
+| PWM Period | `pwm_period` | 10s | PWM Period (Dauer eines Zyklus) |
+| PWM Duty | `pwm_duty` | 10% | PWM Duty Cycle (5-20%) |
+| PWM Auto-Duty | `pwm_auto` | false | Automatische Duty-Anpassung |
+| PWM Interval | `pwm_interval` | 60s | Interval zwischen Auto-Duty-Kontrollen |
 | Mo-Fr AN | `sch_mo_on` ... `sch_do_on` | 11:00 | Betriebsstart Mo-Do (Stunden 0-23) |
 | Mo-Fr AUS | `sch_mo_off` ... `sch_do_off` | 19:00 | Betriebsende Mo-Do |
 | Fr-So AN | `sch_fr_on` ... `sch_so_on` | 11:00 | Betriebsstart Fr-So |
