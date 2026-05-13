@@ -281,6 +281,15 @@ void nvs_config_save_energy(void) {
     ESP_LOGI(TAG, "Energy data saved to NVS");
 }
 
+void nvs_config_reset_energy(void) {
+    s_config.energy_wh = 0.0f;
+    s_config.energy_day = 0.0f;
+    s_config.energy_week = 0.0f;
+    s_config.energy_month = 0.0f;
+    ESP_LOGI(TAG, "Energy values reset to 0");
+    nvs_config_save_energy();
+}
+
 void nvs_config_factory_reset(void) {
     ESP_LOGI(TAG, "Factory reset: Erasing NVS namespace");
     
