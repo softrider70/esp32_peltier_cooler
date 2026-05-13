@@ -255,7 +255,8 @@ void peltier_autoduty_start(void) {
     
     s_autoduty_enabled = true;
     app_config_t *cfg = nvs_config_get();
-    s_autoduty_duty = cfg->auto_duty_duty;
+    // Aktuellen PWM Duty übernehmen, nicht den gespeicherten AD Duty
+    s_autoduty_duty = peltier_get_duty();
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
     s_autoduty_step = 16;  // Startwert
     s_autoduty_constant_counter = 0;
@@ -283,7 +284,8 @@ void peltier_autoduty_start_with_temp(float temp_indoor) {
     
     s_autoduty_enabled = true;
     app_config_t *cfg = nvs_config_get();
-    s_autoduty_duty = cfg->auto_duty_duty;
+    // Aktuellen PWM Duty übernehmen, nicht den gespeicherten AD Duty
+    s_autoduty_duty = peltier_get_duty();
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
     s_autoduty_step = 16;  // Startwert
     s_autoduty_constant_counter = 0;

@@ -177,7 +177,6 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     if (httpd_query_key_value(buf, "auto_duty_en", value, sizeof(value)) == ESP_OK) {
         cfg->auto_duty_en = (atoi(value) != 0);
         ESP_LOGI(TAG, "Config update: auto_duty_en = %s", cfg->auto_duty_en ? "true" : "false");
-        // Sofort in NVS speichern
         nvs_config_save();
         // Auto-Duty starten oder stoppen
         if (cfg->auto_duty_en) {
@@ -185,12 +184,6 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
         } else {
             peltier_autoduty_stop();
         }
-    }
-    if (httpd_query_key_value(buf, "auto_duty_duty", value, sizeof(value)) == ESP_OK) {
-        cfg->auto_duty_duty = (uint8_t)atoi(value);
-        ESP_LOGI(TAG, "Config update: auto_duty_duty = %u%%", cfg->auto_duty_duty);
-        // Sofort in NVS speichern
-        nvs_config_save();
     }
     if (httpd_query_key_value(buf, "auto_duty_cycle", value, sizeof(value)) == ESP_OK) {
         cfg->auto_duty_cycle = (uint16_t)atoi(value);

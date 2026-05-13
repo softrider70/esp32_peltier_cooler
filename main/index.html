@@ -130,7 +130,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row"><label>PWM Duty (%):</label><input type="number" id="cfg_peltier_pwm_duty" min="1" max="100"></div>
 <hr style="border-color:#444;margin:.5rem 0">
 <div class="row"><label>Auto-Duty:</label><input type="checkbox" id="cfg_auto_duty_en"></div>
-<div class="row"><label>AD Duty (%):</label><input type="number" id="cfg_auto_duty_duty" min="0" max="100"></div>
 <div class="row"><label>AD Zyklus (s):</label><input type="number" id="cfg_auto_duty_cycle" min="1" max="300"></div>
 </div>
 
@@ -329,7 +328,6 @@ document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
 document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
 document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
 document.getElementById('cfg_auto_duty_en').checked=d.auto_duty_en;
-document.getElementById('cfg_auto_duty_duty').value=d.auto_duty_duty;
 document.getElementById('cfg_auto_duty_cycle').value=d.auto_duty_cycle;
 // Load schedule values
 for(var i=0;i<7;i++){
@@ -352,9 +350,11 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&data_log_interval='+document.getElementById('cfg_data_log_interval').value
 +'&peltier_pwm_period='+document.getElementById('cfg_peltier_pwm_period').value
 +'&peltier_pwm_duty='+document.getElementById('cfg_peltier_pwm_duty').value
-+'&auto_duty_en='+(document.getElementById('cfg_auto_duty_en').checked?1:0)
-+'&auto_duty_duty='+document.getElementById('cfg_auto_duty_duty').value
-+'&auto_duty_cycle='+document.getElementById('cfg_auto_duty_cycle').value
+if(document.getElementById('cfg_auto_duty_en').checked){
+body+='&auto_duty_en=1&auto_duty_cycle='+document.getElementById('cfg_auto_duty_cycle').value
+}else{
+body+='&auto_duty_en=0'
+}
 for(var i=0;i<7;i++){
 body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value*60;
 body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value*60;
@@ -417,7 +417,6 @@ document.getElementById('ring_buffer_hours').textContent=d.ring_buffer_hours.toF
 document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
 document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
 document.getElementById('cfg_auto_duty_en').checked=d.auto_duty_en;
-document.getElementById('cfg_auto_duty_duty').value=d.auto_duty_duty;
 document.getElementById('cfg_auto_duty_cycle').value=d.auto_duty_cycle;
 for(var i=0;i<7;i++){
 document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
