@@ -209,8 +209,9 @@ void task_fan(void *pvParameters) {
         // Schon bei 1 Fehler aktivieren für schnellere Reaktion
         if (sensor_get_emergency_mode()) {
             peltier_off();
+            peltier_autoduty_stop();  // Auto-Duty stoppen
             fan_set_duty(255);
-            ESP_LOGW(TAG, "EMERGENCY MODE: Fan full, Peltier off (sensor errors)");
+            ESP_LOGW(TAG, "EMERGENCY MODE: Fan full, Peltier off, Auto-Duty stopped (sensor errors)");
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
@@ -220,6 +221,7 @@ void task_fan(void *pvParameters) {
         bool peltier_main_state = peltier_get_main_state();
         if (!active || !sd.heatsink_valid) {
             peltier_off();  // Peltier sofort ausschalten
+            peltier_autoduty_stop();  // Auto-Duty stoppen
             
             // Lüfter für Cooldown weiterlaufen lassen bis Kühlblocktemp <= 30°C
             if (sd.heatsink_valid && sd.temp_heatsink > FAN_COOLDOWN_TEMP) {
@@ -236,8 +238,9 @@ void task_fan(void *pvParameters) {
         // ---- Safety: heatsink over max → emergency cutoff ----
         if (sd.temp_heatsink >= cfg->temp_heatsink_max) {
             peltier_off();
+            peltier_autoduty_stop();  // Auto-Duty stoppen
             fan_set_duty(255);
-            ESP_LOGW(TAG, "SAFETY: Heatsink %.1f°C >= max %.1f°C",
+            ESP_LOGW(TAG, "SAFETY: Heatsink %.1f°C >= max %.1f°C, Auto-Duty stopped",
                      sd.temp_heatsink, cfg->temp_heatsink_max);
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
@@ -249,6 +252,7 @@ void task_fan(void *pvParameters) {
             // Fan should be running (>50% PWM) but RPM = 0 → fan failure
             ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0 - SHUTTING DOWN PELTIER", s_current_duty);
             peltier_off();
+            peltier_autoduty_stop();  // Auto-Duty stoppen
             fan_set_duty(255);  // Keep fan at 100% to try to restart
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;  // Skip normal PID loop
