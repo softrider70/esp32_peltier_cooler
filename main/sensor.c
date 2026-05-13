@@ -1,6 +1,7 @@
 #include "sensor.h"
 #include "config.h"
 #include "peltier.h"
+#include "scheduler.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -299,11 +300,13 @@ void task_sensor(void *pvParameters) {
                 new_data.temp_indoor = t;
                 new_data.indoor_valid = true;
                 
-                // Auto-Duty beim ersten validen Sensor starten
-                if (!s_autoduty_started && new_data.indoor_valid) {
+                // Auto-Duty beim ersten validen Sensor starten (nur wenn Scheduler aktiv)
+                if (!s_autoduty_started && new_data.indoor_valid && scheduler_is_active()) {
                     s_autoduty_started = true;
-                    ESP_LOGI(TAG, "Sensor valid (%.1f°C), starting Auto-Duty", new_data.temp_indoor);
+                    ESP_LOGI(TAG, "Sensor valid (%.1f°C) and scheduler active, starting Auto-Duty", new_data.temp_indoor);
                     peltier_autoduty_start_with_temp(new_data.temp_indoor);
+                } else if (!s_autoduty_started && new_data.indoor_valid) {
+                    ESP_LOGW(TAG, "Sensor valid (%.1f°C) but scheduler inactive, Auto-Duty not started", new_data.temp_indoor);
                 } else if (!s_autoduty_started) {
                     ESP_LOGW(TAG, "Sensor not valid yet, Auto-Duty not started");
                 }
