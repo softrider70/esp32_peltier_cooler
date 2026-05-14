@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        310     // Build counter - increment with each flash
+#define BUILD_NUMBER        311     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -53,7 +53,7 @@
 
 // ===== Peltier Configuration =====
 #define PELTIER_VOLTAGE       12.0f   // Peltier voltage in Volts
-#define PELTIER_POWER         60.0f   // Peltier power in Watts (60W TEC1-12706)
+#define PELTIER_POWER         36.0f   // Peltier power in Watts (12V × 3A = 36W, Marke unbekannt)
 #define PELTIER_COST_PER_KWH  0.305f  // Strompreis in Euro pro kWh (30,5 Cent)
 #define PELTIER_CURRENT       3.0f    // Peltier current in Amps
 #define ENERGY_SAVE_INTERVAL_MS 900000  // Save energy data every 15 minutes (NVS protection)

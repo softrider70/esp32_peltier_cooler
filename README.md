@@ -31,7 +31,7 @@ Ein geschlossener Raum (z.B. Schrank, Gehaeuse) soll aktiv gekuehlt werden. Ein 
 | Komponente | Beschreibung | Anschluss |
 |---|---|---|
 | ESP32-D (ESP32-D0WD-V3) | Mikrocontroller, Dual-Core 240 MHz, 30-Pin Board | - |
-| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET | D16 (GPIO16, Gate) |
+| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET, 12V/3A/36W (Marke unbekannt) | D16 (GPIO16, Gate) |
 | Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: D5 (GPIO5), Tacho: D18 (GPIO18) |
 | DS18B20 #1 | Temperatursensor Innenraum | D4 (GPIO4, OneWire) |
 | DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | D4 (GPIO4, OneWire) |
@@ -64,6 +64,20 @@ ESP32 D16 (GPIO16) ---[1kOhm]--- Gate
 
 Gate-Pulldown: 10kOhm nach GND (sicherer Zustand bei ESP32-Reset)
 ```
+
+### Peltier-Element Spezifikationen
+
+**Aktuelles Peltier-Element:**
+- **Marke:** Unbekannt (keine Markierung sichtbar)
+- **Spannung:** 12V DC
+- **Strom:** 3A (maximal)
+- **Leistung:** 36W (12V × 3A)
+- **Ansteuerung:** N-MOSFET über GPIO16 (PWM-fähig)
+
+**Leistungsberechnung:**
+- Die Statusseite zeigt die aktuelle Leistung basierend auf PWM-Duty
+- 10% PWM = 3.6W, 50% PWM = 18W, 100% PWM = 36W
+- Energie-Tracking berücksichtigt den PWM-Duty-Cycle für korrekte Wh-Berechnung
 
 ### Verdrahtung Noctua Lüfter (PWM + Tacho)
 
