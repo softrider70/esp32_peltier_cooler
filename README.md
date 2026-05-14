@@ -402,6 +402,26 @@ Kalibrierung:
 
 Standard: `RPM_CALIBRATION_FACTOR = 1.0f` (nicht kalibriert)
 
+## Todo / Zukünftige Erweiterungen
+
+### In Planung
+- **SD-Karten Integration:** Langzeit-Archivierung von Energie-Verbrauchsdaten
+  - Hardware: SPI-Modus mit GPIO23(MOSI), GPIO19(MISO), GPIO14(CLK), GPIO22(CS)
+  - Software: CSV-Dateien pro Tag, Web-Download, Auto-Cleanup
+  - Integration: Parallel zu NVS, Fallback wenn SD-Karte fehlt
+
+- **iPhone Kompatibilität:** Verbesserung des Webinterfaces für iOS-Geräte
+  - Touch-Optimierung für mobile Safari
+  - Viewport-Meta-Tag für korrekte Darstellung
+  - iOS-spezifische CSS-Anpassungen
+
+### Features
+- [ ] SD-Karten-Logger implementieren
+- [ ] iPhone/iOS Kompatibilität verbessern
+- [ ] Energie-Export-Funktionen (CSV, JSON)
+- [ ] Erweiterte Statistiken und Auswertungen
+- [ ] Push-Benachrichtigungen bei Warnungen
+
 ## Lizenz
 
 Privates Projekt, keine oeffentliche Lizenz.

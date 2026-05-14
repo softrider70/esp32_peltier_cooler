@@ -127,13 +127,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <tr>
 <th>Datum/Zeit</th>
 <th>Dauer</th>
-<th>Starttemp</th>
-<th>Endtemp</th>
-<th>Min/Max</th>
-<th>Energie (Wh)</th>
+<th>Start</th>
+<th>End</th>
+<th>Min</th>
+<th>Max</th>
+<th>Energie</th>
 <th>PWM</th>
 <th>Auto-Duty</th>
-<th>Zieltemp</th>
 </tr>
 </thead>
 <tbody id="energy_table_body">
@@ -141,7 +141,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </tbody>
 </table>
 </div>
-<p style="font-size:.7rem;color:#888;margin-top:.5rem">50 neueste Sitzungen, neueste zuerst</p>
+<p style="font-size:.7rem;color:#888;margin-top:.5rem">10 neueste Sitzungen, neueste zuerst</p>
 </div>
 </div>
 
@@ -428,8 +428,8 @@ return;
 }
 d.sessions.forEach(function(session){
 var row=document.createElement('tr');
-var autoDutyText = session.auto_duty_enabled ? session.auto_duty_cycle+'s' : 'aus';
-row.innerHTML='<td>'+session.datetime+'</td><td>'+session.duration_formatted+'</td><td>'+session.start_temp.toFixed(1)+'°C</td><td>'+session.end_temp.toFixed(1)+'°C</td><td>'+session.min_temp.toFixed(1)+'°C / '+session.max_temp.toFixed(1)+'°C</td><td>'+session.energy_wh.toFixed(3)+' Wh</td><td>'+session.pwm_period+'s</td><td>'+autoDutyText+'</td><td>'+session.target_temp.toFixed(1)+'°C</td>';
+var autoDutyText = session.auto_duty_enabled ? session.ad_cycle_measured.toFixed(1)+'%' : 'aus';
+row.innerHTML='<td>'+session.datetime+'</td><td>'+session.duration_formatted+'</td><td>'+session.start_temp.toFixed(1)+'°C</td><td>'+session.end_temp.toFixed(1)+'°C</td><td>'+session.min_temp.toFixed(1)+'°C</td><td>'+session.max_temp.toFixed(1)+'°C</td><td>'+session.energy_wh.toFixed(3)+' Wh</td><td>'+session.pwm_period+'s</td><td>'+autoDutyText+'</td>';
 tbody.appendChild(row);
 });
 }).catch(e=>{console.error('Energy data error:',e);document.getElementById('energy_table_body').innerHTML='<tr><td colspan="9">Fehler beim Laden</td></tr>'});

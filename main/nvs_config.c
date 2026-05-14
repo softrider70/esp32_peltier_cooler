@@ -14,7 +14,7 @@ static void load_defaults(void) {
     s_config.temp_peltier_off = TEMP_PELTIER_OFF_DEFAULT;
     s_config.temp_heatsink_max = TEMP_HEATSINK_MAX;
     s_config.temp_heatsink_target = TEMP_HEATSINK_TARGET;
-    s_config.data_log_interval = 10;  // Default: 10 seconds
+    s_config.data_log_interval = 300;  // Default: 300 seconds (5 min)
     s_config.energy_wh = 0.0f;  // Default: 0 Wh
     s_config.energy_day = 0.0f;  // Default: 0 Wh
     s_config.energy_week = 0.0f;
@@ -28,11 +28,18 @@ static void load_defaults(void) {
     s_config.auto_duty_duty = AUTO_DUTY_DUTY_DEFAULT;
     s_config.auto_duty_cycle = AUTO_DUTY_CYCLE_DEFAULT;
 
-    // Default schedule: Alle Tage 8-23
+    // Default schedule: Alle Tage AN 11:00, AUS variabel
     for (int i = 0; i < 7; i++) {
-        s_config.sched_on[i] = 8 * 60;   // 8:00
-        s_config.sched_off[i] = 23 * 60;  // 23:00
+        s_config.sched_on[i] = 11 * 60;  // 11:00
     }
+    // Mo-Do+So: 19:00, Fr+Sa: 23:00
+    s_config.sched_off[0] = 19 * 60;  // Mo
+    s_config.sched_off[1] = 19 * 60;  // Di
+    s_config.sched_off[2] = 19 * 60;  // Mi
+    s_config.sched_off[3] = 19 * 60;  // Do
+    s_config.sched_off[4] = 23 * 60;  // Fr
+    s_config.sched_off[5] = 23 * 60;  // Sa
+    s_config.sched_off[6] = 19 * 60;  // So
 }
 
 void nvs_config_init(void) {

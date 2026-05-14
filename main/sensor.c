@@ -294,6 +294,10 @@ void task_sensor(void *pvParameters) {
         sensor_data_t new_data = {0};
         bool read_error = false;
 
+        // Error handling pro Sensor
+        bool indoor_error = false;
+        bool heatsink_error = false;
+        
         // Real sensor reading
         if (s_sensor_count >= 1) {
             float t = ds18b20_read_temp(s_rom_indoor);
@@ -317,6 +321,7 @@ void task_sensor(void *pvParameters) {
                     ESP_LOGW(TAG, "Sensor not valid yet, Auto-Duty not started");
                 }
             } else {
+                indoor_error = true;
                 read_error = true;
                 // Keep previous value on error
                 new_data.temp_indoor = s_sensor_data.temp_indoor;
@@ -330,6 +335,7 @@ void task_sensor(void *pvParameters) {
                 new_data.temp_heatsink = t;
                 new_data.heatsink_valid = true;
             } else {
+                heatsink_error = true;
                 read_error = true;
                 // Keep previous value on error
                 new_data.temp_heatsink = s_sensor_data.temp_heatsink;
@@ -337,10 +343,18 @@ void task_sensor(void *pvParameters) {
             }
         }
 
-        // Error counting and emergency mode
+        // Detailliertes Error-Logging pro Sensor
+        if (indoor_error && heatsink_error) {
+            ESP_LOGW(TAG, "Sensor read error #%d - BOTH sensors failed", s_error_count + 1);
+        } else if (indoor_error) {
+            ESP_LOGW(TAG, "Sensor read error #%d - INDOOR sensor failed", s_error_count + 1);
+        } else if (heatsink_error) {
+            ESP_LOGW(TAG, "Sensor read error #%d - HEATSINK sensor failed", s_error_count + 1);
+        }
+            
+            // Error counting and emergency mode
         if (read_error) {
             s_error_count++;
-            ESP_LOGW(TAG, "Sensor read error #%d", s_error_count);
             
             // Emergency Mode erst nach 10 aufeinanderfolgenden Fehlern aktivieren
             if (s_error_count >= 10) {

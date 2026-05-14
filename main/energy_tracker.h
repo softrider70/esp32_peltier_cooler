@@ -3,23 +3,22 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Energie-Sitzungsstruktur
+// Energie-Sitzungsstruktur (optimiert für minimale Größe)
 typedef struct {
-    uint32_t timestamp;       // Unix Timestamp (Startzeit)
-    uint32_t duration_sec;    // Dauer der Sitzung in Sekunden
-    float start_temp;         // Indoor-Temperatur zu Beginn (°C)
-    float end_temp;           // Indoor-Temperatur am Ende (°C)
-    float min_temp;           // Minimale Indoor-Temperatur während Sitzung (°C)
-    float max_temp;           // Maximale Indoor-Temperatur während Sitzung (°C)
-    float energy_wh;          // Energieverbrauch in Wh
+    uint32_t timestamp;       // Unix Timestamp (Startzeit) - zurück wegen uint16_t Überlauf
+    uint16_t duration_min;    // Dauer der Sitzung in Minuten
+    int16_t start_temp;        // Indoor-Temperatur zu Beginn (0.1°C Schritte)
+    int16_t end_temp;          // Indoor-Temperatur am Ende (0.1°C Schritte)
+    uint16_t energy_wh;        // Energieverbrauch in 0.01Wh Schritten
+    int16_t min_temp;          // Min-Temperatur während Session (0.1°C Schritte)
+    int16_t max_temp;          // Max-Temperatur während Session (0.1°C Schritte)
     uint8_t pwm_period;       // PWM Period in Sekunden
-    bool auto_duty_enabled;   // Auto-Duty war aktiviert
     uint8_t auto_duty_cycle;  // Auto-Duty Zyklus in Sekunden
-    float target_temp;        // Zieltemperatur für Lüfter-PID (°C)
+    bool auto_duty_enabled;   // Auto-Duty war aktiviert
 } energy_session_t;
 
 // Konfiguration
-#define ENERGY_SESSIONS_MAX 50   // 50 Sitzungen im Ringbuffer
+#define ENERGY_SESSIONS_MAX 10   // 10 Sitzungen im Ringbuffer (NV Platz-Optimierung)
 
 // Initialize energy tracker
 void energy_tracker_init(void);
@@ -44,3 +43,6 @@ void energy_tracker_save_to_nvs(void);
 
 // Lädt alle Sitzungen aus NVS
 void energy_tracker_load_from_nvs(void);
+
+// Löscht alle Energie-Daten aus NVS und lokalem Speicher
+void energy_tracker_clear_nvs(void);

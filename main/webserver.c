@@ -454,17 +454,23 @@ static esp_err_t handler_api_wifi_reset(httpd_req_t *req) {
 
 // ===== Energy Data Handler =====
 static esp_err_t handler_api_energy(httpd_req_t *req) {
+    ESP_LOGI(TAG, "Energy API called");
     uint16_t count = 0;
     const energy_session_t *sessions = energy_tracker_get_sessions(&count);
     
-    // Build JSON array (10KB buffer for 50 sessions)
+    ESP_LOGI(TAG, "Energy API: got %d sessions", count);
+    
+    // Build JSON array (10KB buffer for 10 sessions)
     char *json_buf = malloc(10240);
     if (!json_buf) {
+        ESP_LOGE(TAG, "Energy API: Out of memory");
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
         return ESP_FAIL;
     }
     
     int pos = snprintf(json_buf, 10240, "{\"sessions\":[");
+    
+    bool first_session = true;
     
     // Sessions durchlaufen und sortieren nach Timestamp (neueste zuerst)
     for (int i = 0; i < count; i++) {
@@ -474,12 +480,11 @@ static esp_err_t handler_api_energy(httpd_req_t *req) {
         // Check buffer space
         if (pos > 10000) break;  // Safety limit
         
-        // Formatiere Dauer als HH:MM:SS
-        uint32_t hours = sessions[i].duration_sec / 3600;
-        uint32_t minutes = (sessions[i].duration_sec % 3600) / 60;
-        uint32_t seconds = sessions[i].duration_sec % 60;
+        // Formatiere Dauer aus Minuten
+        uint32_t hours = sessions[i].duration_min / 60;
+        uint32_t minutes = sessions[i].duration_min % 60;
         
-        // Formatiere Datum/Zeit aus Timestamp
+        // Formatiere Datum aus Timestamp
         time_t timestamp = sessions[i].timestamp;
         struct tm timeinfo;
         localtime_r(&timestamp, &timeinfo);
@@ -487,28 +492,41 @@ static esp_err_t handler_api_energy(httpd_req_t *req) {
         strftime(datetime_str, sizeof(datetime_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
         
         pos += snprintf(json_buf + pos, 10240 - pos,
-            "%s{\"timestamp\":%lu,\"datetime\":\"%s\",\"duration_sec\":%lu,\"duration_formatted\":\"%02lu:%02lu:%02lu\",\"start_temp\":%.1f,\"end_temp\":%.1f,\"min_temp\":%.1f,\"max_temp\":%.1f,\"energy_wh\":%.3f,\"pwm_period\":%d,\"auto_duty_enabled\":%s,\"auto_duty_cycle\":%d,\"target_temp\":%.1f}",
-            (pos > 12) ? "," : "",
+            "%s{\"timestamp\":%lu,\"datetime\":\"%s\",\"duration_min\":%d,\"duration_formatted\":\"%02lu:%02lu:00\",\"start_temp\":%.1f,\"end_temp\":%.1f,\"energy_wh\":%.2f,\"min_temp\":%.1f,\"max_temp\":%.1f,\"pwm_period\":%d,\"auto_duty_enabled\":%s,\"ad_cycle_measured\":%.1f}",
+            first_session ? "" : ",",
             sessions[i].timestamp,
             datetime_str,
-            sessions[i].duration_sec,
-            hours, minutes, seconds,
-            sessions[i].start_temp,
-            sessions[i].end_temp,
-            sessions[i].min_temp,
-            sessions[i].max_temp,
-            sessions[i].energy_wh,
+            sessions[i].duration_min,
+            hours, minutes,
+            sessions[i].end_temp / 10.0f,    // Start-Temperatur = End-Temperatur (vertauscht)
+            sessions[i].start_temp / 10.0f,  // End-Temperatur = Start-Temperatur (vertauscht)
+            sessions[i].energy_wh / 100.0f, // 0.01Wh Schritte zurück
+            sessions[i].min_temp / 10.0f,    // 0.1°C Schritte zurück
+            sessions[i].max_temp / 10.0f,    // 0.1°C Schritte zurück
             sessions[i].pwm_period,
             sessions[i].auto_duty_enabled ? "true" : "false",
-            sessions[i].auto_duty_cycle,
-            sessions[i].target_temp);
+            (float)sessions[i].auto_duty_cycle);   // Jetzt gemessener AD-Cycle als float
+            
+        first_session = false;
     }
     
     snprintf(json_buf + pos, 10240 - pos, "]}");
+    ESP_LOGI(TAG, "Energy API: sending JSON: %s", json_buf);
     
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, json_buf, strlen(json_buf));
     free(json_buf);
+    return ESP_OK;
+}
+
+// ===== Energy Clear Handler =====
+static esp_err_t handler_api_energy_clear(httpd_req_t *req) {
+    ESP_LOGI(TAG, "Energy clear API called");
+    
+    energy_tracker_clear_nvs();
+    
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"Energy data cleared from NVS\"}");
     return ESP_OK;
 }
 
@@ -629,6 +647,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_energy = {
         .uri = "/api/energy", .method = HTTP_GET, .handler = handler_api_energy
     };
+    httpd_uri_t uri_api_energy_clear = {
+        .uri = "/api/energy/clear", .method = HTTP_POST, .handler = handler_api_energy_clear
+    };
     httpd_uri_t uri_api_nvs_save = {
         .uri = "/api/nvs/save", .method = HTTP_POST, .handler = handler_api_nvs_save
     };
@@ -657,6 +678,7 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_graph_save);
     httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
     httpd_register_uri_handler(s_server, &uri_api_energy);
+    httpd_register_uri_handler(s_server, &uri_api_energy_clear);
     httpd_register_uri_handler(s_server, &uri_api_nvs_save);
     httpd_register_uri_handler(s_server, &uri_api_factory_reset);
     httpd_register_uri_handler(s_server, &uri_api_reset);

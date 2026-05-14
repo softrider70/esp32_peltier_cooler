@@ -134,14 +134,14 @@ static void update_energy_stats(float energy_increment) {
     
     // Wenn Datum geändert hat → Tageszähler zurücksetzen
     if (cfg->last_date != 0 && current_date != cfg->last_date) {
-        // Prüfe ob sich Woche geändert hat (oder erster Start)
-        if (cfg->last_week == 0 || current_week != cfg->last_week) {
+        // Prüfe ob sich Woche geändert hat
+        if (current_week != cfg->last_week) {
             cfg->energy_week = 0.0f;
             ESP_LOGI(TAG, "New week (%u) - weekly energy reset", current_week);
         }
         
-        // Prüfe ob sich Monat geändert hat (oder erster Start)
-        if (cfg->last_month == 0 || timeinfo.tm_mon != cfg->last_month) {
+        // Prüfe ob sich Monat geändert hat
+        if (timeinfo.tm_mon != cfg->last_month) {
             cfg->energy_month = 0.0f;
             ESP_LOGI(TAG, "New month (%u) - monthly energy reset", timeinfo.tm_mon);
         }
@@ -150,21 +150,19 @@ static void update_energy_stats(float energy_increment) {
         ESP_LOGI(TAG, "New day - daily energy reset");
     }
     
-    // Beim ersten Start (nach NVS-Laden) prüfen ob Woche/Monat zurückgesetzt werden muss
-    if (cfg->last_date == 0) {
-        // Erster Start - prüfe ob aktuelle Woche/Monat mit gespeicherten übereinstimmt
-        if (cfg->last_week == 0 || current_week != cfg->last_week) {
+    // Beim ersten Start (nach NVS-Laden) prüfe ob Woche/Monat zurückgesetzt werden muss
+    // Nur wenn gespeicherte Woche/Monat ungleich aktuelle Woche/Monat
+    if (cfg->last_date == 0 && cfg->last_week != 0) {
+        // Erster Start nach NVS-Reset, aber Woche war schon gespeichert
+        if (current_week != cfg->last_week) {
             cfg->energy_week = 0.0f;
-            ESP_LOGI(TAG, "First start - week (%u) reset", current_week);
+            ESP_LOGI(TAG, "First start - week changed from %u to %u, reset", cfg->last_week, current_week);
         }
         
-        if (cfg->last_month == 0 || timeinfo.tm_mon != cfg->last_month) {
+        if (timeinfo.tm_mon != cfg->last_month) {
             cfg->energy_month = 0.0f;
-            ESP_LOGI(TAG, "First start - month (%u) reset", timeinfo.tm_mon);
+            ESP_LOGI(TAG, "First start - month changed from %u to %u, reset", cfg->last_month, timeinfo.tm_mon);
         }
-        
-        cfg->energy_day = 0.0f;  // Erster Start - Tageszähler zurücksetzen
-        ESP_LOGI(TAG, "First start - day reset");
     }
     
     // Speichere aktuelle Woche und Monat
@@ -353,16 +351,16 @@ void task_fan(void *pvParameters) {
 
             float fan_output_percent = 50.0f;  // Basis-Duty erhöht
 
-            // Bis 3 Grad unter max: Linear bis 75%
+            // Bis 3 Grad unter max: Linear bis 70%
             if (temp_diff_to_max > 3.0f) {
                 // Linearer Bereich: 50% + (error * 15%) pro °C (erhöhte Verstärkung)
                 fan_output_percent = 50.0f + (error * 15.0f);
-                if (fan_output_percent > 75.0f) fan_output_percent = 75.0f;
+                if (fan_output_percent > 70.0f) fan_output_percent = 70.0f;
             } else {
                 // Exponentieller Bereich bei Temperaturen nahe max
-                // Exponentialfunktion: 75% * exp((3 - temp_diff) * 0.6)
+                // Exponentialfunktion: 70% * exp((3 - temp_diff) * 0.6)
                 float exp_factor = expf((3.0f - temp_diff_to_max) * 0.6f);
-                fan_output_percent = 75.0f * exp_factor;
+                fan_output_percent = 70.0f * exp_factor;
                 if (fan_output_percent > 100.0f) fan_output_percent = 100.0f;
             }
 

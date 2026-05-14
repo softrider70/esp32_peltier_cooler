@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        324     // Build counter - increment with each flash
+#define BUILD_NUMBER        345     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -24,14 +24,14 @@
 #define TEMP_PELTIER_ON_DEFAULT     13.0f   // Peltier ON when indoor above this
 #define TEMP_PELTIER_OFF_DEFAULT    11.0f   // Peltier OFF when indoor below this
 #define TEMP_HEATSINK_MAX           52.0f   // Max heatsink temp (safety cutoff)
-#define TEMP_HEATSINK_TARGET        46.0f   // PID target for heatsink
+#define TEMP_HEATSINK_TARGET        44.0f   // PID target for heatsink
 
 // ===== Peltier PWM Defaults =====
-#define PELTIER_PWM_PERIOD_DEFAULT  10      // PWM period in seconds
-#define PELTIER_PWM_DUTY_DEFAULT   10      // PWM duty cycle % (10 = start value for power saving)
+#define PELTIER_PWM_PERIOD_DEFAULT  7       // PWM period in seconds
+#define PELTIER_PWM_DUTY_DEFAULT   90      // PWM duty cycle %
 
 // ===== Auto-Duty Defaults =====
-#define AUTO_DUTY_EN_DEFAULT       false    // Auto-Duty disabled by default
+#define AUTO_DUTY_EN_DEFAULT       true     // Auto-Duty enabled by default
 #define AUTO_DUTY_DUTY_DEFAULT     80      // Auto-Duty duty cycle % (default 80%)
 #define AUTO_DUTY_CYCLE_DEFAULT    3       // Auto-Duty cycle duration in seconds (default 3s for faster response)
 

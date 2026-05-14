@@ -86,8 +86,8 @@ static void autoduty_callback(void* arg) {
         s_autoduty_step = 1;  // Auf 1 setzen für sanfte Reduktion
         s_autoduty_constant_counter = 0;
         ESP_LOGI(TAG, "Auto-Duty: Temp falling, duty decreased to %u, step=1", s_autoduty_duty);
-    } else {
-        // Temperatur steigt oder gleich → duty + step, step auf 6 setzen, step verdoppeln
+    } else if (temp_diff > 0.1f) {
+        // Temperatur steigt → duty + step, step auf 6 setzen, step verdoppeln
         s_autoduty_constant_counter++;
         if (s_autoduty_constant_counter >= 2) {
             s_autoduty_duty += s_autoduty_step;
@@ -97,8 +97,12 @@ static void autoduty_callback(void* arg) {
                 s_autoduty_step <<= 1;
             }
             s_autoduty_constant_counter = 0;
-            ESP_LOGI(TAG, "Auto-Duty: Temp rising/constant, duty increased to %u, step=%u", s_autoduty_duty, s_autoduty_step);
+            ESP_LOGI(TAG, "Auto-Duty: Temp rising, duty increased to %u, step=%u", s_autoduty_duty, s_autoduty_step);
         }
+    } else {
+        // Temperatur im Zielbereich (-0.0 bis +0.1°C) → duty konstant halten
+        s_autoduty_constant_counter = 0;
+        ESP_LOGI(TAG, "Auto-Duty: Temp in target range, duty constant at %u", s_autoduty_duty);
     }
 
     // Grenzen prüfen (duty: 0-100%)
