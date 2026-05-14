@@ -151,6 +151,23 @@ static void update_energy_stats(float energy_increment) {
         ESP_LOGI(TAG, "New day - daily energy reset");
     }
     
+    // Beim ersten Start (nach NVS-Laden) prüfen ob Woche/Monat zurückgesetzt werden muss
+    if (cfg->last_date == 0) {
+        // Erster Start - prüfe ob aktuelle Woche/Monat mit gespeicherten übereinstimmt
+        if (cfg->last_week == 0 || current_week != cfg->last_week) {
+            cfg->energy_week = 0.0f;
+            ESP_LOGI(TAG, "First start - week (%u) reset", current_week);
+        }
+        
+        if (cfg->last_month == 0 || timeinfo.tm_mon != cfg->last_month) {
+            cfg->energy_month = 0.0f;
+            ESP_LOGI(TAG, "First start - month (%u) reset", timeinfo.tm_mon);
+        }
+        
+        cfg->energy_day = 0.0f;  // Erster Start - Tageszähler zurücksetzen
+        ESP_LOGI(TAG, "First start - day reset");
+    }
+    
     // Speichere aktuelle Woche und Monat
     cfg->last_week = current_week;
     cfg->last_month = timeinfo.tm_mon;
