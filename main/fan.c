@@ -5,6 +5,7 @@
 #include "scheduler.h"
 #include "nvs_config.h"
 #include "data_logger.h"
+#include "energy_tracker.h"
 #include "driver/ledc.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -280,6 +281,20 @@ void task_fan(void *pvParameters) {
 
         // Hauptzustand an peltier-Modul übergeben (für Anzeige)
         peltier_set_main_state(peltier_main_state);
+
+        // ---- Energy Tracker Session-Tracking ----
+        // Session starten, wenn main_state von false auf true wechselt
+        if (!s_peltier_main_was_on && peltier_main_state) {
+            energy_tracker_start_session();
+        }
+        // Session stoppen, wenn main_state von true auf false wechselt
+        else if (s_peltier_main_was_on && !peltier_main_state) {
+            energy_tracker_stop_session();
+        }
+        // Energie während aktiver Session aktualisieren
+        if (energy_tracker_is_tracking()) {
+            energy_tracker_update_energy(peltier_get_duty());
+        }
 
         // ---- Hardware-Steuerung: direkt AN/AUS ----
         if (peltier_main_state) {

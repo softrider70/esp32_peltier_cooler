@@ -9,6 +9,7 @@
 #include "ota.h"
 #include "data_logger.h"
 #include "task_monitor.h"
+#include "energy_tracker.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -451,6 +452,60 @@ static esp_err_t handler_api_wifi_reset(httpd_req_t *req) {
     return ESP_OK;
 }
 
+// ===== Energy Data Handler =====
+static esp_err_t handler_api_energy(httpd_req_t *req) {
+    uint16_t count = 0;
+    const energy_session_t *sessions = energy_tracker_get_sessions(&count);
+    
+    // Build JSON array (10KB buffer for 50 sessions)
+    char *json_buf = malloc(10240);
+    if (!json_buf) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+    
+    int pos = snprintf(json_buf, 10240, "{\"sessions\":[");
+    
+    // Sessions durchlaufen und sortieren nach Timestamp (neueste zuerst)
+    for (int i = 0; i < count; i++) {
+        // Skip sessions with zero timestamp (uninitialized)
+        if (sessions[i].timestamp == 0) continue;
+        
+        // Check buffer space
+        if (pos > 10000) break;  // Safety limit
+        
+        // Formatiere Dauer als HH:MM:SS
+        uint32_t hours = sessions[i].duration_sec / 3600;
+        uint32_t minutes = (sessions[i].duration_sec % 3600) / 60;
+        uint32_t seconds = sessions[i].duration_sec % 60;
+        
+        // Formatiere Datum/Zeit aus Timestamp
+        time_t timestamp = sessions[i].timestamp;
+        struct tm timeinfo;
+        localtime_r(&timestamp, &timeinfo);
+        char datetime_str[32];
+        strftime(datetime_str, sizeof(datetime_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+        
+        pos += snprintf(json_buf + pos, 10240 - pos,
+            "%s{\"timestamp\":%lu,\"datetime\":\"%s\",\"duration_sec\":%lu,\"duration_formatted\":\"%02lu:%02lu:%02lu\",\"start_temp\":%.1f,\"end_temp\":%.1f,\"energy_wh\":%.3f}",
+            (pos > 12) ? "," : "",
+            sessions[i].timestamp,
+            datetime_str,
+            sessions[i].duration_sec,
+            hours, minutes, seconds,
+            sessions[i].start_temp,
+            sessions[i].end_temp,
+            sessions[i].energy_wh);
+    }
+    
+    snprintf(json_buf + pos, 10240 - pos, "]}");
+    
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_buf, strlen(json_buf));
+    free(json_buf);
+    return ESP_OK;
+}
+
 // Catch-all handler for captive portal redirect
 static esp_err_t handler_captive_redirect(httpd_req_t *req) {
     httpd_resp_set_status(req, "302 Found");
@@ -565,6 +620,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_wifi_reset = {
         .uri = "/api/wifi/reset", .method = HTTP_POST, .handler = handler_api_wifi_reset
     };
+    httpd_uri_t uri_api_energy = {
+        .uri = "/api/energy", .method = HTTP_GET, .handler = handler_api_energy
+    };
     httpd_uri_t uri_api_nvs_save = {
         .uri = "/api/nvs/save", .method = HTTP_POST, .handler = handler_api_nvs_save
     };
@@ -592,6 +650,7 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_graph);
     httpd_register_uri_handler(s_server, &uri_api_graph_save);
     httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
+    httpd_register_uri_handler(s_server, &uri_api_energy);
     httpd_register_uri_handler(s_server, &uri_api_nvs_save);
     httpd_register_uri_handler(s_server, &uri_api_factory_reset);
     httpd_register_uri_handler(s_server, &uri_api_reset);

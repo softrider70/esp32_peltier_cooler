@@ -39,6 +39,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .tab-content.active{display:block}
 #graph-container{width:100%;height:400px;margin-top:.5rem}
 .disabled{opacity:.3;filter:grayscale(100%)}
+/* Energy table */
+.energy-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-top:.5rem}
+.energy-table th{background:#0f3460;color:#0ff;padding:.3rem;text-align:left;position:sticky;top:0}
+.energy-table td{border:1px solid #0f3460;padding:.3rem}
+.energy-table tr:nth-child(even){background:#1a1a2e}
+.energy-table-container{max-height:500px;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -48,6 +54,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="tabs">
 <button type="button" class="tab active" onclick="showTab('status')">Status</button>
 <button type="button" class="tab" onclick="showTab('graph')">Graph</button>
+<button type="button" class="tab" onclick="showTab('energy')">Verbrauchsdaten</button>
 <button type="button" class="tab" onclick="showTab('config')">Konfiguration</button>
 </div>
 
@@ -106,6 +113,30 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <canvas id="tempChart"></canvas>
 </div>
 <button type="button" onclick="saveGraphToNVS()" style="margin-top:.5rem;padding:.3rem .5rem;background:#0ff;border:none;border-radius:4px;color:#000;cursor:pointer;font-size:.8rem">Graph-Daten in NVS speichern</button>
+</div>
+</div>
+
+<!-- Tab: Verbrauchsdaten -->
+<div id="tab-energy" class="tab-content">
+<div class="card">
+<h2>Verbrauchsdaten <span style="font-size:.7rem;color:#888;font-weight:normal">Build <span id="build_energy">--</span></span></h2>
+<div class="energy-table-container">
+<table class="energy-table">
+<thead>
+<tr>
+<th>Datum/Zeit</th>
+<th>Dauer</th>
+<th>Starttemp</th>
+<th>Endtemp</th>
+<th>Energie (Wh)</th>
+</tr>
+</thead>
+<tbody id="energy_table_body">
+<tr><td colspan="5">Laden...</td></tr>
+</tbody>
+</table>
+</div>
+<p style="font-size:.7rem;color:#888;margin-top:.5rem">50 neueste Sitzungen, neueste zuerst</p>
 </div>
 </div>
 
@@ -182,6 +213,7 @@ document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'
 event.target.classList.add('active');
 document.getElementById('tab-'+tabName).classList.add('active');
 if(tabName==='graph')loadGraph();
+if(tabName==='energy')loadEnergyData();
 }
 
 // Chart instance
@@ -322,6 +354,7 @@ document.getElementById('emergency_status').textContent=d.emergency?'AKTIV':'INA
 document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Zeit-Sync';
 document.getElementById('build').textContent=d.build;
 document.getElementById('build_graph').textContent=d.build;
+document.getElementById('build_energy').textContent=d.build;
 document.getElementById('build_config').textContent=d.build;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('st_heatsink').classList.add('warn');
 else document.getElementById('st_heatsink').classList.remove('warn');
@@ -378,6 +411,22 @@ fetch('/api/ota',{method:'POST',headers:{'Content-Type':'application/x-www-form-
 function saveGraphToNVS(){
 fetch('/api/graph/save',{method:'POST'})
 .then(r=>r.json()).then(d=>{showStatus('Graph-Daten in NVS gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
+}
+
+function loadEnergyData(){
+fetch('/api/energy').then(r=>r.json()).then(d=>{
+var tbody=document.getElementById('energy_table_body');
+tbody.innerHTML='';
+if(d.sessions.length===0){
+tbody.innerHTML='<tr><td colspan="5">Keine Sitzungen vorhanden</td></tr>';
+return;
+}
+d.sessions.forEach(function(session){
+var row=document.createElement('tr');
+row.innerHTML='<td>'+session.datetime+'</td><td>'+session.duration_formatted+'</td><td>'+session.start_temp.toFixed(1)+'°C</td><td>'+session.end_temp.toFixed(1)+'°C</td><td>'+session.energy_wh.toFixed(3)+' Wh</td>';
+tbody.appendChild(row);
+});
+}).catch(e=>{console.error('Energy data error:',e);document.getElementById('energy_table_body').innerHTML='<tr><td colspan="5">Fehler beim Laden</td></tr>'});
 }
 
 function pollOta(){
@@ -456,7 +505,10 @@ setInterval(function(){
 if(document.getElementById('tab-graph').classList.contains('active')){
 loadGraph();
 }
-},10000);  // Refresh graph every 10 seconds
+if(document.getElementById('tab-energy').classList.contains('active')){
+loadEnergyData();
+}
+},10000);  // Refresh graph and energy every 10 seconds
 }
 
 init();

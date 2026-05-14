@@ -6,6 +6,7 @@
 #include "peltier.h"
 #include "webserver.h"
 #include "scheduler.h"
+#include "energy_tracker.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -124,6 +125,10 @@ void app_main(void) {
     // 1. Initialize NVS (must be first — WiFi and config depend on it)
     nvs_config_init();
     ESP_LOGI(TAG, "NVS initialized");
+
+    // 1.5. Initialize energy tracker
+    energy_tracker_init();
+    ESP_LOGI(TAG, "Energy tracker initialized");
 
     // 2. Initialize hardware
     sensor_init();
