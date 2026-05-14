@@ -258,6 +258,16 @@ void peltier_autoduty_start(void) {
     s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
     s_autoduty_callback_count = 0;  // Zähler zurücksetzen
 
+    // Timer erstellen (falls er gelöscht wurde)
+    if (s_autoduty_timer == NULL) {
+        esp_timer_create_args_t autoduty_timer_args = {
+            .callback = &autoduty_callback,
+            .name = "autoduty"
+        };
+        esp_timer_create(&autoduty_timer_args, &s_autoduty_timer);
+        ESP_LOGI(TAG, "Auto-Duty timer created");
+    }
+
     peltier_set_duty(s_autoduty_duty);
     esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
 
@@ -278,12 +288,21 @@ void peltier_autoduty_start_with_temp(float temp_indoor) {
     s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
     s_autoduty_step = 6;  // Basis-Step-Wert für schnellere Kühlung
     s_autoduty_constant_counter = 0;
-    s_autoduty_temp_ref = temp_indoor;
+    s_autoduty_temp_ref = temp_indoor;  // Übergebene Temperatur verwenden
     s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
     s_autoduty_callback_count = 0;  // Zähler zurücksetzen
 
+    // Timer erstellen (falls er gelöscht wurde)
+    if (s_autoduty_timer == NULL) {
+        esp_timer_create_args_t autoduty_timer_args = {
+            .callback = &autoduty_callback,
+            .name = "autoduty"
+        };
+        esp_timer_create(&autoduty_timer_args, &s_autoduty_timer);
+        ESP_LOGI(TAG, "Auto-Duty timer created");
+    }
+
     peltier_set_duty(s_autoduty_duty);
-    
     esp_err_t ret = esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
     ESP_LOGI(TAG, "Auto-Duty timer start result: %d (0=success)", ret);
 
@@ -294,7 +313,9 @@ void peltier_autoduty_stop(void) {
     s_autoduty_enabled = false;
     s_autoduty_last_callback_us = 0;  // Zeitpunkt zurücksetzen
     esp_timer_stop(s_autoduty_timer);
-    ESP_LOGI(TAG, "Auto-Duty stopped");
+    esp_timer_delete(s_autoduty_timer);
+    s_autoduty_timer = NULL;
+    ESP_LOGI(TAG, "Auto-Duty stopped and timer deleted");
 }
 
 void peltier_autoduty_update_cycle(uint16_t cycle_seconds) {
