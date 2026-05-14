@@ -6,6 +6,7 @@
 #include "nvs_config.h"
 #include "data_logger.h"
 #include "energy_tracker.h"
+#include "status_led.h"
 #include "driver/ledc.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -92,6 +93,9 @@ void fan_init(void) {
 #else
     ESP_LOGI(TAG, "Fan PWM initialized on GPIO %d (25kHz), Tacho DISABLED (hardware not connected)", GPIO_FAN_PWM);
 #endif
+
+    // Status-LED initialisieren
+    status_led_init();
 }
 
 void fan_set_duty(uint8_t duty) {
@@ -229,6 +233,7 @@ void task_fan(void *pvParameters) {
             peltier_off();
             peltier_autoduty_stop();  // Auto-Duty stoppen
             fan_set_duty(128);        // Lüfter auf 50% (128 von 255)
+            status_led_update();      // Status-LED aktualisieren (Orange)
             ESP_LOGW(TAG, "EMERGENCY MODE: Fan 50%%, Peltier off, Auto-Duty stopped (sensor errors)");
             vTaskDelay(pdMS_TO_TICKS(5000));  // 5 Sekunden Pause (wird in Schleife wiederholt)
             continue;
@@ -240,6 +245,7 @@ void task_fan(void *pvParameters) {
         if (!active || !sd.heatsink_valid) {
             peltier_off();  // Peltier sofort ausschalten
             peltier_autoduty_stop();  // Auto-Duty stoppen
+            status_led_update();      // Status-LED aktualisieren (Grün für Inaktiv)
             
             // Lüfter für Cooldown weiterlaufen lassen bis Kühlblocktemp <= 30°C
             if (sd.heatsink_valid && sd.temp_heatsink > FAN_COOLDOWN_TEMP) {
@@ -407,6 +413,9 @@ void task_fan(void *pvParameters) {
 #endif
 
         fan_set_duty((uint8_t)fan_output);
+        
+        // Status-LED aktualisieren (Rot für Aktiv)
+        status_led_update();
 
         ESP_LOGD(TAG, "Indoor=%.1f Heatsink=%.1f fan=%d peltier=%s",
                  sd.temp_indoor, sd.temp_heatsink, s_current_duty,
