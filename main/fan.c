@@ -102,7 +102,6 @@ void fan_set_duty(uint8_t duty) {
 
     ledc_set_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL, actual_duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL);
-    ESP_LOGI(TAG, "Fan duty: requested=%u, actual=%lu (inverted=%d)", duty, actual_duty, FAN_PWM_INVERTED);
 }
 
 uint8_t fan_get_duty(void) {
@@ -196,7 +195,6 @@ void task_fan(void *pvParameters) {
         uint64_t current_time = esp_timer_get_time() / 1000;  // milliseconds
         if (current_time - s_last_rpm_time >= RPM_UPDATE_INTERVAL_MS) {
             uint32_t pulses = s_tacho_pulses;
-            uint32_t interrupts = s_tacho_interrupts;
             s_tacho_pulses = 0;  // Reset counter
             s_tacho_interrupts = 0;  // Reset interrupt counter
             uint64_t time_diff_ms = current_time - s_last_rpm_time;
@@ -205,7 +203,6 @@ void task_fan(void *pvParameters) {
             // RPM = (pulses * 60000 * calibration_factor) / (time_ms * pulses_per_rev)
             if (time_diff_ms > 0) {
                 s_current_rpm = (uint16_t)(((pulses * 60000UL) * RPM_CALIBRATION_FACTOR) / (time_diff_ms * TACHO_PULSES_PER_REV));
-                ESP_LOGI(TAG, "RPM: interrupts=%lu, pulses=%lu, time=%llu ms, rpm=%u", interrupts, pulses, time_diff_ms, s_current_rpm);
             } else {
                 s_current_rpm = 0;
             }
@@ -268,7 +265,6 @@ void task_fan(void *pvParameters) {
 #if TACHO_ENABLED
         if (s_current_duty > 127 && s_current_rpm == 0) {
             // Fan should be running (>50% PWM) but RPM = 0 → fan failure
-            ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0 - SHUTTING DOWN PELTIER", s_current_duty);
             peltier_off();
             peltier_autoduty_stop();  // Auto-Duty stoppen
             fan_set_duty(255);  // Keep fan at 100% to try to restart
@@ -373,20 +369,15 @@ void task_fan(void *pvParameters) {
             // Clamp zwischen 40% und 100% (Minimum erhöht)
             if (fan_output_percent < 40.0f) fan_output_percent = 40.0f;
 
-            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, diff_to_max=%.1f°C, fan=%.0f%%",
-                     sd.temp_heatsink, error, temp_diff_to_max, fan_output_percent);
-
             fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
             // Peltier-Hauptzustand ist AUS → Lüfter nachlaufen bis Kühlblocktemp <= 30°C
             if (sd.heatsink_valid && sd.temp_heatsink > FAN_COOLDOWN_TEMP) {
                 // Cooldown-Phase
                 fan_output = FAN_COOLDOWN_DUTY;  // 40%
-                ESP_LOGI(TAG, "Cooldown: heatsink %.1f°C > %.1f°C, fan 40%%", sd.temp_heatsink, FAN_COOLDOWN_TEMP);
             } else {
                 // Kühlblocktemp <= 30°C → Lüfter aus
                 fan_output = 0.0f;
-                ESP_LOGI(TAG, "Cooldown done: heatsink %.1f°C <= %.1f°C, fan OFF", sd.temp_heatsink, FAN_COOLDOWN_TEMP);
             }
         }
 
@@ -402,15 +393,10 @@ void task_fan(void *pvParameters) {
         uint16_t expected_rpm = (uint16_t)((fan_output / 255.0f) * 1700.0f);
         if (s_current_rpm > 0 && s_current_rpm < expected_rpm * 0.8f && fan_output < 250.0f) {
             fan_output *= 1.1f;
-            ESP_LOGI(TAG, "RPM feedback: expected=%u, actual=%u, boosting PWM", expected_rpm, s_current_rpm);
         }
 #endif
 
         fan_set_duty((uint8_t)fan_output);
-
-        ESP_LOGD(TAG, "Indoor=%.1f Heatsink=%.1f fan=%d peltier=%s",
-                 sd.temp_indoor, sd.temp_heatsink, s_current_duty,
-                 peltier_main_state ? "ON" : "OFF");
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
