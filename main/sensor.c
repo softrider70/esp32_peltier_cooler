@@ -1,5 +1,8 @@
 #include "sensor.h"
 #include "config.h"
+#include "peltier.h"
+#include "scheduler.h"
+#include "nvs_config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -22,6 +25,9 @@ static int s_sensor_count = 0;
 // Error handling
 static int s_error_count = 0;
 static bool s_emergency_mode = false;
+
+// Auto-Duty Start Flag
+static bool s_autoduty_started = false;
 
 // OneWire timing (microseconds)
 static inline void ow_delay_us(uint32_t us) {
@@ -261,10 +267,17 @@ void sensor_init(void) {
 }
 
 sensor_data_t sensor_get_data(void) {
-    sensor_data_t data;
-    xSemaphoreTake(s_data_mutex, portMAX_DELAY);
-    data = s_sensor_data;
-    xSemaphoreGive(s_data_mutex);
+    sensor_data_t data = {0};  // Default: alle Werte 0, valid=false
+    
+    // Timeout 10ms um Blockierung zu vermeiden
+    if (xSemaphoreTake(s_data_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        data = s_sensor_data;
+        xSemaphoreGive(s_data_mutex);
+    } else {
+        ESP_LOGW(TAG, "sensor_get_data() mutex timeout - returning invalid data");
+        data.indoor_valid = false;
+        data.heatsink_valid = false;
+    }
     return data;
 }
 
@@ -281,13 +294,34 @@ void task_sensor(void *pvParameters) {
         sensor_data_t new_data = {0};
         bool read_error = false;
 
+        // Error handling pro Sensor
+        bool indoor_error = false;
+        bool heatsink_error = false;
+        
         // Real sensor reading
         if (s_sensor_count >= 1) {
             float t = ds18b20_read_temp(s_rom_indoor);
             if (t > -126.0f) {
                 new_data.temp_indoor = t;
                 new_data.indoor_valid = true;
+                
+                // Auto-Duty beim ersten validen Sensor starten (nur wenn Scheduler aktiv UND in Config aktiviert)
+                if (!s_autoduty_started && new_data.indoor_valid && scheduler_is_active()) {
+                    app_config_t *cfg = nvs_config_get();
+                    if (cfg->auto_duty_en) {
+                        s_autoduty_started = true;
+                        ESP_LOGI(TAG, "Sensor valid (%.1f°C), scheduler active AND config enabled, starting Auto-Duty", new_data.temp_indoor);
+                        peltier_autoduty_start_with_temp(new_data.temp_indoor);
+                    } else {
+                        ESP_LOGW(TAG, "Sensor valid (%.1f°C) and scheduler active but config DISABLED, Auto-Duty not started", new_data.temp_indoor);
+                    }
+                } else if (!s_autoduty_started && new_data.indoor_valid) {
+                    ESP_LOGW(TAG, "Sensor valid (%.1f°C) but scheduler inactive, Auto-Duty not started", new_data.temp_indoor);
+                } else if (!s_autoduty_started) {
+                    ESP_LOGW(TAG, "Sensor not valid yet, Auto-Duty not started");
+                }
             } else {
+                indoor_error = true;
                 read_error = true;
                 // Keep previous value on error
                 new_data.temp_indoor = s_sensor_data.temp_indoor;
@@ -301,6 +335,7 @@ void task_sensor(void *pvParameters) {
                 new_data.temp_heatsink = t;
                 new_data.heatsink_valid = true;
             } else {
+                heatsink_error = true;
                 read_error = true;
                 // Keep previous value on error
                 new_data.temp_heatsink = s_sensor_data.temp_heatsink;
@@ -308,14 +343,23 @@ void task_sensor(void *pvParameters) {
             }
         }
 
-        // Error counting and emergency mode
+        // Detailliertes Error-Logging pro Sensor
+        if (indoor_error && heatsink_error) {
+            ESP_LOGW(TAG, "Sensor read error #%d - BOTH sensors failed", s_error_count + 1);
+        } else if (indoor_error) {
+            ESP_LOGW(TAG, "Sensor read error #%d - INDOOR sensor failed", s_error_count + 1);
+        } else if (heatsink_error) {
+            ESP_LOGW(TAG, "Sensor read error #%d - HEATSINK sensor failed", s_error_count + 1);
+        }
+            
+            // Error counting and emergency mode
         if (read_error) {
             s_error_count++;
-            ESP_LOGW(TAG, "Sensor read error #%d", s_error_count);
             
-            if (s_error_count >= 5) {
+            // Emergency Mode erst nach 10 aufeinanderfolgenden Fehlern aktivieren
+            if (s_error_count >= 10) {
                 s_emergency_mode = true;
-                ESP_LOGE(TAG, "EMERGENCY MODE ACTIVATED: 5 consecutive errors!");
+                ESP_LOGE(TAG, "EMERGENCY MODE ACTIVATED: %d consecutive sensor errors!", s_error_count);
             }
         } else {
             s_error_count = 0;
@@ -325,9 +369,13 @@ void task_sensor(void *pvParameters) {
             }
         }
 
-        xSemaphoreTake(s_data_mutex, portMAX_DELAY);
-        s_sensor_data = new_data;
-        xSemaphoreGive(s_data_mutex);
+        // Schreibvorgang mit Timeout um Blockierung zu vermeiden
+        if (xSemaphoreTake(s_data_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+            s_sensor_data = new_data;
+            xSemaphoreGive(s_data_mutex);
+        } else {
+            ESP_LOGE(TAG, "task_sensor() mutex timeout - data not updated!");
+        }
 
         ESP_LOGI(TAG, "Read: Indoor=%.1f°C%s, Heatsink=%.1f°C%s",
                  new_data.temp_indoor, new_data.indoor_valid ? "" : "(invalid)",

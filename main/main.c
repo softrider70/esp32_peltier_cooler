@@ -6,6 +6,7 @@
 #include "peltier.h"
 #include "webserver.h"
 #include "scheduler.h"
+#include "energy_tracker.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -14,6 +15,7 @@
 #include "esp_system.h"
 #include "ota.h"
 #include "data_logger.h"
+#include "task_monitor.h"
 
 static const char *TAG = "main";
 
@@ -31,10 +33,15 @@ void reset_button_task(void *pvParameters) {
     };
     gpio_config(&io_conf);
 
-    ESP_LOGI(TAG, "Reset button monitoring started (GPIO %d): Short press = ESP32 reset, Long press = WiFi reset", GPIO_RESET_BUTTON);
+    ESP_LOGI(TAG, "Reset button monitoring started (GPIO %d): Short press = ESP32 reset, Long press = WiFi reset, 3x press = Emergency Fan (100%%)", GPIO_RESET_BUTTON);
 
     uint64_t press_start_time = 0;
     bool button_pressed = false;
+    
+    // Notabschaltung: 3x kurzer Druck innerhalb von 2 Sekunden
+    int press_count = 0;
+    uint64_t last_press_time = 0;
+    bool emergency_fan_active = false;
 
     while (1) {
         int button_level = gpio_get_level(GPIO_RESET_BUTTON);
@@ -61,12 +68,51 @@ void reset_button_task(void *pvParameters) {
             if (button_pressed) {
                 uint64_t press_duration = current_time - press_start_time;
                 if (press_duration < RESET_BUTTON_HOLD_MS && press_duration >= 100) {
-                    // Short press (100ms to 3s) → ESP32 reset
-                    ESP_LOGW(TAG, "Reset button short press (%llu ms) → restarting ESP32", press_duration);
-                    esp_restart();
+                    // Short press (100ms to 3s)
+                    press_count++;
+                    ESP_LOGI(TAG, "Reset button short press #%d (%llu ms)", press_count, press_duration);
+                    
+                    // Prüfe auf 3x kurzer Druck innerhalb von 2 Sekunden
+                    if (current_time - last_press_time < 2000) {
+                        if (press_count >= 3) {
+                            // Notabschaltung: Lüfter 100% bei Peltier AN
+                            if (peltier_get_main_state()) {
+                                emergency_fan_active = !emergency_fan_active;
+                                if (emergency_fan_active) {
+                                    fan_set_duty(255);
+                                    ESP_LOGE(TAG, "EMERGENCY FAN ACTIVATED: Fan 100%% (Peltier ON)");
+                                } else {
+                                    ESP_LOGI(TAG, "EMERGENCY FAN DEACTIVATED: Normal operation");
+                                }
+                            } else {
+                                ESP_LOGW(TAG, "Emergency fan ignored: Peltier is OFF");
+                            }
+                            press_count = 0;
+                        }
+                    } else {
+                        // Zu lange zwischen den Drücken → Counter zurücksetzen
+                        press_count = 1;
+                    }
+                    last_press_time = current_time;
+                    
+                    if (press_count == 1) {
+                        // Erster kurzer Druck → ESP32 reset nach kurzer Verzögerung (wenn nicht 3x)
+                        // Aber wir warten erst mal auf weitere Drücke
+                        vTaskDelay(pdMS_TO_TICKS(500));
+                        if (press_count == 1) {
+                            // Nur 1x Druck → ESP32 reset
+                            ESP_LOGW(TAG, "Reset button single press → restarting ESP32");
+                            esp_restart();
+                        }
+                    }
                 }
                 button_pressed = false;
             }
+        }
+
+        // Counter zurücksetzen wenn zu lange kein Druck
+        if (current_time - last_press_time > 2000 && press_count > 0) {
+            press_count = 0;
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));  // Check every 100ms
@@ -80,6 +126,10 @@ void app_main(void) {
     nvs_config_init();
     ESP_LOGI(TAG, "NVS initialized");
 
+    // 1.5. Initialize energy tracker
+    energy_tracker_init();
+    ESP_LOGI(TAG, "Energy tracker initialized");
+
     // 2. Initialize hardware
     sensor_init();
     fan_init();
@@ -89,9 +139,16 @@ void app_main(void) {
     // 2.1. Enable PWM if configured
     app_config_t *cfg_pwm = nvs_config_get();
     peltier_pwm_enable(true);  // PWM immer aktivieren
-    if (cfg_pwm->peltier_pwm_auto) {
+    
+    // Auto-Duty nur starten, wenn in Config aktiviert
+    ESP_LOGI(TAG, "Auto-Duty config check: auto_duty_en=%s", cfg_pwm->auto_duty_en ? "true" : "false");
+    if (cfg_pwm->auto_duty_en) {
         peltier_autoduty_start();
-        ESP_LOGI(TAG, "Auto-Duty enabled");
+        ESP_LOGI(TAG, "Auto-Duty enabled in config, started");
+    } else {
+        // Sicherstellen dass Auto-Duty deaktiviert ist (Hotfix)
+        peltier_autoduty_stop();
+        ESP_LOGI(TAG, "Auto-Duty disabled in config, forced stop");
     }
 
     // 2.5. Initialize data logger (ring buffer)
@@ -119,14 +176,18 @@ void app_main(void) {
     xTaskCreate(task_sensor, "sensor", TASK_STACK_SENSOR,
                 NULL, TASK_PRIO_SENSOR, NULL);
 
-    xTaskCreate(task_fan_pid, "fan_pid", TASK_STACK_PID,
-                NULL, TASK_PRIO_PID, NULL);
+    xTaskCreate(task_fan, "fan", TASK_STACK_FAN,
+                NULL, TASK_PRIO_FAN, NULL);
 
     xTaskCreate(task_scheduler, "scheduler", TASK_STACK_SCHEDULER,
                 NULL, TASK_PRIO_SCHEDULER, NULL);
 
     xTaskCreate(task_data_logger, "data_logger", 4096,
                 NULL, 3, NULL);
+
+    // 6.5. Initialize task monitor
+    task_monitor_init();
+    task_monitor_start();
 
     // 5. Start OTA task
     ota_init();

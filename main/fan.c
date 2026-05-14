@@ -5,6 +5,7 @@
 #include "scheduler.h"
 #include "nvs_config.h"
 #include "data_logger.h"
+#include "energy_tracker.h"
 #include "driver/ledc.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -18,7 +19,6 @@ static const char *TAG = "fan";
 static uint8_t s_current_duty = 0;
 static bool s_was_active = false;  // Track previous active state for NVS save
 static bool s_peltier_main_was_on = false;  // Track Peltier main state for NVS save
-static int s_peltier_off_counter = 0;  // Counter for fan cooldown after peltier off
 
 // ===== Energy Consumption Tracking =====
 static uint32_t s_peltier_run_time_sec = 0;  // Total Peltier run time in seconds
@@ -26,8 +26,8 @@ static float s_last_energy_wh = 0.0f;  // Last saved energy value (for change de
 
 // ===== Fan Control Parameters =====
 #define FAN_START_DUTY_WHEN_PELTIER_ON  127.0f  // 50% PWM when Peltier turns on (under 70%)
-#define FAN_COOLDOWN_DUTY              76.0f   // 30% PWM during cooldown
-#define FAN_COOLDOWN_SECONDS            30      // Cooldown time after Peltier off
+#define FAN_COOLDOWN_DUTY              102.0f  // 40% PWM during cooldown
+#define FAN_COOLDOWN_TEMP              30.0f   // Cooldown until heatsink temp <= 30°C
 
 // RPM measurement variables
 static volatile uint32_t s_tacho_pulses = 0;
@@ -102,7 +102,6 @@ void fan_set_duty(uint8_t duty) {
 
     ledc_set_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL, actual_duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, FAN_PWM_CHANNEL);
-    ESP_LOGI(TAG, "Fan duty: requested=%u, actual=%lu (inverted=%d)", duty, actual_duty, FAN_PWM_INVERTED);
 }
 
 uint8_t fan_get_duty(void) {
@@ -128,23 +127,47 @@ static void update_energy_stats(float energy_increment) {
                            (timeinfo.tm_mon + 1) * 100 + 
                            timeinfo.tm_mday;
     
+    // Berechne Kalenderwoche (0-53)
+    char week_buf[8];
+    strftime(week_buf, sizeof(week_buf), "%W", &timeinfo);
+    uint8_t current_week = atoi(week_buf);
+    
     // Wenn Datum geändert hat → Tageszähler zurücksetzen
     if (cfg->last_date != 0 && current_date != cfg->last_date) {
-        // Prüfe ob sich Woche geändert hat (Montag ist Tag 1)
-        if (timeinfo.tm_wday == 1) {
+        // Prüfe ob sich Woche geändert hat
+        if (current_week != cfg->last_week) {
             cfg->energy_week = 0.0f;
-            ESP_LOGI(TAG, "New week - weekly energy reset");
+            ESP_LOGI(TAG, "New week (%u) - weekly energy reset", current_week);
         }
         
         // Prüfe ob sich Monat geändert hat
-        if (timeinfo.tm_mday == 1) {
+        if (timeinfo.tm_mon != cfg->last_month) {
             cfg->energy_month = 0.0f;
-            ESP_LOGI(TAG, "New month - monthly energy reset");
+            ESP_LOGI(TAG, "New month (%u) - monthly energy reset", timeinfo.tm_mon);
         }
         
         cfg->energy_day = 0.0f;
         ESP_LOGI(TAG, "New day - daily energy reset");
     }
+    
+    // Beim ersten Start (nach NVS-Laden) prüfe ob Woche/Monat zurückgesetzt werden muss
+    // Nur wenn gespeicherte Woche/Monat ungleich aktuelle Woche/Monat
+    if (cfg->last_date == 0 && cfg->last_week != 0) {
+        // Erster Start nach NVS-Reset, aber Woche war schon gespeichert
+        if (current_week != cfg->last_week) {
+            cfg->energy_week = 0.0f;
+            ESP_LOGI(TAG, "First start - week changed from %u to %u, reset", cfg->last_week, current_week);
+        }
+        
+        if (timeinfo.tm_mon != cfg->last_month) {
+            cfg->energy_month = 0.0f;
+            ESP_LOGI(TAG, "First start - month changed from %u to %u, reset", cfg->last_month, timeinfo.tm_mon);
+        }
+    }
+    
+    // Speichere aktuelle Woche und Monat
+    cfg->last_week = current_week;
+    cfg->last_month = timeinfo.tm_mon;
     
     // Aktualisiere alle Zähler
     cfg->energy_wh += energy_increment;
@@ -154,7 +177,7 @@ static void update_energy_stats(float energy_increment) {
     cfg->last_date = current_date;
 }
 
-void task_fan_pid(void *pvParameters) {
+void task_fan(void *pvParameters) {
     (void)pvParameters;
 
 #if TACHO_ENABLED
@@ -170,7 +193,6 @@ void task_fan_pid(void *pvParameters) {
         uint64_t current_time = esp_timer_get_time() / 1000;  // milliseconds
         if (current_time - s_last_rpm_time >= RPM_UPDATE_INTERVAL_MS) {
             uint32_t pulses = s_tacho_pulses;
-            uint32_t interrupts = s_tacho_interrupts;
             s_tacho_pulses = 0;  // Reset counter
             s_tacho_interrupts = 0;  // Reset interrupt counter
             uint64_t time_diff_ms = current_time - s_last_rpm_time;
@@ -179,7 +201,6 @@ void task_fan_pid(void *pvParameters) {
             // RPM = (pulses * 60000 * calibration_factor) / (time_ms * pulses_per_rev)
             if (time_diff_ms > 0) {
                 s_current_rpm = (uint16_t)(((pulses * 60000UL) * RPM_CALIBRATION_FACTOR) / (time_diff_ms * TACHO_PULSES_PER_REV));
-                ESP_LOGI(TAG, "RPM: interrupts=%lu, pulses=%lu, time=%llu ms, rpm=%u", interrupts, pulses, time_diff_ms, s_current_rpm);
             } else {
                 s_current_rpm = 0;
             }
@@ -197,19 +218,32 @@ void task_fan_pid(void *pvParameters) {
         }
         s_was_active = active;
 
-        // ---- Emergency mode: sensor errors → fan full, peltier off ----
+        // ---- Emergency mode: sensor errors → fan 50%, peltier off ----
+        // Lüfter auf 50% für 5 Minuten oder bis Sensoren wieder arbeiten
         if (sensor_get_emergency_mode()) {
             peltier_off();
-            fan_set_duty(255);
-            ESP_LOGW(TAG, "EMERGENCY MODE: Fan full, Peltier off (sensor errors)");
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            peltier_autoduty_stop();  // Auto-Duty stoppen
+            fan_set_duty(128);        // Lüfter auf 50% (128 von 255)
+            ESP_LOGW(TAG, "EMERGENCY MODE: Fan 50%%, Peltier off, Auto-Duty stopped (sensor errors)");
+            vTaskDelay(pdMS_TO_TICKS(5000));  // 5 Sekunden Pause (wird in Schleife wiederholt)
             continue;
         }
 
         // ---- System inactive or no heatsink sensor: everything off ----
+        // Peltier MUSS sofort ausgeschaltet werden bei inaktivem System
+        bool peltier_main_state = peltier_get_main_state();
         if (!active || !sd.heatsink_valid) {
-            fan_set_duty(0);
-            peltier_off();
+            peltier_off();  // Peltier sofort ausschalten
+            peltier_autoduty_stop();  // Auto-Duty stoppen
+            
+            // Lüfter für Cooldown weiterlaufen lassen bis Kühlblocktemp <= 30°C
+            if (sd.heatsink_valid && sd.temp_heatsink > FAN_COOLDOWN_TEMP) {
+                fan_set_duty((uint8_t)FAN_COOLDOWN_DUTY);  // 40% für Cooldown
+                ESP_LOGW(TAG, "System inactive/invalid sensor: Peltier OFF, Fan cooldown at %.1f°C (target %.1f°C)", sd.temp_heatsink, FAN_COOLDOWN_TEMP);
+            } else {
+                fan_set_duty(0);  // Kühlblocktemp <= 30°C → Lüfter aus
+                ESP_LOGW(TAG, "System inactive/invalid sensor: Peltier OFF, Fan OFF (heatsink %.1f°C <= %.1f°C)", sd.temp_heatsink, FAN_COOLDOWN_TEMP);
+            }
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
@@ -217,8 +251,9 @@ void task_fan_pid(void *pvParameters) {
         // ---- Safety: heatsink over max → emergency cutoff ----
         if (sd.temp_heatsink >= cfg->temp_heatsink_max) {
             peltier_off();
+            peltier_autoduty_stop();  // Auto-Duty stoppen
             fan_set_duty(255);
-            ESP_LOGW(TAG, "SAFETY: Heatsink %.1f°C >= max %.1f°C",
+            ESP_LOGW(TAG, "SAFETY: Heatsink %.1f°C >= max %.1f°C, Auto-Duty stopped",
                      sd.temp_heatsink, cfg->temp_heatsink_max);
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
@@ -228,8 +263,8 @@ void task_fan_pid(void *pvParameters) {
 #if TACHO_ENABLED
         if (s_current_duty > 127 && s_current_rpm == 0) {
             // Fan should be running (>50% PWM) but RPM = 0 → fan failure
-            ESP_LOGE(TAG, "SAFETY: Fan failure! PWM=%u but RPM=0 - SHUTTING DOWN PELTIER", s_current_duty);
             peltier_off();
+            peltier_autoduty_stop();  // Auto-Duty stoppen
             fan_set_duty(255);  // Keep fan at 100% to try to restart
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;  // Skip normal PID loop
@@ -237,7 +272,7 @@ void task_fan_pid(void *pvParameters) {
 #endif
 
         // ---- Peltier: digital on/off based on indoor temperature range ----
-        bool peltier_main_state = peltier_get_main_state();  // Zustand aus peltier-Modul holen
+        // peltier_main_state wurde bereits oben abgerufen
 
         if (sd.indoor_valid) {
             // Hysterese: Nur schalten wenn Schwellwerte überschritten werden
@@ -258,10 +293,23 @@ void task_fan_pid(void *pvParameters) {
         // Hauptzustand an peltier-Modul übergeben (für Anzeige)
         peltier_set_main_state(peltier_main_state);
 
+        // ---- Energy Tracker Session-Tracking ----
+        // Session starten, wenn main_state von false auf true wechselt
+        if (!s_peltier_main_was_on && peltier_main_state) {
+            energy_tracker_start_session();
+        }
+        // Session stoppen, wenn main_state von true auf false wechselt
+        else if (s_peltier_main_was_on && !peltier_main_state) {
+            energy_tracker_stop_session();
+        }
+        // Energie während aktiver Session aktualisieren
+        if (energy_tracker_is_tracking()) {
+            energy_tracker_update_energy(peltier_get_duty());
+        }
+
         // ---- Hardware-Steuerung: direkt AN/AUS ----
         if (peltier_main_state) {
             peltier_on();
-            s_peltier_off_counter = 0;
         } else {
             peltier_off();
         }
@@ -280,7 +328,7 @@ void task_fan_pid(void *pvParameters) {
         // Save energy data only when Peltier main state turns OFF and value changed
         if (s_peltier_main_was_on && !peltier_main_state) {
             cfg = nvs_config_get();
-            bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.01f;  // Changed by >0.01 Wh
+            bool energy_changed = fabs(cfg->energy_wh - s_last_energy_wh) > 0.1f;  // Changed by >0.1 Wh
 
             if (energy_changed) {
                 nvs_config_save_energy();
@@ -303,35 +351,30 @@ void task_fan_pid(void *pvParameters) {
 
             float fan_output_percent = 50.0f;  // Basis-Duty erhöht
 
-            // Bis 3 Grad unter max: Linear bis 75%
+            // Bis 3 Grad unter max: Linear bis 70%
             if (temp_diff_to_max > 3.0f) {
                 // Linearer Bereich: 50% + (error * 15%) pro °C (erhöhte Verstärkung)
                 fan_output_percent = 50.0f + (error * 15.0f);
-                if (fan_output_percent > 75.0f) fan_output_percent = 75.0f;
+                if (fan_output_percent > 70.0f) fan_output_percent = 70.0f;
             } else {
                 // Exponentieller Bereich bei Temperaturen nahe max
-                // Exponentialfunktion: 75% * exp((3 - temp_diff) * 0.6)
+                // Exponentialfunktion: 70% * exp((3 - temp_diff) * 0.6)
                 float exp_factor = expf((3.0f - temp_diff_to_max) * 0.6f);
-                fan_output_percent = 75.0f * exp_factor;
+                fan_output_percent = 70.0f * exp_factor;
                 if (fan_output_percent > 100.0f) fan_output_percent = 100.0f;
             }
 
             // Clamp zwischen 40% und 100% (Minimum erhöht)
             if (fan_output_percent < 40.0f) fan_output_percent = 40.0f;
 
-            ESP_LOGI(TAG, "Fan control: temp=%.1f°C, error=%.1f°C, diff_to_max=%.1f°C, fan=%.0f%%",
-                     sd.temp_heatsink, error, temp_diff_to_max, fan_output_percent);
-
             fan_output = fan_output_percent * 2.55f;  // 0-100% → 0-255
         } else {
-            // Peltier-Hauptzustand ist AUS → Lüfter nachlaufen für Restwärme
-            if (s_peltier_off_counter < FAN_COOLDOWN_SECONDS) {
+            // Peltier-Hauptzustand ist AUS → Lüfter nachlaufen bis Kühlblocktemp <= 30°C
+            if (sd.heatsink_valid && sd.temp_heatsink > FAN_COOLDOWN_TEMP) {
                 // Cooldown-Phase
-                fan_output = FAN_COOLDOWN_DUTY;
-                s_peltier_off_counter++;
-                ESP_LOGI(TAG, "Cooldown: %d/%d seconds", s_peltier_off_counter, FAN_COOLDOWN_SECONDS);
+                fan_output = FAN_COOLDOWN_DUTY;  // 40%
             } else {
-                // Cooldown vorbei → Lüfter aus
+                // Kühlblocktemp <= 30°C → Lüfter aus
                 fan_output = 0.0f;
             }
         }
@@ -348,15 +391,10 @@ void task_fan_pid(void *pvParameters) {
         uint16_t expected_rpm = (uint16_t)((fan_output / 255.0f) * 1700.0f);
         if (s_current_rpm > 0 && s_current_rpm < expected_rpm * 0.8f && fan_output < 250.0f) {
             fan_output *= 1.1f;
-            ESP_LOGI(TAG, "RPM feedback: expected=%u, actual=%u, boosting PWM", expected_rpm, s_current_rpm);
         }
 #endif
 
         fan_set_duty((uint8_t)fan_output);
-
-        ESP_LOGD(TAG, "Indoor=%.1f Heatsink=%.1f fan=%d peltier=%s",
-                 sd.temp_indoor, sd.temp_heatsink, s_current_duty,
-                 peltier_main_state ? "ON" : "OFF");
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
