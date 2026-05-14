@@ -1,4 +1,4 @@
-<!-- Build 54 - Fix peltier field name -->
+<!-- Build 304 - Auto-Duty disabled fields grayed out -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -23,14 +23,15 @@ button{background:#0ff;color:#1a1a2e;border:none;padding:.4rem .8rem;border-radi
 button:hover{background:#7fdbff}
 button:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;align-items:center;gap:.2rem;margin:.15rem 0}
-.row label{min-width:70px;font-size:.75rem}
+.row label{min-width:100px;font-size:.75rem}
 .status{margin-top:.3rem;padding:.4rem;border-radius:4px;font-size:.75rem;display:none}
 .status.success{background:#51cf66;color:#fff}
 .status.error{background:#ff6b6b;color:#fff}
 .status.info{background:#0ff;color:#1a1a2e}
 .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-.dot-on{background:#51cf66}
-.dot-off{background:#ff6b6b}
+.dot-on{background:#ff6b6b}    /* Rot für Aktiv */
+.dot-off{background:#51cf66}  /* Grün für Inaktiv */
+.dot-warn{background:#ff9500} /* Orange für Emergency */
 /* Tabs */
 .tabs{display:flex;gap:.3rem;margin-bottom:.5rem}
 .tab{background:#0f3460;color:#fff;border:none;padding:.4rem .8rem;border-radius:4px;cursor:pointer;font-size:.85rem}
@@ -38,6 +39,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .tab-content{display:none}
 .tab-content.active{display:block}
 #graph-container{width:100%;height:400px;margin-top:.5rem}
+.disabled{opacity:.3;filter:grayscale(100%)}
+/* Energy table */
+.energy-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-top:.5rem}
+.energy-table th{background:#0f3460;color:#0ff;padding:.3rem;text-align:left;position:sticky;top:0}
+.energy-table td{border:1px solid #0f3460;padding:.3rem}
+.energy-table tr:nth-child(even){background:#1a1a2e}
+.energy-table-container{max-height:500px;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -47,6 +55,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="tabs">
 <button type="button" class="tab active" onclick="showTab('status')">Status</button>
 <button type="button" class="tab" onclick="showTab('graph')">Graph</button>
+<button type="button" class="tab" onclick="showTab('energy')">Verbrauchsdaten</button>
 <button type="button" class="tab" onclick="showTab('config')">Konfiguration</button>
 </div>
 
@@ -57,23 +66,27 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="card-grid">
 <div class="card">
 <h2>Temperaturen</h2>
-<div class="row"><label>Innen:</label><span id="st_indoor">--°C</span> <span id="trend_indoor"></span> <span id="indoor_symbol_series" style="font-size:.7rem;color:#888"></span></div>
+<div class="row"><label>Innen:</label><span id="st_indoor">--°C</span></div>
 <div class="row"><label>(min:</label><span id="st_temp_off">--°C</span> <label>/ max:</label><span id="st_temp_on">--°C</span>)</div>
-<div class="row"><label>Kühlblock:</label><span id="st_heatsink">--°C</span> <span id="trend_heatsink"></span> <span id="heatsink_symbol_series" style="font-size:.7rem;color:#888"></span></div>
+<div class="row"><label>Peltierblock:</label><span id="st_heatsink">--°C</span></div>
 </div>
 <div class="card">
 <h2>Luefter</h2>
-<div class="row"><label>PWM:</label><span id="st_fan">--%</span> <span id="trend_fan_duty"></span> <span id="fan_duty_symbol_series" style="font-size:.7rem;color:#888"></span></div>
+<div class="row"><label>PWM:</label><span id="st_fan">--%</span></div>
 <div class="row"><label>RPM:</label><span id="st_rpm">--</span></div>
 </div>
 <div class="card">
 <h2>Peltier</h2>
 <div class="row"><label>Status:</label><button id="st_peltier" style="background:#444;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;cursor:default">--</button></div>
 <div class="row"><label>PWM Period:</label><span id="st_pwm_period">--s</span></div>
-<div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span> <span id="pwm_duty_symbol_series" style="font-size:.7rem;color:#888"></span></div>
-<div class="row"><label>Auto-Duty:</label><span id="st_pwm_auto">--</span></div>
-<div class="row"><label>Auto-Duty Intervall:</label><span id="st_pwm_interval">--s</span></div>
-<div class="row"><label>Duty-Faktor:</label><span id="st_duty_factor">--%</span></div>
+<div class="row"><label>PWM Duty:</label><span id="st_pwm_duty">--%</span></div>
+<div class="row"><label>Leistung:</label><span id="st_peltier_power">--W</span></div>
+<div id="autoduty_fields">
+<div class="row"><label>Auto-Duty:</label><button id="st_autoduty" style="background:#444;color:#fff;border:none;padding:.3rem .5rem;border-radius:4px;cursor:default">--</button></div>
+<div class="row"><label>AD Cycle:</label><span id="st_autoduty_cycle">--s</span></div>
+<div class="row"><label>AD Step:</label><span id="st_autoduty_step">--%</span></div>
+<div class="row"><label>AD Countdown:</label><span id="st_autoduty_countdown">--s</span></div>
+</div>
 </div>
 <div class="card">
 <h2>Verbrauch</h2>
@@ -104,38 +117,59 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 </div>
 
+<!-- Tab: Verbrauchsdaten -->
+<div id="tab-energy" class="tab-content">
+<div class="card">
+<h2>Verbrauchsdaten <span style="font-size:.7rem;color:#888;font-weight:normal">Build <span id="build_energy">--</span></span></h2>
+<div class="energy-table-container">
+<table class="energy-table">
+<thead>
+<tr>
+<th>Datum/Zeit</th>
+<th>Dauer</th>
+<th>Start</th>
+<th>End</th>
+<th>Min</th>
+<th>Max</th>
+<th>Energie</th>
+<th>PWM</th>
+<th>Auto-Duty</th>
+</tr>
+</thead>
+<tbody id="energy_table_body">
+<tr><td colspan="9">Laden...</td></tr>
+</tbody>
+</table>
+</div>
+<p style="font-size:.7rem;color:#888;margin-top:.5rem">10 neueste Sitzungen, neueste zuerst</p>
+</div>
+</div>
+
 <!-- Tab: Konfiguration -->
 <div id="tab-config" class="tab-content">
 <div class="card-grid">
 <div class="card">
-<h2>Peltier Kühlbereich</h2>
-<div class="row"><label>AN ab:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40"></div>
-<div class="row"><label>AUS ab:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35"></div>
-<p style="font-size:.7rem;color:#888;margin-top:.2rem">Hysterese: Peltier bleibt an zwischen AUS und AN</p>
-</div>
-
-<div class="card">
-<h2>Kühlblock Sicherheit</h2>
-<div class="row"><label>Max Temp:</label><input type="number" id="cfg_temp_max" step="1" min="40" max="80"></div>
-<div class="row"><label>PID Ziel:</label><input type="number" id="cfg_temp_target" step="1" min="30" max="60"></div>
-</div>
-
-<div class="card">
-<h2>Peltier PWM</h2>
-<div class="row"><label>Period (s):</label><input type="number" id="cfg_peltier_pwm_period" min="1" max="300"></div>
-<div class="row"><label>Duty (%):</label><input type="number" id="cfg_peltier_pwm_duty" min="1" max="100"></div>
-<div class="row"><label>Auto-Duty:</label><input type="checkbox" id="cfg_peltier_pwm_auto" onchange="saveAutoDuty()"></div>
-<div class="row"><label>Auto-Duty Intervall (s):</label><input type="number" id="cfg_peltier_pwm_interval" min="10" max="300"></div>
-<p style="font-size:.7rem;color:#888;margin-top:.2rem">Duty-Faktor: <span id="peltier_duty_factor">--</span>%</p>
+<h2>Peltier</h2>
+<div class="row"><label>Min Temp:</label><input type="number" id="cfg_temp_off" step="0.5" min="5" max="35"></div>
+<div class="row"><label>Max Temp:</label><input type="number" id="cfg_temp_on" step="0.5" min="10" max="40"></div>
+<div class="row"><label>Turm Max:</label><input type="number" id="cfg_temp_max" step="1" min="40" max="80"></div>
+<div class="row"><label>Turm Ziel:</label><input type="number" id="cfg_temp_target" step="1" min="30" max="60"></div>
+<p style="font-size:.7rem;color:#888;margin-top:.2rem">Hysterese: Peltier bleibt an zwischen Min und Max</p>
 </div>
 
 <div class="card">
 <h2>Datenaufzeichnung</h2>
 <div class="row"><label>Daten-Log Intervall (s):</label><input type="number" id="cfg_data_log_interval" min="1" max="3600"></div>
 <p style="font-size:.7rem;color:#888;margin-top:.2rem">Ringspeicher: <span id="ring_buffer_hours">--</span> Stunden</p>
-<button type="button" onclick="resetWifi()" style="background:#ff4444;font-size:.8rem;margin-top:.5rem">WiFi Reset</button>
-<button type="button" onclick="showLogs()" style="background:#444;font-size:.8rem;margin-top:.5rem;margin-left:.5rem">Logs</button>
-<p style="margin-top:.3rem;font-size:.7rem" id="wifi_reset_status"></p>
+</div>
+
+<div class="card">
+<h2>Peltier PWM & Auto-Duty</h2>
+<div class="row"><label>PWM Period (s):</label><input type="number" id="cfg_peltier_pwm_period" min="1" max="300"></div>
+<div class="row"><label>PWM Duty (%):</label><input type="number" id="cfg_peltier_pwm_duty" min="1" max="100"></div>
+<hr style="border-color:#444;margin:.5rem 0">
+<div class="row"><label>Auto-Duty:</label><input type="checkbox" id="cfg_auto_duty_en"></div>
+<div class="row"><label>AD Zyklus (s):</label><input type="number" id="cfg_auto_duty_cycle" min="1" max="300"></div>
 </div>
 
 <div class="card">
@@ -154,6 +188,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="row" style="margin-top:.5rem">
 <button type="button" onclick="startOta()" style="background:#ff922b;padding:.4rem;font-size:.8rem;flex:1">Firmware Update</button>
 <button type="button" onclick="systemReset()" style="background:#e74c3c;padding:.4rem;font-size:.8rem;flex:1;margin-left:.5rem">ESP32 Reset</button>
+<button type="button" onclick="resetWifi()" style="background:#ff4444;padding:.4rem;font-size:.8rem;flex:1;margin-left:.5rem">WiFi Reset</button>
 </div>
 <p id="ota_status" style="font-size:.7rem;color:#ff922b"></p>
 </div>
@@ -163,6 +198,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <button type="button" onclick="saveConfig()" style="margin-bottom:.5rem">Speichern</button>
 <button type="button" onclick="factoryReset()" style="margin-bottom:.5rem;margin-left:.5rem;background:#ff0000;color:#fff">Factory Reset</button>
+<p style="margin-top:.3rem;font-size:.7rem" id="wifi_reset_status"></p>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -182,6 +218,7 @@ document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'
 event.target.classList.add('active');
 document.getElementById('tab-'+tabName).classList.add('active');
 if(tabName==='graph')loadGraph();
+if(tabName==='energy')loadEnergyData();
 }
 
 // Chart instance
@@ -226,7 +263,7 @@ tension:0.1,
 yAxisID:'y2'
 },
 {
-label:'Kühlblock (°C)',
+label:'Peltierblock (°C)',
 data:heatsink,
 borderColor:'#0ff',
 backgroundColor:'rgba(0,255,255,0.1)',
@@ -279,44 +316,30 @@ legend:{labels:{color:'#e0e0e0'}}
 }).catch(e=>console.error('Graph error:',e));
 }
 
-function getTrendSymbol(trend){
-if(trend===1)return'↑';
-if(trend===-1)return'↓';
-return'→';
-}
-
-function getTrendColor(trend){
-if(trend===1)return'var(--warn-color)';
-if(trend===-1)return'var(--ok-color)';
-return'#888';
-}
-
 function refresh(){
 fetch('/api/status').then(r=>r.json()).then(d=>{
 document.getElementById('st_indoor').textContent=d.indoor.toFixed(1)+'°C';
 document.getElementById('st_temp_off').textContent=d.temp_off.toFixed(1)+'°C';
 document.getElementById('st_temp_on').textContent=d.temp_on.toFixed(1)+'°C';
-document.getElementById('trend_indoor').textContent=getTrendSymbol(d.trend_indoor);
-document.getElementById('trend_indoor').style.color=getTrendColor(d.trend_indoor);
-document.getElementById('indoor_symbol_series').textContent=d.indoor_symbol_series;
 document.getElementById('st_heatsink').textContent=d.heatsink_valid?d.heatsink.toFixed(1)+'°C':'--';
-document.getElementById('trend_heatsink').textContent=getTrendSymbol(d.trend_heatsink);
-document.getElementById('trend_heatsink').style.color=getTrendColor(d.trend_heatsink);
-document.getElementById('heatsink_symbol_series').textContent=d.heatsink_symbol_series;
 document.getElementById('st_fan').textContent=Math.round(d.fan_duty/2.55)+'%';
-document.getElementById('trend_fan_duty').textContent=getTrendSymbol(d.trend_fan_duty);
-document.getElementById('trend_fan_duty').style.color=getTrendColor(d.trend_fan_duty);
-document.getElementById('fan_duty_symbol_series').textContent=d.fan_duty_symbol_series;
 document.getElementById('st_rpm').textContent=d.fan_rpm+' RPM';
 var peltierBtn=document.getElementById('st_peltier');
 peltierBtn.textContent=d.peltier_on?'AN':'AUS';
 peltierBtn.style.background=d.peltier_on?'#e74c3c':'#2ecc71';
 document.getElementById('st_pwm_period').textContent=d.peltier_pwm_period+'s';
 document.getElementById('st_pwm_duty').textContent=d.peltier_pwm_duty+'%';
-document.getElementById('pwm_duty_symbol_series').textContent=d.pwm_duty_symbol_series;
-document.getElementById('st_pwm_auto').textContent=d.peltier_pwm_auto?'AN':'AUS';
-document.getElementById('st_pwm_interval').textContent=d.peltier_pwm_interval+'s';
-document.getElementById('st_duty_factor').textContent=d.peltier_duty_factor+'%';
+document.getElementById('st_peltier_power').textContent=d.peltier_power.toFixed(1)+'W';
+var autodutyBtn=document.getElementById('st_autoduty');
+autodutyBtn.textContent=d.auto_duty_en?'AN':'AUS';
+autodutyBtn.style.background=d.auto_duty_en?'#e74c3c':'#2ecc71';
+var autodutyFields=document.getElementById('autoduty_fields');
+if(d.auto_duty_en){
+autodutyFields.classList.remove('disabled')}else{
+autodutyFields.classList.add('disabled')}
+document.getElementById('st_autoduty_cycle').textContent=d.auto_duty_cycle+'s';
+document.getElementById('st_autoduty_step').textContent=d.auto_duty_step+'%';
+document.getElementById('st_autoduty_countdown').textContent=d.auto_duty_countdown+'s';
 document.getElementById('st_energy').textContent=d.energy_wh.toFixed(2)+' Wh';
 document.getElementById('st_energy_day').textContent=d.energy_day.toFixed(2)+' Wh';
 document.getElementById('st_energy_week').textContent=d.energy_week.toFixed(2)+' Wh';
@@ -336,6 +359,7 @@ document.getElementById('emergency_status').textContent=d.emergency?'AKTIV':'INA
 document.getElementById('system_time').textContent=d.time_synced?d.time:'Keine Zeit-Sync';
 document.getElementById('build').textContent=d.build;
 document.getElementById('build_graph').textContent=d.build;
+document.getElementById('build_energy').textContent=d.build;
 document.getElementById('build_config').textContent=d.build;
 if(d.heatsink_valid&&d.heatsink>=d.temp_max)document.getElementById('st_heatsink').classList.add('warn');
 else document.getElementById('st_heatsink').classList.remove('warn');
@@ -346,6 +370,10 @@ document.getElementById('cfg_temp_off').value=d.temp_off;
 document.getElementById('cfg_temp_max').value=d.temp_max;
 document.getElementById('cfg_temp_target').value=d.temp_target;
 document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
+document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
+document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
+document.getElementById('cfg_auto_duty_en').checked=d.auto_duty_en;
+document.getElementById('cfg_auto_duty_cycle').value=d.auto_duty_cycle;
 // Load schedule values
 for(var i=0;i<7;i++){
 document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
@@ -359,12 +387,6 @@ document.getElementById('ring_buffer_hours').textContent=hours.toFixed(1);
 }).catch(e=>console.error(e));
 }
 
-function saveAutoDuty(){
-var body='peltier_pwm_auto='+(document.getElementById('cfg_peltier_pwm_auto').checked?1:0);
-fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
-.then(r=>r.json()).then(d=>{showStatus('Auto-Duty gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
-}
-
 function saveConfig(){
 var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&temp_off='+document.getElementById('cfg_temp_off').value
@@ -373,8 +395,11 @@ var body='temp_on='+document.getElementById('cfg_temp_on').value
 +'&data_log_interval='+document.getElementById('cfg_data_log_interval').value
 +'&peltier_pwm_period='+document.getElementById('cfg_peltier_pwm_period').value
 +'&peltier_pwm_duty='+document.getElementById('cfg_peltier_pwm_duty').value
-+'&peltier_pwm_auto='+(document.getElementById('cfg_peltier_pwm_auto').checked?1:0)
-+'&peltier_pwm_interval='+document.getElementById('cfg_peltier_pwm_interval').value;
+if(document.getElementById('cfg_auto_duty_en').checked){
+body+='&auto_duty_en=1&auto_duty_cycle='+document.getElementById('cfg_auto_duty_cycle').value
+}else{
+body+='&auto_duty_en=0'
+}
 for(var i=0;i<7;i++){
 body+='&sched_'+i+'_on='+document.getElementById('sched_'+i+'_on').value*60;
 body+='&sched_'+i+'_off='+document.getElementById('sched_'+i+'_off').value*60;
@@ -393,6 +418,23 @@ fetch('/api/graph/save',{method:'POST'})
 .then(r=>r.json()).then(d=>{showStatus('Graph-Daten in NVS gespeichert!','success')}).catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
+function loadEnergyData(){
+fetch('/api/energy').then(r=>r.json()).then(d=>{
+var tbody=document.getElementById('energy_table_body');
+tbody.innerHTML='';
+if(d.sessions.length===0){
+tbody.innerHTML='<tr><td colspan="9">Keine Sitzungen vorhanden</td></tr>';
+return;
+}
+d.sessions.forEach(function(session){
+var row=document.createElement('tr');
+var autoDutyText = session.auto_duty_enabled ? session.ad_cycle_measured.toFixed(1)+'%' : 'aus';
+row.innerHTML='<td>'+session.datetime+'</td><td>'+session.duration_formatted+'</td><td>'+session.start_temp.toFixed(1)+'°C</td><td>'+session.end_temp.toFixed(1)+'°C</td><td>'+session.min_temp.toFixed(1)+'°C</td><td>'+session.max_temp.toFixed(1)+'°C</td><td>'+session.energy_wh.toFixed(3)+' Wh</td><td>'+session.pwm_period+'s</td><td>'+autoDutyText+'</td>';
+tbody.appendChild(row);
+});
+}).catch(e=>{console.error('Energy data error:',e);document.getElementById('energy_table_body').innerHTML='<tr><td colspan="9">Fehler beim Laden</td></tr>'});
+}
+
 function pollOta(){
 fetch('/api/ota/status').then(r=>r.json()).then(d=>{
 var el=document.getElementById('ota_status');
@@ -403,25 +445,12 @@ else{el.textContent='';el.style.color=''}
 }).catch(e=>{document.getElementById('ota_status').textContent='Verbindung verloren (Neustart?)'});
 }
 
-function showLogs(){
-fetch('/api/logs').then(r=>r.json()).then(d=>{
-var logs=d.logs.join('\n');
-alert(logs||'Keine Logs');
-}).catch(e=>{alert('Fehler: '+e)});
-}
-
 function resetWifi(){
 if(!confirm('Wirklich WiFi-Credentials löschen?\n\nDer ESP32 startet dann in den AP-Modus.\nSie müssen sich neu mit dem WiFi verbinden.'))return;
 document.getElementById('wifi_reset_status').textContent='Reset wird ausgeführt...';
 fetch('/api/wifi/reset',{method:'POST'})
 .then(r=>r.json()).then(d=>{document.getElementById('wifi_reset_status').textContent=d.msg;document.getElementById('wifi_reset_status').style.color='#51cf66'})
 .catch(e=>{document.getElementById('wifi_reset_status').textContent='Fehler: '+e;document.getElementById('wifi_reset_status').style.color='#ff6b6b'});
-}
-
-function saveToNVS(){
-fetch('/api/nvs/save',{method:'POST'})
-.then(r=>r.json()).then(d=>{showStatus(d.msg,'ok')})
-.catch(e=>{showStatus('Fehler: '+e,'error')});
 }
 
 function factoryReset(){
@@ -440,9 +469,6 @@ fetch('/api/reset',{method:'POST'})
 }
 
 function init(){
-fetch('/api/ota/status').then(r=>r.json()).then(d=>{
-document.getElementById('ota_url').value=d.url;
-}).catch(e=>{});
 fetch('/api/status').then(r=>r.json()).then(d=>{
 document.getElementById('cfg_temp_on').value=d.temp_on;
 document.getElementById('cfg_temp_off').value=d.temp_off;
@@ -452,8 +478,8 @@ document.getElementById('cfg_data_log_interval').value=d.data_log_interval;
 document.getElementById('ring_buffer_hours').textContent=d.ring_buffer_hours.toFixed(1);
 document.getElementById('cfg_peltier_pwm_period').value=d.peltier_pwm_period;
 document.getElementById('cfg_peltier_pwm_duty').value=d.peltier_pwm_duty;
-document.getElementById('cfg_peltier_pwm_auto').checked=d.peltier_pwm_auto;
-document.getElementById('cfg_peltier_pwm_interval').value=d.peltier_pwm_interval;
+document.getElementById('cfg_auto_duty_en').checked=d.auto_duty_en;
+document.getElementById('cfg_auto_duty_cycle').value=d.auto_duty_cycle;
 for(var i=0;i<7;i++){
 document.getElementById('sched_'+i+'_on').value=d.sched_on[i];
 document.getElementById('sched_'+i+'_off').value=d.sched_off[i];
@@ -475,21 +501,9 @@ if(e.key==='Enter'){
 var id=input.id;
 if(id.startsWith('cfg_'))saveConfig();
 else if(id.startsWith('sched_'))saveConfig();
-else if(id==='ota_url')saveOtaUrl();
 }
 });
 });
-
-// System Reset Funktion
-function systemReset(){
-if(confirm('ESP32 wirklich neustarten?')){
-fetch('/api/reset',{method:'POST'}).then(r=>r.json()).then(d=>{
-showStatus('ESP32 wird neugestartet...','success');
-}).catch(e=>{
-showStatus('Fehler: '+e,'error');
-});
-}
-}
 
 refresh();
 setInterval(refresh,3000);
@@ -497,7 +511,10 @@ setInterval(function(){
 if(document.getElementById('tab-graph').classList.contains('active')){
 loadGraph();
 }
-},10000);  // Refresh graph every 10 seconds
+if(document.getElementById('tab-energy').classList.contains('active')){
+loadEnergyData();
+}
+},10000);  // Refresh graph and energy every 10 seconds
 }
 
 init();

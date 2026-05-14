@@ -35,11 +35,17 @@ bool peltier_pwm_is_enabled(void);
 
 // ===== Auto-Duty Regelung =====
 
-// Auto-Duty starten
+// Auto-Duty starten/stoppen
 void peltier_autoduty_start(void);
-
-// Auto-Duty stoppen
+void peltier_autoduty_start_with_temp(float temp_indoor);
 void peltier_autoduty_stop(void);
+void peltier_autoduty_update_cycle(uint16_t cycle_seconds);
 
-// Duty-Faktor zurückgeben
-uint8_t peltier_get_duty_factor(void);
+// Auto-Duty Status lesen
+bool peltier_autoduty_is_enabled(void);
+
+// Auto-Duty Werte lesen
+uint8_t peltier_get_autoduty_duty(void);
+uint8_t peltier_get_autoduty_step(void);
+uint16_t peltier_get_autoduty_cycle(void);
+uint16_t peltier_get_autoduty_countdown(void);

@@ -3,10 +3,11 @@
 #include "nvs_config.h"
 #include "config.h"
 #include "esp_log.h"
-#include <math.h>
 #include <stdbool.h>
 #include "driver/gpio.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char *TAG = "peltier";
 static bool s_is_on = false;        // Hardware-Zustand (GPIO)
@@ -19,13 +20,16 @@ static bool s_pwm_enabled = false;
 static uint64_t s_pwm_period_us = 0;  // Wird aus Config geladen
 static uint8_t s_pwm_duty = 0;        // Wird aus Config geladen
 
-// Auto-Duty State Machine
+// Auto-Duty Variablen
+static bool s_autoduty_enabled = false;
 static esp_timer_handle_t s_autoduty_timer = NULL;
-static float s_temp_start = 0.0f;
-static uint8_t s_duty_step = 5;              // Basis-Schrittweite 5%
-static uint8_t s_equal_temp_counter = 0;     // Zähler für "Temperatur gleich"
-static uint8_t s_consecutive_increments = 0; // Aufeinanderfolgende Erhöhungen
-static uint8_t s_consecutive_reductions = 0; // Aufeinanderfolgende Reduzierungen
+static float s_autoduty_temp_ref = 0.0f;  // Temperatur-Referenz am Zyklusstart
+static uint8_t s_autoduty_duty = 0;       // Aktueller Duty-Wert (0-100%)
+static uint8_t s_autoduty_step = 6;       // Step-Wert (wird auf 1 oder 6 gesetzt)
+static uint8_t s_autoduty_constant_counter = 0;  // Zähler für konstante Temperatur (2 Zyklen)
+static uint64_t s_autoduty_cycle_us = 0;  // Zyklusdauer in Mikrosekunden
+static int64_t s_autoduty_last_callback_us = 0;  // Zeitpunkt des letzten Callbacks
+static uint32_t s_autoduty_callback_count = 0;  // Callback-Zähler für Test
 
 // PWM Timer Callback: GPIO ein
 static void IRAM_ATTR pwm_on_callback(void* arg) {
@@ -37,11 +41,6 @@ static void IRAM_ATTR pwm_on_callback(void* arg) {
 
     gpio_set_level(GPIO_PELTIER, 1);
     s_is_on = true;
-
-    // Konfiguration neu laden (für Auto-Duty Updates)
-    app_config_t *cfg = nvs_config_get();
-    s_pwm_period_us = cfg->peltier_pwm_period * 1000000;
-    s_pwm_duty = cfg->peltier_pwm_duty;
 
     // Timer für GPIO aus starten
     uint64_t on_time_us = (s_pwm_period_us * s_pwm_duty) / 100;
@@ -55,6 +54,66 @@ static void IRAM_ATTR pwm_on_callback(void* arg) {
 static void IRAM_ATTR pwm_off_callback(void* arg) {
     gpio_set_level(GPIO_PELTIER, 0);
     s_is_on = false;
+}
+
+// Auto-Duty Timer Callback
+static void autoduty_callback(void* arg) {
+    s_autoduty_callback_count++;
+    
+    if (!s_autoduty_enabled) {
+        return;
+    }
+
+    // Zeitpunkt des Callbacks speichern
+    s_autoduty_last_callback_us = esp_timer_get_time();
+
+    ESP_LOGI(TAG, "Auto-Duty callback: duty=%u, step=%u, temp_ref=%.1f", s_autoduty_duty, s_autoduty_step, s_autoduty_temp_ref);
+
+    sensor_data_t sd = sensor_get_data();
+    if (!sd.indoor_valid) {
+        ESP_LOGW(TAG, "Auto-Duty: Indoor sensor invalid, skipping");
+        return;
+    }
+
+    float temp_diff = sd.temp_indoor - s_autoduty_temp_ref;
+
+    ESP_LOGI(TAG, "Auto-Duty: temp_indoor=%.1f, temp_diff=%.2f", sd.temp_indoor, temp_diff);
+
+    // Regellogik
+    if (temp_diff < 0) {
+        // Temperatur sinkt → duty - step, step auf 1 setzen (weniger aggressiv reduzieren)
+        s_autoduty_duty -= s_autoduty_step;
+        s_autoduty_step = 1;  // Auf 1 setzen für sanfte Reduktion
+        s_autoduty_constant_counter = 0;
+        ESP_LOGI(TAG, "Auto-Duty: Temp falling, duty decreased to %u, step=1", s_autoduty_duty);
+    } else if (temp_diff > 0.1f) {
+        // Temperatur steigt → duty + step, step auf 6 setzen, step verdoppeln
+        s_autoduty_constant_counter++;
+        if (s_autoduty_constant_counter >= 2) {
+            s_autoduty_duty += s_autoduty_step;
+            s_autoduty_step = 6;  // Auf 6 setzen für schnellere Kühlung
+            // Step verdoppeln (max 32)
+            if (s_autoduty_step < 32) {
+                s_autoduty_step <<= 1;
+            }
+            s_autoduty_constant_counter = 0;
+            ESP_LOGI(TAG, "Auto-Duty: Temp rising, duty increased to %u, step=%u", s_autoduty_duty, s_autoduty_step);
+        }
+    } else {
+        // Temperatur im Zielbereich (-0.0 bis +0.1°C) → duty konstant halten
+        s_autoduty_constant_counter = 0;
+        ESP_LOGI(TAG, "Auto-Duty: Temp in target range, duty constant at %u", s_autoduty_duty);
+    }
+
+    // Grenzen prüfen (duty: 0-100%)
+    if (s_autoduty_duty > 100) s_autoduty_duty = 100;
+    if (s_autoduty_duty < 1) s_autoduty_duty = 1;  // Untere Grenze hinzugefügt
+
+    // Duty anwenden
+    peltier_set_duty(s_autoduty_duty);
+
+    // Neue Referenz setzen
+    s_autoduty_temp_ref = sd.temp_indoor;
 }
 
 void peltier_init(void) {
@@ -80,6 +139,13 @@ void peltier_init(void) {
     };
     esp_timer_create(&on_timer_args, &s_pwm_timer_on);
     esp_timer_create(&off_timer_args, &s_pwm_timer_off);
+
+    // Auto-Duty Timer erstellen
+    esp_timer_create_args_t autoduty_timer_args = {
+        .callback = &autoduty_callback,
+        .name = "autoduty"
+    };
+    esp_timer_create(&autoduty_timer_args, &s_autoduty_timer);
 
     // PWM-Werte aus Config laden
     app_config_t *cfg = nvs_config_get();
@@ -158,7 +224,7 @@ void peltier_set_duty(uint8_t duty) {
     if (duty < 1) duty = 1;
     if (duty > 100) duty = 100;
     s_pwm_duty = duty;
-    ESP_LOGI(TAG, "PWM duty set to %u%%", duty);
+    ESP_LOGI(TAG, "PWM duty set to %u%% (pwm_enabled=%d, main_state=%d)", duty, s_pwm_enabled, s_main_state);
 }
 
 uint8_t peltier_get_duty(void) {
@@ -171,107 +237,132 @@ bool peltier_pwm_is_enabled(void) {
 
 // ===== Auto-Duty Regelung =====
 
-// Auto-Duty Timer Callback
-static void autoduty_callback(void* arg) {
-    if (!s_pwm_enabled || !nvs_config_get()->peltier_pwm_auto) {
-        return;
-    }
-
-    // Aktuelle Innentemperatur holen
-    sensor_data_t sensor_data = sensor_get_data();
-    float temp_current = sensor_data.temp_indoor;
-
-    if (s_temp_start == 0.0f) {
-        s_temp_start = temp_current;
-        return;
-    }
-
-    float temp_diff = temp_current - s_temp_start;
-
-    // Toleranz 0.1°C
-    if (temp_diff < -0.1f) {
-        // Temperatur sinkt → Duty reduzieren
-        if (s_pwm_duty > 5) {
-            s_pwm_duty -= s_duty_step;
-            s_consecutive_reductions++;
-            s_consecutive_increments = 0;
-            s_equal_temp_counter = 0;
-            ESP_LOGI(TAG, "Auto-Duty: Temp sinks (%.2f -> %.2f), duty reduced to %u%% (step=%u)", s_temp_start, temp_current, s_pwm_duty, s_duty_step);
-            // Duty in NVS-Config aktualisieren (nicht speichern)
-            app_config_t *cfg = nvs_config_get();
-            cfg->peltier_pwm_duty = s_pwm_duty;
-        }
-        // s_temp_start aktualisieren bei signifikanter Änderung
-        s_temp_start = temp_current;
-    } else if (temp_diff > 0.1f) {
-        // Temperatur steigt → Duty erhöhen
-        if (s_pwm_duty < 20) {
-            s_pwm_duty += s_duty_step;
-            s_consecutive_increments++;
-            s_consecutive_reductions = 0;
-            s_equal_temp_counter = 0;
-            ESP_LOGI(TAG, "Auto-Duty: Temp rises (%.2f -> %.2f), duty increased to %u%% (step=%u)", s_temp_start, temp_current, s_pwm_duty, s_duty_step);
-            // Duty in NVS-Config aktualisieren (nicht speichern)
-            app_config_t *cfg = nvs_config_get();
-            cfg->peltier_pwm_duty = s_pwm_duty;
-        }
-        // s_temp_start aktualisieren bei signifikanter Änderung
-        s_temp_start = temp_current;
-    } else {
-        ESP_LOGI(TAG, "Auto-Duty: Temp equal (diff=%.2f), counter=%d", temp_diff, s_equal_temp_counter);
-        if (s_equal_temp_counter >= 2) {
-            // 2x gleich → Duty erhöhen
-            if (s_pwm_duty < 20) {
-                s_pwm_duty += s_duty_step;
-                s_consecutive_increments++;
-                s_equal_temp_counter = 0;
-                ESP_LOGI(TAG, "Auto-Duty: Temp stable 2x, duty increased to %u%%", s_pwm_duty);
-                // Duty in NVS-Config aktualisieren (nicht speichern)
-                app_config_t *cfg = nvs_config_get();
-                cfg->peltier_pwm_duty = s_pwm_duty;
-            } else {
-                ESP_LOGI(TAG, "Auto-Duty: Duty already at max (%u%%)", s_pwm_duty);
-            }
-        } else {
-            // Stabil → Schrittweite zurück zu Basis
-            s_duty_step = 5;
-            s_consecutive_increments = 0;
-            s_consecutive_reductions = 0;
-        }
-    }
-
-    // Adaptive Schrittweite
-    if (s_consecutive_increments >= 2) s_duty_step = 7;
-    if (s_consecutive_increments >= 4) s_duty_step = 10;
-    if (s_consecutive_reductions >= 2) s_duty_step = 7;
-    if (s_consecutive_reductions >= 4) s_duty_step = 10;
-    ESP_LOGI(TAG, "Auto-Duty: step=%u, inc=%u, red=%u", s_duty_step, s_consecutive_increments, s_consecutive_reductions);
-}
-
-// Auto-Duty starten
 void peltier_autoduty_start(void) {
+    // Prüfen, ob Auto-Duty bereits läuft
+    if (s_autoduty_enabled) {
+        ESP_LOGW(TAG, "Auto-Duty already enabled, skipping start");
+        return;
+    }
+    
+    sensor_data_t sd = sensor_get_data();
+    
+    s_autoduty_enabled = true;
+    app_config_t *cfg = nvs_config_get();
+    // Aktuellen PWM Duty übernehmen, nicht den gespeicherten AD Duty
+    s_autoduty_duty = peltier_get_duty();
+    s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
+    s_autoduty_step = 6;  // Basis-Step-Wert für schnellere Kühlung
+    s_autoduty_constant_counter = 0;
+    
+    if (sd.indoor_valid) {
+        s_autoduty_temp_ref = sd.temp_indoor;
+    } else {
+        s_autoduty_temp_ref = 20.0f;  // Fallback-Temperatur wenn Sensor invalid
+    }
+    s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
+    s_autoduty_callback_count = 0;  // Zähler zurücksetzen
+
+    // Timer erstellen (falls er gelöscht wurde)
     if (s_autoduty_timer == NULL) {
-        esp_timer_create_args_t timer_args = {
+        esp_timer_create_args_t autoduty_timer_args = {
             .callback = &autoduty_callback,
             .name = "autoduty"
         };
-        esp_timer_create(&timer_args, &s_autoduty_timer);
+        esp_timer_create(&autoduty_timer_args, &s_autoduty_timer);
+        ESP_LOGI(TAG, "Auto-Duty timer created");
     }
 
-    uint32_t interval_us = nvs_config_get()->peltier_pwm_interval * 1000000;
-    esp_timer_start_periodic(s_autoduty_timer, interval_us);
-    ESP_LOGI(TAG, "Auto-Duty started with interval %u seconds", nvs_config_get()->peltier_pwm_interval);
+    peltier_set_duty(s_autoduty_duty);
+    esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
+
+    ESP_LOGI(TAG, "Auto-Duty started: duty=%u%%, cycle=%llu us, temp_ref=%.1f", s_autoduty_duty, s_autoduty_cycle_us, s_autoduty_temp_ref);
 }
 
-// Duty-Faktor zurückgeben
-uint8_t peltier_get_duty_factor(void) {
-    return s_duty_step;
+void peltier_autoduty_start_with_temp(float temp_indoor) {
+    // Prüfen, ob Auto-Duty bereits läuft
+    if (s_autoduty_enabled) {
+        ESP_LOGW(TAG, "Auto-Duty already enabled, skipping start");
+        return;
+    }
+    
+    s_autoduty_enabled = true;
+    app_config_t *cfg = nvs_config_get();
+    // Aktuellen PWM Duty übernehmen, nicht den gespeicherten AD Duty
+    s_autoduty_duty = peltier_get_duty();
+    s_autoduty_cycle_us = cfg->auto_duty_cycle * 1000000;  // Sekunden zu Mikrosekunden
+    s_autoduty_step = 6;  // Basis-Step-Wert für schnellere Kühlung
+    s_autoduty_constant_counter = 0;
+    s_autoduty_temp_ref = temp_indoor;  // Übergebene Temperatur verwenden
+    s_autoduty_last_callback_us = esp_timer_get_time();  // Initialer Zeitpunkt
+    s_autoduty_callback_count = 0;  // Zähler zurücksetzen
+
+    // Timer erstellen (falls er gelöscht wurde)
+    if (s_autoduty_timer == NULL) {
+        esp_timer_create_args_t autoduty_timer_args = {
+            .callback = &autoduty_callback,
+            .name = "autoduty"
+        };
+        esp_timer_create(&autoduty_timer_args, &s_autoduty_timer);
+        ESP_LOGI(TAG, "Auto-Duty timer created");
+    }
+
+    peltier_set_duty(s_autoduty_duty);
+    esp_err_t ret = esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
+    ESP_LOGI(TAG, "Auto-Duty timer start result: %d (0=success)", ret);
+
+    ESP_LOGI(TAG, "Auto-Duty started with temp: duty=%u%%, cycle=%llu us, temp_ref=%.1f", s_autoduty_duty, s_autoduty_cycle_us, s_autoduty_temp_ref);
 }
 
-// Auto-Duty stoppen
 void peltier_autoduty_stop(void) {
-    if (s_autoduty_timer != NULL) {
+    s_autoduty_enabled = false;
+    s_autoduty_last_callback_us = 0;  // Zeitpunkt zurücksetzen
+    esp_timer_stop(s_autoduty_timer);
+    esp_timer_delete(s_autoduty_timer);
+    s_autoduty_timer = NULL;
+    ESP_LOGI(TAG, "Auto-Duty stopped and timer deleted");
+}
+
+void peltier_autoduty_update_cycle(uint16_t cycle_seconds) {
+    s_autoduty_cycle_us = cycle_seconds * 1000000;  // Sekunden zu Mikrosekunden
+    
+    // Timer neu starten, falls Auto-Duty aktiv ist
+    if (s_autoduty_enabled) {
         esp_timer_stop(s_autoduty_timer);
-        ESP_LOGI(TAG, "Auto-Duty stopped");
+        esp_timer_start_periodic(s_autoduty_timer, s_autoduty_cycle_us);
+        ESP_LOGI(TAG, "Auto-Duty cycle updated to %llu us", s_autoduty_cycle_us);
     }
+}
+
+bool peltier_autoduty_is_enabled(void) {
+    return s_autoduty_enabled;
+}
+
+uint8_t peltier_get_autoduty_duty(void) {
+    return s_autoduty_duty;
+}
+
+uint8_t peltier_get_autoduty_step(void) {
+    return s_autoduty_step;
+}
+
+uint16_t peltier_get_autoduty_cycle(void) {
+    return (uint16_t)(s_autoduty_cycle_us / 1000000);  // Mikrosekunden zu Sekunden
+}
+
+uint16_t peltier_get_autoduty_countdown(void) {
+    if (!s_autoduty_enabled) {
+        return 0;
+    }
+
+    // Verbleibende Zeit basierend auf letztem Callback berechnen
+    if (s_autoduty_last_callback_us == 0) {
+        return (uint16_t)(s_autoduty_cycle_us / 1000000);  // Fallback: Zykluszeit
+    }
+
+    int64_t now_us = esp_timer_get_time();
+    int64_t elapsed_us = now_us - s_autoduty_last_callback_us;
+    int64_t remaining_us = s_autoduty_cycle_us - elapsed_us;
+
+    if (remaining_us < 0) remaining_us = 0;
+    return (uint16_t)(remaining_us / 1000000);  // Mikrosekunden zu Sekunden
 }

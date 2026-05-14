@@ -11,8 +11,8 @@ Temperaturgeregelte Kuehlung eines Innenraums mittels Peltier-Element, gesteuert
 
 **Lüftersteuerung:**
 - Der Lüfter ist direkt an den Peltier-Zustand gekoppelt
-- **Peltier AN →** Lüfter startet sofort (min. 50% PWM), PID übernimmt Feinregulierung
-- **Peltier AUS →** Lüfter läuft 30 Sekunden nach (Cooldown bei 30% PWM), dann aus
+- **Peltier AN →** Lüfter startet sofort (min. 40% PWM), PID übernimmt Feinregulierung
+- **Peltier AUS →** Lüfter läuft bei 40% PWM nach, bis Kühlblock unter 30°C fällt
 - Ziel: Vermeidung von Temperaturüberschreitung und Lärmreduktion (unter 70% PWM)
 
 ## Aufgabe
@@ -31,7 +31,7 @@ Ein geschlossener Raum (z.B. Schrank, Gehaeuse) soll aktiv gekuehlt werden. Ein 
 | Komponente | Beschreibung | Anschluss |
 |---|---|---|
 | ESP32-D (ESP32-D0WD-V3) | Mikrocontroller, Dual-Core 240 MHz, 30-Pin Board | - |
-| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET | D16 (GPIO16, Gate) |
+| Peltier-Element (TEC) | Kühlung, gesteuert über N-MOSFET, 12V/3A/36W (Marke unbekannt) | D16 (GPIO16, Gate) |
 | Noctua 4-Pin Lüfter | 25 kHz PWM, Tacho-Signal | PWM: D5 (GPIO5), Tacho: D18 (GPIO18) |
 | DS18B20 #1 | Temperatursensor Innenraum | D4 (GPIO4, OneWire) |
 | DS18B20 #2 | Temperatursensor Kühlblock (heisse Seite) | D4 (GPIO4, OneWire) |
@@ -65,6 +65,20 @@ ESP32 D16 (GPIO16) ---[1kOhm]--- Gate
 Gate-Pulldown: 10kOhm nach GND (sicherer Zustand bei ESP32-Reset)
 ```
 
+### Peltier-Element Spezifikationen
+
+**Aktuelles Peltier-Element:**
+- **Marke:** Unbekannt (keine Markierung sichtbar)
+- **Spannung:** 12V DC
+- **Strom:** 3A (maximal)
+- **Leistung:** 36W (12V × 3A)
+- **Ansteuerung:** N-MOSFET über GPIO16 (PWM-fähig)
+
+**Leistungsberechnung:**
+- Die Statusseite zeigt die aktuelle Leistung basierend auf PWM-Duty
+- 10% PWM = 3.6W, 50% PWM = 18W, 100% PWM = 36W
+- Energie-Tracking berücksichtigt den PWM-Duty-Cycle für korrekte Wh-Berechnung
+
 ### Verdrahtung Noctua Lüfter (PWM + Tacho)
 
 **PWM mit NPN Transistor Inverter (3.3V → 5V):**
@@ -93,31 +107,54 @@ Noctua Tacho (grün) ──┬── ESP32 D18 (GPIO18)
 
 **Hinweis:** Der NPN Transistor invertiert das PWM-Signal, wird im Software automatisch korrigiert.
 
-## Regellogik
+## Regellogik und Sicherheit
 
-### Peltier-Steuerung (digital Ein/Aus)
+### Peltier-Steuerung und Kühlblocksicherheit
 
-- **EIN** wenn Innenraumtemperatur >= `temp_on` (Default: 25°C)
-- **AUS** wenn Innenraumtemperatur <= `temp_off` (Default: 22°C)
+**Temperaturbereich (Innenraum):**
+- **EIN** wenn Innenraumtemperatur >= `temp_on` (Default: 13°C)
+- **AUS** wenn Innenraumtemperatur <= `temp_off` (Default: 11°C)
 - Dazwischen: Hysterese-Band, Zustand bleibt unveraendert
-- **Notabschaltung** wenn Kuehlblock >= `temp_max` (Default: 60°C)
 
-### Luefter-PID-Regelung
+**Kühlblocksicherheit:**
+- **Notabschaltung** wenn Kuehlblock >= `temp_max` (Default: 52°C)
+- Bei Ueberschreitung: sofortige Peltier-Abschaltung + Luefter 100%
+- Kuehlblock-Temperatur wird alle 2s geprueft
 
-Der Lüfter ist direkt an den Peltier-Zustand gekoppelt:
+**Sicherheitsmechanismen:**
+- Peltier-GPIO hat Hardware-Pulldown → AUS bei ESP32-Reset/Brownout
+- Bei Sensorfehlern: Vorheriger gueltiger Wert wird behalten
+- Bei 1 Sensorfehler: Notmodus aktiv (Luefter 100%, Peltier AUS) - sofortige Reaktion
+- **Cooldown**: Lüfter läuft bei 40% weiter bis Kühlblocktemp <= 30°C (nicht zeitlich begrenzt)
+- **Manuelle Notabschaltung**: 3x kurzer Druck auf BOOT/RESET Button innerhalb von 2 Sekunden → Lüfter 100% (nur wenn Peltier AN ist)
+- Notmodus wird bei naechster gueltigen Messung automatisch deaktiviert
+- Scheduler inaktiv → Peltier sofort AUS, Lüfter Cooldown bis 30°C
 
-**Wenn Peltier AN:**
-- Lüfter startet sofort mit min. 50% PWM
-- PID-Regelung übernimmt Feinregulierung (Ziel: Kuehlblock-Temperatur)
-- Minimale Drehzahl: 50% PWM (wenn Kuehlblock unter Ziel)
-- Maximale Drehzahl: 100% PWM (bei hoher Uebertemperatur)
+### Auto-Duty Regelung (PWM)
 
-**Wenn Peltier AUS:**
-- Lüfter läuft 30 Sekunden nach (Cooldown) bei 30% PWM
-- Nach Cooldown: Lüfter aus
-- Ziel: Restwärme abführen
+Automatische Anpassung des PWM Duty-Cycles basierend auf Temperaturverlauf.
 
-PID-Startwerte: Kp=2.0, Ki=0.5, Kd=1.0 — ueber Webinterface live anpassbar.
+**Voraussetzung:** Nur aktiv, wenn Peltier aktiv ist.
+
+**Konfiguration (Webinterface):**
+- Hauptschalter unter Konfig, wird gleich im NVS gespeichert
+- Zyklus auf Konfigseite (default 5s), per Return und Speicherbutton in NVS
+- Duty wird beim Aktivieren vom aktuellen PWM Duty übernommen (keine separate Konfiguration)
+
+**Status-Anzeige:**
+- Hauptschalterzustand bunt dargestellt
+- PWM Zyklus
+- PWM Duty%
+- PWM Duty Step %
+- Aktuelle Leistung in Watt (basierend auf PWM Duty und PELTIER_POWER)
+
+**Regellogik:**
+- Toleranz: 0.1°C (Temperatur muss sich um mindestens 0.1°C ändern)
+- Zyklus: 3s (schnellere Reaktion auf Temperaturänderungen)
+- Innen temp sinkt im Zyklus (diff < -0.1°C) → duty - step, step auf 1 setzen (weniger aggressiv reduzieren, energiesparend)
+- Innen temp steigt oder gleich (diff >= -0.1°C) für 2 Zyklen → duty + step, step auf 6 setzen, step verdoppeln (6→12→24, max 32%)
+- Startwert Step: 6%
+- Startwert Duty: Aktueller PWM Duty beim Aktivieren
 
 ## Software-Architektur
 
@@ -126,7 +163,7 @@ PID-Startwerte: Kp=2.0, Ki=0.5, Kd=1.0 — ueber Webinterface live anpassbar.
 | Task | Prioritaet | Intervall | Funktion |
 |---|---|---|---|
 | `sensor` | 5 | 2s | Liest beide DS18B20 per OneWire |
-| `fan_pid` | 4 | 1s | PID-Regelung Luefter + Peltier Ein/Aus |
+| `fan` | 4 | 1s | Luefter-Steuerung + Peltier Ein/Aus |
 | `scheduler` | 3 | 30s | Prueft Zeitfenster (SNTP/CET) |
 | `reset_btn` | 5 | 100ms | Ueberwacht BOOT-Button für WiFi-Reset |
 | `dns_captive` | 2 | - | DNS-Redirect im AP-Modus |
@@ -145,19 +182,49 @@ main/
 ├── webserver.c/.h  HTTP-Server + Captive-DNS
 ├── scheduler.c/.h  Zeitfenster-Pruefung (SNTP, CET/CEST)
 ├── nvs_config.c/.h NVS-Persistenz aller Einstellungen
+├── energy_tracker.c/.h  Peltier-Kühlsitzungen Tracking (Ringbuffer, NVS)
+├── data_logger.c/.h  Temperatur-Logger mit Ringbuffer
+├── task_monitor.c/.h  FreeRTOS Task-Status
+├── ota.c/.h       Over-The-Air Firmware Updates
 ├── index.html      Monitor-Webseite (Dark Theme, Live-Refresh)
 └── captive.html    WiFi-Setup Captive Portal
 ```
+
+### Energy Tracker Module
+
+**Funktion:** Verfolgt Peltier-Kühlsitzungen mit detaillierten Verbrauchsdaten
+
+**Features:**
+- Ringbuffer mit 50 Sitzungen (neueste zuerst)
+- Persistente Speicherung in NVS
+- Session-Tracking bei Hauptschalter-Wechsel
+- Energieberechnung mit PWM-Duty-Cycle
+- API-Endpunkt `/api/energy` für Webinterface
+
+**Session-Definition:**
+- **Start:** Peltier Hauptschalter wird AN
+- **Ende:** Peltier Hauptschalter wird AUS
+- **Daten:** Dauer, Start/End-Temperatur, Energieverbrauch (Wh)
+
+**NVS-Speicherung:**
+- `energy_sessions`: Blob mit 50 energy_session_t Strukturen
+- `energy_index`: uint8_t mit aktuellem Schreibindex (0-49)
+- Zirkuläres Überschreiben bei vollem Buffer
 
 ## Webinterface
 
 ### Monitor-Seite (STA-Modus)
 
-- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status
-- Einstellbar: Temperatur-Schwellen (on/off/max/target), PID-Parameter, Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
+- Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty, PWM Step, Aktuelle Leistung (W)
+- Einstellbar: Temperatur-Schwellen (on/off/max), PWM-Parameter (Period, Duty), Auto-Duty (Hauptschalter, Zyklus), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
+- Energiedaten: Gesamt, Heute, Woche, Monat (Wh) mit Kostenberechnung (€)
+- **Verbrauchsdaten-Tab**: Detaillierte Tabelle mit 50 Peltier-Kühlsitzungen
+  - Dauer, Start/End-Temperatur, Energieverbrauch pro Sitzung
+  - Sortiert nach Datum (neueste zuerst)
+  - Automatisches Refresh alle 10 Sekunden
 - WiFi-Reset: Rot markierter Button zum Löschen der WiFi-Credentials und Starten des AP-Modus
 - Auto-Refresh alle 3 Sekunden
-- REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`
+- REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`, `GET /api/energy`
 
 ### Captive Portal (AP-Modus)
 
@@ -181,6 +248,33 @@ Der ESP32 bietet zwei Möglichkeiten zum Zurücksetzen der WiFi-Credentials:
 - Bestätigungsdialog vor dem Reset
 - Gleiche Funktion wie physischer Button
 
+## OTA (Over-The-Air Update)
+
+Die OTA-Funktion ermoeglicht Firmware-Updates ueber HTTP ohne physischen Zugriff auf den ESP32.
+
+**Funktionsweise:**
+- Firmware wird von konfigurierbarer URL heruntergeladen (Default: `http://192.168.1.191:8080/firmware.bin`)
+- Download in 4KB-Blöcken in die zweite OTA-Partition
+- Nach Download: Reboot und Boot-Partition umschalten
+- A/B-Update mit Rollback-Schutz (zwei Partitionen: ota_0, ota_1)
+
+**Self-Check nach Update:**
+- Nach erfolgreichen Boot: 30 Sekunden Wartezeit
+- **Self-Check 1:** Sensoren verfügbar (3 Wiederholungen à 2 Sekunden)
+- **Self-Check 2:** WiFi verbunden (optional, nur Warnung)
+- Bei Erfolg: Firmware als gueltig markieren
+- Bei Fehler: Automatischer Rollback zur vorherigen Firmware
+
+**Parameter:**
+- HTTP-Timeout: 30 Sekunden
+- Buffer-Größe: 4096 Bytes
+- OTA-URL konfigurierbar über Webinterface (in NVS gespeichert)
+
+**Webinterface:**
+- OTA-URL konfigurierbar im Settings-Tab
+- Status-Anzeige: IDLE, IN_PROGRESS, SUCCESS, FAILED
+- Fehlermeldung bei Fehlschlag
+
 ## Konfiguration (NVS)
 
 Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert und ueberleben Neustarts:
@@ -192,33 +286,106 @@ Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert un
 | Peltier AN | `temp_on` | 25.0°C | Einschalt-Schwelle Innenraum |
 | Peltier AUS | `temp_off` | 22.0°C | Ausschalt-Schwelle Innenraum |
 | Kuehlblock Max | `temp_max` | 60.0°C | Sicherheits-Cutoff |
-| Kuehlblock Ziel | `temp_tgt` | 45.0°C | PID-Sollwert |
-| PID Kp | `pid_kp` | 2.0 | Proportional-Anteil |
-| PID Ki | `pid_ki` | 0.5 | Integral-Anteil |
-| PID Kd | `pid_kd` | 1.0 | Differential-Anteil |
-| Mo-Fr AN | `sch_mo_on` ... `sch_do_on` | 11:00 | Betriebsstart Mo-Do (Stunden 0-23) |
-| Mo-Fr AUS | `sch_mo_off` ... `sch_do_off` | 19:00 | Betriebsende Mo-Do |
-| Fr-So AN | `sch_fr_on` ... `sch_so_on` | 11:00 | Betriebsstart Fr-So |
-| Fr-So AUS | `sch_fr_off` ... `sch_so_off` | 21:00 | Betriebsende Fr-So |
+| Kuehlblock Target | `temp_target` | 45.0°C | Zieltemperatur für Lüfter-PID |
+| PWM Period | `peltier_pwm_period` | 10s | PWM Period (Dauer eines Zyklus) |
+| PWM Duty | `peltier_pwm_duty` | 10% | PWM Duty Cycle (5-20%) |
+| Auto-Duty Hauptschalter | `auto_duty_en` | true | Auto-Duty Regelung aktivieren |
+| Auto-Duty Zyklus | `auto_duty_cycle` | 5s | Zyklusdauer für Auto-Duty Regelung |
+| OTA URL | `ota_url` | http://192.168.1.191:8080/firmware.bin | Firmware-Update Server URL |
+| Daten-Log Intervall | `data_log_interval` | 10s | Intervall für Daten-Logger |
+| Mo-Fr AN | `sched_mo_on` ... `sched_do_on` | 11:00 | Betriebsstart Mo-Do (Stunden 0-23) |
+| Mo-Fr AUS | `sched_mo_off` ... `sched_do_off` | 19:00 | Betriebsende Mo-Do |
+| Fr-So AN | `sched_fr_on` ... `sched_so_on` | 11:00 | Betriebsstart Fr-So |
+| Fr-So AUS | `sched_fr_off` ... `sched_so_off` | 21:00 | Betriebsende Fr-So |
+| Energie Gesamt | `energy_wh` | 0.0 Wh | Gesamtenergieverbrauch |
+| Energie Heute | `energy_day` | 0.0 Wh | Tagesenergieverbrauch |
+| Energie Woche | `energy_week` | 0.0 Wh | Wochenenergieverbrauch |
+| Energie Monat | `energy_month` | 0.0 Wh | Monatsenergieverbrauch |
+| Letztes Datum | `last_date` | 0 | Zuletzt gespeichertes Datum (YYYYMMDD) |
+| Letzte Woche | `last_week` | 0 | Zuletzt gespeicherte Kalenderwoche (0-53) |
+| Letzter Monat | `last_month` | 0 | Zuletzt gespeicherter Monat (0-11) |
+| Energy Sessions | `energy_sessions` | (Blob) | 50 Peltier-Kühlsitzungen (Ringbuffer) |
+| Energy Index | `energy_index` | 0 | Schreibindex für Ringbuffer (0-49) |
+
+## NVS-Schreibzugriffe
+
+Der Non-Volatile Storage (NVS) wird bei folgenden Aktionen beschrieben:
+
+**Hauptkonfiguration (nvs_config_save):**
+- Konfigurationsänderungen über Webinterface
+- WiFi-Setup (SSID/Passwort)
+- Factory Reset (Defaults speichern)
+
+**Energiedaten (nvs_config_save_energy):**
+- Nur wenn Peltier von AN → AUS wechselt
+- Nur wenn Energiedifferenz > 0.1 Wh
+- Reduziert NVS-Schreibzyklen für Flash-Lebensdauer
+
+**OTA-URL:**
+- Änderung der OTA-URL über Webinterface
+
+**Graph-Daten (data_logger_save_to_nvs):**
+- Bei Scheduler-Deaktivierung (720 Datenpunkte als Blob)
+
+**Optimierung:**
+- Energiedaten werden nur beim Peltier-Ausschalten gespeichert
+- Schwellenwert von 0.1 Wh reduziert Schreibzugriffe um Faktor 10
 
 ## Build & Flash
 
-Voraussetzung: ESP-IDF 5.x installiert und `IDF_PATH` gesetzt.
+### ESP-IDF Umgebung aktivieren (Windows)
 
-```bash
-cd esp32_cooler
-idf.py set-target esp32
-idf.py build
-idf.py -p COMx flash monitor
-```
+**Wichtig:** Die ESP-IDF Umgebung muss vor jedem Build aktiviert werden!
 
-## PID-Tuning (Inbetriebnahme)
+1. **ESP-IDF Installation prüfen:**
+   ```bash
+   # ESP-IDF Konfiguration anzeigen
+   Get-Content C:\Users\win4g\.espressif\idf-env.json
+   ```
 
-1. Webinterface oeffnen, Ki=0, Kd=0 setzen
-2. Kp erhoehen bis Luefter bei ~5°C ueber Zieltemp auf ~80% laeuft
-3. Ki langsam erhoehen (0.1-Schritte) bis stationaere Abweichung verschwindet
-4. Falls Luefter pendelt: Kd erhoehen (0.5-Schritte) zur Daempfung
-5. Alle Werte werden sofort in NVS persistiert
+2. **Umgebung aktivieren (einmal pro Terminal-Sitzung):**
+   ```bash
+   # ESP-IDF 6.1 (verwendet in diesem Projekt)
+   cmd /c "C:\Users\win4g\Downloads\GitHub\VS-Projekte\CascadeProjects\esp-idf\export.bat"
+   
+   # Alternativ: ESP-IDF 6.0
+   cmd /c "C:\esp\v6.0\esp-idf\export.bat"
+   ```
+
+3. **Build durchführen:**
+   ```bash
+   cd esp32_cooler
+   idf.py set-target esp32
+   idf.py build
+   ```
+
+4. **Flash (COM-Port automatisch erkennen):**
+   ```bash
+   # ESP32 auf COM11 erkannt
+   idf.py -p COM11 flash monitor
+   
+   # Oder Port automatisch finden
+   python -m esptool --chip esp32 flash-id
+   ```
+
+### Build Workflow (empfohlen)
+
+1. BUILD_NUMBER in `main/config.h` um 1 erhöhen
+2. ESP-IDF Umgebung aktivieren (siehe oben)
+3. `idf.py build`
+4. `idf.py -p COMx flash`
+5. Git commit & push
+
+### Troubleshooting
+
+**Problem:** `idf.py: command not found`
+- Lösung: ESP-IDF Umgebung aktivieren (siehe Schritt 2)
+
+**Problem:** `Could not open COM3, the port is busy or doesn't exist`
+- Lösung: Richtigen COM-Port finden mit `python -m esptool --chip esp32 flash-id`
+
+**Problem:** Build nach ESP-IDF Update fehlerhaft
+- Lösung: `idf.py fullclean` dann neu bauen
 
 ## RPM-Kalibrierung
 
@@ -227,7 +394,7 @@ Die RPM-Messung des Luefters kann kalibriert werden, falls die angezeigten Werte
 **Voraussetzung:** Tacho muss korrekt angeschlossen sein (direkt mit GPIO18, kein Spannungsteiler, GND gemeinsam).
 
 Kalibrierung:
-1. Luefter auf 100% PWM setzen (z.B. PID Kp erhoehen)
+1. Luefter auf 100% PWM setzen (z.B. über Webinterface)
 2. RPM-Wert im Serial Monitor ablesen (`interrupts > 0` pruefen)
 3. Kalibrierungsfaktor berechnen: `Faktor = Ziel-RPM / Gemessene-RPM`
 4. Faktor in `config.h` anpassen: `#define RPM_CALIBRATION_FACTOR X.Xf`
@@ -235,15 +402,25 @@ Kalibrierung:
 
 Standard: `RPM_CALIBRATION_FACTOR = 1.0f` (nicht kalibriert)
 
-## Sicherheit
+## Todo / Zukünftige Erweiterungen
 
-- Peltier-GPIO hat Hardware-Pulldown → AUS bei ESP32-Reset/Brownout
-- Kuehlblock-Temperatur wird alle 2s geprueft
-- Bei Ueberschreitung von `temp_max`: sofortige Peltier-Abschaltung + Luefter 100%
-- Bei Sensorfehlern: Vorheriger gueltiger Wert wird behalten
-- Bei 5 aufeinanderfolgenden Sensorfehlern: Notmodus aktiv (Luefter 100%, Peltier AUS)
-- Notmodus wird bei naechster gueltigen Messung automatisch deaktiviert
-- Scheduler inaktiv → alles aus
+### In Planung
+- **SD-Karten Integration:** Langzeit-Archivierung von Energie-Verbrauchsdaten
+  - Hardware: SPI-Modus mit GPIO23(MOSI), GPIO19(MISO), GPIO14(CLK), GPIO22(CS)
+  - Software: CSV-Dateien pro Tag, Web-Download, Auto-Cleanup
+  - Integration: Parallel zu NVS, Fallback wenn SD-Karte fehlt
+
+- **iPhone Kompatibilität:** Verbesserung des Webinterfaces für iOS-Geräte
+  - Touch-Optimierung für mobile Safari
+  - Viewport-Meta-Tag für korrekte Darstellung
+  - iOS-spezifische CSS-Anpassungen
+
+### Features
+- [ ] SD-Karten-Logger implementieren
+- [ ] iPhone/iOS Kompatibilität verbessern
+- [ ] Energie-Export-Funktionen (CSV, JSON)
+- [ ] Erweiterte Statistiken und Auswertungen
+- [ ] Push-Benachrichtigungen bei Warnungen
 
 ## Lizenz
 

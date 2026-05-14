@@ -14,22 +14,32 @@ static void load_defaults(void) {
     s_config.temp_peltier_off = TEMP_PELTIER_OFF_DEFAULT;
     s_config.temp_heatsink_max = TEMP_HEATSINK_MAX;
     s_config.temp_heatsink_target = TEMP_HEATSINK_TARGET;
-    s_config.data_log_interval = 10;  // Default: 10 seconds
+    s_config.data_log_interval = 300;  // Default: 300 seconds (5 min)
     s_config.energy_wh = 0.0f;  // Default: 0 Wh
     s_config.energy_day = 0.0f;  // Default: 0 Wh
     s_config.energy_week = 0.0f;
     s_config.energy_month = 0.0f;
     s_config.last_date = 0;
+    s_config.last_week = 0;
+    s_config.last_month = 0;
     s_config.peltier_pwm_period = PELTIER_PWM_PERIOD_DEFAULT;
     s_config.peltier_pwm_duty = PELTIER_PWM_DUTY_DEFAULT;
-    s_config.peltier_pwm_auto = true;  // Auto-Duty standardmäßig aktiviert (verbesserte Logik)
-    s_config.peltier_pwm_interval = PELTIER_PWM_INTERVAL_DEFAULT;  // 1 Minute
-    
-    // Default schedule: Alle Tage 8-23
+    s_config.auto_duty_en = AUTO_DUTY_EN_DEFAULT;
+    s_config.auto_duty_duty = AUTO_DUTY_DUTY_DEFAULT;
+    s_config.auto_duty_cycle = AUTO_DUTY_CYCLE_DEFAULT;
+
+    // Default schedule: Alle Tage AN 11:00, AUS variabel
     for (int i = 0; i < 7; i++) {
-        s_config.sched_on[i] = 8 * 60;   // 8:00
-        s_config.sched_off[i] = 23 * 60;  // 23:00
+        s_config.sched_on[i] = 11 * 60;  // 11:00
     }
+    // Mo-Do+So: 19:00, Fr+Sa: 23:00
+    s_config.sched_off[0] = 19 * 60;  // Mo
+    s_config.sched_off[1] = 19 * 60;  // Di
+    s_config.sched_off[2] = 19 * 60;  // Mi
+    s_config.sched_off[3] = 19 * 60;  // Do
+    s_config.sched_off[4] = 23 * 60;  // Fr
+    s_config.sched_off[5] = 23 * 60;  // Sa
+    s_config.sched_off[6] = 19 * 60;  // So
 }
 
 void nvs_config_init(void) {
@@ -82,7 +92,9 @@ void nvs_config_init(void) {
             s_config.last_date = 0;
         ESP_LOGI(TAG, "Loaded from NVS: day=%.2f Wh, week=%.2f Wh, month=%.2f Wh",
                  s_config.energy_day, s_config.energy_week, s_config.energy_month);
-
+        
+        // u8 wird später deklariert (Zeile 125)
+        
         uint16_t u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_MO_ON, &u16) == ESP_OK) s_config.sched_on[0] = u16;
         if (nvs_get_u16(handle, NVS_KEY_SCHED_MO_OFF, &u16) == ESP_OK) s_config.sched_off[0] = u16;
@@ -117,22 +129,43 @@ void nvs_config_init(void) {
         } else {
             ESP_LOGI(TAG, "peltier_pwm_duty not found in NVS, using default: %u", s_config.peltier_pwm_duty);
         }
-        uint8_t auto_val;
-        if (nvs_get_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, &auto_val) == ESP_OK) {
-            s_config.peltier_pwm_auto = auto_val;
-            ESP_LOGI(TAG, "Loaded peltier_pwm_auto from NVS: %d", s_config.peltier_pwm_auto);
+        
+        // Kalenderwoche und Monat für Energie-Perioden
+        if (nvs_get_u8(handle, NVS_KEY_LAST_WEEK, &u8) == ESP_OK)
+            s_config.last_week = u8;
+        else
+            s_config.last_week = 0;
+        if (nvs_get_u8(handle, NVS_KEY_LAST_MONTH, &u8) == ESP_OK)
+            s_config.last_month = u8;
+        else
+            s_config.last_month = 0;
+        ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u",
+                 s_config.peltier_pwm_period, s_config.peltier_pwm_duty);
+
+        // Auto-Duty Parameter laden
+        uint8_t auto_duty_en_u8;
+        if (nvs_get_u8(handle, NVS_KEY_AUTO_DUTY_EN, &auto_duty_en_u8) == ESP_OK) {
+            s_config.auto_duty_en = auto_duty_en_u8 ? true : false;
+            ESP_LOGI(TAG, "Loaded auto_duty_en from NVS: %s", s_config.auto_duty_en ? "true" : "false");
         } else {
-            ESP_LOGI(TAG, "peltier_pwm_auto not found in NVS, using default: %d", s_config.peltier_pwm_auto);
+            ESP_LOGI(TAG, "auto_duty_en not found in NVS, using default: %s", s_config.auto_duty_en ? "true" : "false");
         }
-        uint16_t interval_val;
-        if (nvs_get_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, &interval_val) == ESP_OK) {
-            s_config.peltier_pwm_interval = interval_val;
-            ESP_LOGI(TAG, "Loaded peltier_pwm_interval from NVS: %u", s_config.peltier_pwm_interval);
+        if (nvs_get_u8(handle, NVS_KEY_AUTO_DUTY_DUTY, &u8) == ESP_OK) {
+            s_config.auto_duty_duty = u8;
+            ESP_LOGI(TAG, "Loaded auto_duty_duty from NVS: %u", s_config.auto_duty_duty);
         } else {
-            ESP_LOGI(TAG, "peltier_pwm_interval not found in NVS, using default: %u", s_config.peltier_pwm_interval);
+            ESP_LOGI(TAG, "auto_duty_duty not found in NVS, using default: %u", s_config.auto_duty_duty);
         }
-        ESP_LOGI(TAG, "Loaded from NVS: pwm_period=%u, pwm_duty=%u, pwm_auto=%d, pwm_interval=%u",
-                 s_config.peltier_pwm_period, s_config.peltier_pwm_duty, s_config.peltier_pwm_auto, s_config.peltier_pwm_interval);
+        if (nvs_get_u16(handle, NVS_KEY_AUTO_DUTY_CYCLE, &u16) == ESP_OK) {
+            s_config.auto_duty_cycle = u16;
+            ESP_LOGI(TAG, "Loaded auto_duty_cycle from NVS: %u", s_config.auto_duty_cycle);
+        } else {
+            ESP_LOGI(TAG, "auto_duty_cycle not found in NVS, using default: %u", s_config.auto_duty_cycle);
+            esp_err_t err = nvs_get_u16(handle, NVS_KEY_AUTO_DUTY_CYCLE, &u16);
+            ESP_LOGI(TAG, "Direct read attempt result: %d", err);
+        }
+        ESP_LOGI(TAG, "Loaded from NVS: auto_duty_en=%s, auto_duty_duty=%u, auto_duty_cycle=%u",
+                 s_config.auto_duty_en ? "true" : "false", s_config.auto_duty_duty, s_config.auto_duty_cycle);
 
         nvs_close(handle);
         ESP_LOGI(TAG, "Config loaded from NVS");
@@ -170,6 +203,8 @@ void nvs_config_save(void) {
     nvs_set_i32(handle, NVS_KEY_ENERGY_WEEK, (int32_t)(s_config.energy_week * 100));
     nvs_set_i32(handle, NVS_KEY_ENERGY_MONTH, (int32_t)(s_config.energy_month * 100));
     nvs_set_u32(handle, NVS_KEY_LAST_DATE, s_config.last_date);
+    nvs_set_u8(handle, NVS_KEY_LAST_WEEK, s_config.last_week);
+    nvs_set_u8(handle, NVS_KEY_LAST_MONTH, s_config.last_month);
 
     nvs_set_u16(handle, NVS_KEY_SCHED_MO_ON, s_config.sched_on[0]);
     nvs_set_u16(handle, NVS_KEY_SCHED_MO_OFF, s_config.sched_off[0]);
@@ -191,12 +226,17 @@ ESP_LOGI(TAG, "Saving data_log_interval to NVS: %u", s_config.data_log_interval)
     ESP_LOGI(TAG, "Saving peltier_pwm_period to NVS: %u", s_config.peltier_pwm_period);
     nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_DUTY, s_config.peltier_pwm_duty);
     ESP_LOGI(TAG, "Saving peltier_pwm_duty to NVS: %u", s_config.peltier_pwm_duty);
-    nvs_set_u8(handle, NVS_KEY_PELTIER_PWM_AUTO, s_config.peltier_pwm_auto);
-    ESP_LOGI(TAG, "Saving peltier_pwm_auto to NVS: %d", s_config.peltier_pwm_auto);
-    nvs_set_u16(handle, NVS_KEY_PELTIER_PWM_INTERVAL, s_config.peltier_pwm_interval);
-    ESP_LOGI(TAG, "Saving peltier_pwm_interval to NVS: %u", s_config.peltier_pwm_interval);
 
-    nvs_commit(handle);
+    // Auto-Duty Parameter speichern
+    nvs_set_u8(handle, NVS_KEY_AUTO_DUTY_EN, s_config.auto_duty_en ? 1 : 0);
+    ESP_LOGI(TAG, "Saving auto_duty_en to NVS: %s", s_config.auto_duty_en ? "true" : "false");
+    nvs_set_u8(handle, NVS_KEY_AUTO_DUTY_DUTY, s_config.auto_duty_duty);
+    ESP_LOGI(TAG, "Saving auto_duty_duty to NVS: %u", s_config.auto_duty_duty);
+    nvs_set_u16(handle, NVS_KEY_AUTO_DUTY_CYCLE, s_config.auto_duty_cycle);
+    ESP_LOGI(TAG, "Saving auto_duty_cycle to NVS: %u", s_config.auto_duty_cycle);
+
+    esp_err_t err = nvs_commit(handle);
+    ESP_LOGI(TAG, "NVS commit result: %d (0=success)", err);
     nvs_close(handle);
     ESP_LOGI(TAG, "Config saved to NVS");
 }
@@ -240,10 +280,21 @@ void nvs_config_save_energy(void) {
     nvs_set_i32(handle, NVS_KEY_ENERGY_WEEK, (int32_t)(s_config.energy_week * 100));
     nvs_set_i32(handle, NVS_KEY_ENERGY_MONTH, (int32_t)(s_config.energy_month * 100));
     nvs_set_u32(handle, NVS_KEY_LAST_DATE, s_config.last_date);
+    nvs_set_u8(handle, NVS_KEY_LAST_WEEK, s_config.last_week);
+    nvs_set_u8(handle, NVS_KEY_LAST_MONTH, s_config.last_month);
     nvs_commit(handle);
     nvs_close(handle);
 
     ESP_LOGI(TAG, "Energy data saved to NVS");
+}
+
+void nvs_config_reset_energy(void) {
+    s_config.energy_wh = 0.0f;
+    s_config.energy_day = 0.0f;
+    s_config.energy_week = 0.0f;
+    s_config.energy_month = 0.0f;
+    ESP_LOGI(TAG, "Energy values reset to 0");
+    nvs_config_save_energy();
 }
 
 void nvs_config_factory_reset(void) {

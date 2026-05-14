@@ -8,6 +8,8 @@
 #include "wifi.h"
 #include "ota.h"
 #include "data_logger.h"
+#include "task_monitor.h"
+#include "energy_tracker.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -19,25 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Statische Variablen für Trend-Berechnung (3 Messwerte)
-static float s_indoor_history[3] = {0};
-static float s_heatsink_history[3] = {0};
-static float s_fan_duty_history[3] = {0};
-static int s_history_index = 0;
-static bool s_history_filled = false;
-
-// Historie für Symbolreihen (20 Werte)
-static float s_indoor_series[20] = {0};
-static float s_heatsink_series[20] = {0};
-static uint8_t s_fan_duty_series[20] = {0};
-static int s_series_index = 0;
-static bool s_series_filled = false;
-
-// PWM Duty Historie für Symbolreihe (20 Werte)
-static uint8_t s_pwm_duty_history[20] = {0};
-static int s_pwm_duty_history_index = 0;
-static bool s_pwm_duty_history_filled = false;
-
 static const char *TAG = "webserver";
 static httpd_handle_t s_server = NULL;
 static TaskHandle_t s_dns_task = NULL;
@@ -48,87 +31,11 @@ static char s_log_buffer[LOG_BUFFER_SIZE][256] = {0};
 static int s_log_index = 0;
 static bool s_log_filled = false;
 
-// Custom Log Handler
-static int log_handler(const char *fmt, va_list args) {
-    char log_msg[256];
-    vsnprintf(log_msg, sizeof(log_msg), fmt, args);
-
-    // Tag extrahieren (Format: "TAG (123) message")
-    const char *tag_start = strchr(log_msg, ' ');
-    if (tag_start) {
-        tag_start++; // Skip space
-        const char *tag_end = strchr(tag_start, ' ');
-        if (tag_end) {
-            char tag[32] = {0};
-            strncpy(tag, tag_start, tag_end - tag_start);
-            const char *msg = tag_end + 1;
-
-            // In Ringpuffer schreiben
-            snprintf(s_log_buffer[s_log_index], sizeof(s_log_buffer[s_log_index]),
-                     "[%s] %s", tag, msg);
-            s_log_index = (s_log_index + 1) % LOG_BUFFER_SIZE;
-            if (s_log_index == 0) s_log_filled = true;
-        }
-    }
-    return 0;
-}
-
 // Embedded HTML files (linked via CMake EMBED_FILES)
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 extern const uint8_t captive_html_start[] asm("_binary_captive_html_start");
 extern const uint8_t captive_html_end[]   asm("_binary_captive_html_end");
-
-// Trend-Berechnung über 3 Messwerte: 1=steigend, -1=fallend, 0=stabil
-static int calculate_trend(float current, float history[], int size, float threshold) {
-if (!s_history_filled) return 0;
-
-// Berechne Durchschnitt der letzten 3 Werte
-float avg = 0;
-for (int i = 0; i < size; i++) {
-avg += history[i];
-}
-avg /= size;
-
-if (current > avg + threshold) return 1;   // Steigend
-if (current < avg - threshold) return -1;  // Fallend
-return 0;                                   // Stabil
-}
-
-// Symbolreihe für PWM Duty generieren (links nach rechts: neu → alt)
-static void generate_pwm_duty_symbol_series(char *buf, int buf_size, int actual_count) {
-    if (actual_count < 2) {
-        snprintf(buf, buf_size, "->");
-        return;
-    }
-    int len = 0;
-    for (int i = 0; i < actual_count && len < buf_size - 1; i++) {
-        uint8_t prev = i < actual_count - 1 ? s_pwm_duty_history[i + 1] : s_pwm_duty_history[i];
-        uint8_t curr = s_pwm_duty_history[i];
-        if (curr > prev) len += snprintf(buf + len, buf_size - len, "^");
-        else if (curr < prev) len += snprintf(buf + len, buf_size - len, "v");
-        else len += snprintf(buf + len, buf_size - len, "-");
-    }
-    buf[len] = '\0';
-}
-
-// Generische Symbolreihe für Float-Werte (links nach rechts: neu → alt)
-static void generate_float_symbol_series(char *buf, int buf_size, float series[], int actual_count, float threshold) {
-    if (actual_count < 2) {
-        snprintf(buf, buf_size, "->");
-        return;
-    }
-    int len = 0;
-    for (int i = 0; i < actual_count && len < buf_size - 1; i++) {
-        float prev = i < actual_count - 1 ? series[i + 1] : series[i];
-        float curr = series[i];
-        float diff = curr - prev;  // Aktueller - Vorheriger
-        if (diff > threshold) len += snprintf(buf + len, buf_size - len, "^");
-        else if (diff < -threshold) len += snprintf(buf + len, buf_size - len, "v");
-        else len += snprintf(buf + len, buf_size - len, "-");
-    }
-    buf[len] = '\0';
-}
 
 // ===== Handlers =====
 
@@ -173,67 +80,10 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
     float cost_day = cfg->energy_day * PELTIER_COST_PER_KWH / 1000.0f;
     float cost_week = cfg->energy_week * PELTIER_COST_PER_KWH / 1000.0f;
     float cost_month = cfg->energy_month * PELTIER_COST_PER_KWH / 1000.0f;
-
-    // Calculate trends
-    int trend_indoor = calculate_trend(sd.temp_indoor, s_indoor_history, 3, 0.1f);
-    int trend_heatsink = calculate_trend(sd.temp_heatsink, s_heatsink_history, 3, 0.1f);
-    int trend_fan_duty = calculate_trend((float)fan_get_duty(), s_fan_duty_history, 3, 2.0f);
-        
-    // Update history (Ring Buffer mit 3 Werten)
-    s_indoor_history[s_history_index] = sd.temp_indoor;
-    s_heatsink_history[s_history_index] = sd.temp_heatsink;
-    s_fan_duty_history[s_history_index] = fan_get_duty();
-
-    s_history_index = (s_history_index + 1) % 3;
-    if (s_history_index == 0) s_history_filled = true;
-
-    // Update Symbolreihen (20 Werte) - neue Daten links, alte nach rechts schieben
-    if (!s_series_filled) {
-        // Array noch nicht gefüllt - direkt an aktueller Position schreiben
-        s_indoor_series[s_series_index] = sd.temp_indoor;
-        s_heatsink_series[s_series_index] = sd.temp_heatsink;
-        s_fan_duty_series[s_series_index] = fan_get_duty();
-    } else {
-        // Array gefüllt - alles nach rechts schieben, neue Daten am Anfang
-        for (int i = 19; i > 0; i--) {
-            s_indoor_series[i] = s_indoor_series[i - 1];
-            s_heatsink_series[i] = s_heatsink_series[i - 1];
-            s_fan_duty_series[i] = s_fan_duty_series[i - 1];
-        }
-        s_indoor_series[0] = sd.temp_indoor;
-        s_heatsink_series[0] = sd.temp_heatsink;
-        s_fan_duty_series[0] = fan_get_duty();
-    }
-
-    s_series_index++;
-    if (s_series_index >= 20) s_series_filled = true;
-
-    // Update PWM Duty Historie (20 Werte) - neue Daten links, alte nach rechts schieben
-    if (!s_pwm_duty_history_filled) {
-        // Array noch nicht gefüllt - direkt an aktueller Position schreiben
-        s_pwm_duty_history[s_pwm_duty_history_index] = cfg->peltier_pwm_duty;
-    } else {
-        // Array gefüllt - alles nach rechts schieben, neue Daten am Anfang
-        for (int i = 19; i > 0; i--) {
-            s_pwm_duty_history[i] = s_pwm_duty_history[i - 1];
-        }
-        s_pwm_duty_history[0] = cfg->peltier_pwm_duty;
-    }
-
-    s_pwm_duty_history_index++;
-    if (s_pwm_duty_history_index >= 20) s_pwm_duty_history_filled = true;
-
-    // Symbolreihen generieren
-    char indoor_symbol_series[25] = {0};
-    char heatsink_symbol_series[25] = {0};
-    char fan_duty_symbol_series[25] = {0};
-    char pwm_duty_symbol_series[25] = {0};
-    int actual_count = s_series_filled ? 20 : s_series_index;
-    int pwm_actual_count = s_pwm_duty_history_filled ? 20 : s_pwm_duty_history_index;
-    generate_float_symbol_series(indoor_symbol_series, sizeof(indoor_symbol_series), s_indoor_series, actual_count, 0.1f);
-    generate_float_symbol_series(heatsink_symbol_series, sizeof(heatsink_symbol_series), s_heatsink_series, actual_count, 0.1f);
-    generate_float_symbol_series(fan_duty_symbol_series, sizeof(fan_duty_symbol_series), (float*)s_fan_duty_series, actual_count, 2.0f);
-    generate_pwm_duty_symbol_series(pwm_duty_symbol_series, sizeof(pwm_duty_symbol_series), pwm_actual_count);
+    
+    // Calculate current power based on PWM duty
+    uint8_t current_duty = peltier_get_duty();
+    float current_power = PELTIER_POWER * (current_duty / 100.0f);
 
     int len = snprintf(buf, sizeof(buf),
         "{\"indoor\":%.1f,\"heatsink\":%.1f,"
@@ -246,11 +96,11 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         "\"sched_off\":[%d,%d,%d,%d,%d,%d,%d],"
         "\"wifi_mode\":\"%s\","
         "\"data_log_interval\":%lu,\"ring_buffer_hours\":%.1f,"
-        "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_pwm_auto\":%s,\"peltier_pwm_interval\":%d,\"peltier_duty_factor\":%u,"
-        "\"indoor_symbol_series\":\"%s\",\"heatsink_symbol_series\":\"%s\",\"fan_duty_symbol_series\":\"%s\",\"pwm_duty_symbol_series\":\"%s\","
+        "\"peltier_pwm_period\":%d,\"peltier_pwm_duty\":%d,\"peltier_power\":%.1f,"
+        "\"auto_duty_en\":%s,\"auto_duty_duty\":%d,\"auto_duty_cycle\":%d,"
+        "\"auto_duty_countdown\":%d,\"auto_duty_step\":%d,"
         "\"energy_wh\":%.2f,\"energy_day\":%.2f,\"energy_week\":%.2f,\"energy_month\":%.2f,"
         "\"cost_total\":%.2f,\"cost_day\":%.2f,\"cost_week\":%.2f,\"cost_month\":%.2f,"
-        "\"trend_indoor\":%d,\"trend_heatsink\":%d,\"trend_fan_duty\":%d,"
         "\"build\":%d}",
         sd.temp_indoor, sd.temp_heatsink,
         sd.indoor_valid ? "true" : "false",
@@ -265,13 +115,47 @@ static esp_err_t handler_api_status(httpd_req_t *req) {
         cfg->sched_off[0]/60, cfg->sched_off[1]/60, cfg->sched_off[2]/60, cfg->sched_off[3]/60, cfg->sched_off[4]/60, cfg->sched_off[5]/60, cfg->sched_off[6]/60,
         wifi_is_connected() ? "STA" : "AP",
         interval_sec, duration_hours,
-        cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_auto ? "true" : "false", cfg->peltier_pwm_interval, peltier_get_duty_factor(),
-        indoor_symbol_series, heatsink_symbol_series, fan_duty_symbol_series, pwm_duty_symbol_series,
+        cfg->peltier_pwm_period, peltier_get_duty(), current_power,  // Aktuelle Leistung
+        cfg->auto_duty_en ? "true" : "false", peltier_get_autoduty_duty(), peltier_get_autoduty_cycle(),  // Aktuelle Auto-Duty Werte verwenden
+        peltier_get_autoduty_countdown(), peltier_get_autoduty_step(),
         cfg->energy_wh, cfg->energy_day, cfg->energy_week, cfg->energy_month,
         cost_total, cost_day, cost_week, cost_month,
-        trend_indoor, trend_heatsink, trend_fan_duty,
         BUILD_NUMBER);
 
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, buf, len);
+    return ESP_OK;
+}
+
+static esp_err_t handler_api_tasks(httpd_req_t *req) {
+    system_stat_t stats = task_monitor_get_stats();
+    
+    char buf[2048];
+    int len = snprintf(buf, sizeof(buf),
+        "{\"free_heap\":%lu,\"min_free_heap\":%lu,\"task_count\":%lu,\"tasks\":[",
+        stats.free_heap, stats.min_free_heap, stats.task_count);
+    
+    // Tasks durchlaufen
+    for (uint32_t i = 0; i < stats.task_count; i++) {
+        char task_buf[256];
+        int task_len = snprintf(task_buf, sizeof(task_buf),
+            "%s{\"name\":\"%s\",\"cpu\":%lu,\"stack_free\":%u,\"cpu_warn\":%s,\"stack_warn\":%s}",
+            i > 0 ? "," : "",
+            stats.tasks[i].name,
+            stats.tasks[i].runtime_pct,
+            stats.tasks[i].stack_high_water,
+            stats.tasks[i].cpu_warning ? "true" : "false",
+            stats.tasks[i].stack_warning ? "true" : "false");
+        
+        if (len + task_len < (int)sizeof(buf)) {
+            strcat(buf, task_buf);
+            len += task_len;
+        }
+    }
+    
+    strcat(buf, "]}");
+    len = strlen(buf);
+    
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, buf, len);
     return ESP_OK;
@@ -324,21 +208,30 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     } else {
         ESP_LOGI(TAG, "Config update: peltier_pwm_duty not in request");
     }
-    if (httpd_query_key_value(buf, "peltier_pwm_auto", value, sizeof(value)) == ESP_OK) {
-        cfg->peltier_pwm_auto = (atoi(value) != 0);
-        ESP_LOGI(TAG, "Config update: peltier_pwm_auto = %d (raw: %s)", cfg->peltier_pwm_auto, value);
-    } else {
-        ESP_LOGI(TAG, "Config update: peltier_pwm_auto not in request");
+
+    // Auto-Duty Parameter
+    if (httpd_query_key_value(buf, "auto_duty_en", value, sizeof(value)) == ESP_OK) {
+        cfg->auto_duty_en = (atoi(value) != 0);
+        ESP_LOGI(TAG, "Config update: auto_duty_en = %s", cfg->auto_duty_en ? "true" : "false");
+        nvs_config_save();
+        // Auto-Duty starten oder stoppen
+        if (cfg->auto_duty_en) {
+            peltier_autoduty_start();
+        } else {
+            peltier_autoduty_stop();
+        }
     }
-    if (httpd_query_key_value(buf, "peltier_pwm_interval", value, sizeof(value)) == ESP_OK) {
-        cfg->peltier_pwm_interval = (uint16_t)atoi(value);
-        ESP_LOGI(TAG, "Config update: peltier_pwm_interval = %u seconds (raw: %s)", cfg->peltier_pwm_interval, value);
-    } else {
-        ESP_LOGI(TAG, "Config update: peltier_pwm_interval not in request");
+    if (httpd_query_key_value(buf, "auto_duty_cycle", value, sizeof(value)) == ESP_OK) {
+        cfg->auto_duty_cycle = (uint16_t)atoi(value);
+        ESP_LOGI(TAG, "Config update: auto_duty_cycle = %u seconds", cfg->auto_duty_cycle);
+        // Auto-Duty Cycle zur Laufzeit aktualisieren
+        peltier_autoduty_update_cycle(cfg->auto_duty_cycle);
+        // Sofort in NVS speichern
+        nvs_config_save();
     }
 
-    ESP_LOGI(TAG, "Before nvs_config_save: period=%u, duty=%u, interval=%u",
-             cfg->peltier_pwm_period, cfg->peltier_pwm_duty, cfg->peltier_pwm_interval);
+    ESP_LOGI(TAG, "Before nvs_config_save: period=%u, duty=%u",
+             cfg->peltier_pwm_period, cfg->peltier_pwm_duty);
 
     // Parse daily schedule (7 days, 2 values each)
     for (int i = 0; i < 7; i++) {
@@ -353,6 +246,9 @@ static esp_err_t handler_api_config(httpd_req_t *req) {
     }
 
     nvs_config_save();
+
+    // PWM-Duty lokal aktualisieren
+    peltier_set_duty(cfg->peltier_pwm_duty);
 
     ESP_LOGI(TAG, "After save: temp_on=%.1f, temp_off=%.1f", cfg->temp_peltier_on, cfg->temp_peltier_off);
 
@@ -556,6 +452,84 @@ static esp_err_t handler_api_wifi_reset(httpd_req_t *req) {
     return ESP_OK;
 }
 
+// ===== Energy Data Handler =====
+static esp_err_t handler_api_energy(httpd_req_t *req) {
+    ESP_LOGI(TAG, "Energy API called");
+    uint16_t count = 0;
+    const energy_session_t *sessions = energy_tracker_get_sessions(&count);
+    
+    ESP_LOGI(TAG, "Energy API: got %d sessions", count);
+    
+    // Build JSON array (10KB buffer for 10 sessions)
+    char *json_buf = malloc(10240);
+    if (!json_buf) {
+        ESP_LOGE(TAG, "Energy API: Out of memory");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+    
+    int pos = snprintf(json_buf, 10240, "{\"sessions\":[");
+    
+    bool first_session = true;
+    
+    // Sessions durchlaufen und sortieren nach Timestamp (neueste zuerst)
+    for (int i = 0; i < count; i++) {
+        // Skip sessions with zero timestamp (uninitialized)
+        if (sessions[i].timestamp == 0) continue;
+        
+        // Check buffer space
+        if (pos > 10000) break;  // Safety limit
+        
+        // Formatiere Dauer aus Minuten
+        uint32_t hours = sessions[i].duration_min / 60;
+        uint32_t minutes = sessions[i].duration_min % 60;
+        
+        // Formatiere Datum aus Timestamp
+        time_t timestamp = sessions[i].timestamp;
+        struct tm timeinfo;
+        localtime_r(&timestamp, &timeinfo);
+        char datetime_str[32];
+        strftime(datetime_str, sizeof(datetime_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+        
+        pos += snprintf(json_buf + pos, 10240 - pos,
+            "%s{\"timestamp\":%lu,\"datetime\":\"%s\",\"duration_min\":%d,\"duration_formatted\":\"%02lu:%02lu:00\",\"start_temp\":%.1f,\"end_temp\":%.1f,\"energy_wh\":%.2f,\"min_temp\":%.1f,\"max_temp\":%.1f,\"pwm_period\":%d,\"auto_duty_enabled\":%s,\"ad_cycle_measured\":%.1f}",
+            first_session ? "" : ",",
+            sessions[i].timestamp,
+            datetime_str,
+            sessions[i].duration_min,
+            hours, minutes,
+            sessions[i].end_temp / 10.0f,    // Start-Temperatur = End-Temperatur (vertauscht)
+            sessions[i].start_temp / 10.0f,  // End-Temperatur = Start-Temperatur (vertauscht)
+            sessions[i].energy_wh / 100.0f, // 0.01Wh Schritte zurück
+            sessions[i].min_temp / 10.0f,    // 0.1°C Schritte zurück
+            sessions[i].max_temp / 10.0f,    // 0.1°C Schritte zurück
+            sessions[i].pwm_period,
+            sessions[i].auto_duty_enabled ? "true" : "false",
+            (float)sessions[i].auto_duty_cycle);   // Jetzt gemessener AD-Cycle als float
+            
+        first_session = false;
+    }
+    
+    snprintf(json_buf + pos, 10240 - pos, "]}");
+    ESP_LOGI(TAG, "Energy API: sending JSON: %s", json_buf);
+    
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_buf, strlen(json_buf));
+    free(json_buf);
+    return ESP_OK;
+}
+
+// ===== Energy Clear Handler =====
+static esp_err_t handler_api_energy_clear(httpd_req_t *req) {
+    ESP_LOGI(TAG, "Energy clear API called");
+    
+    energy_tracker_clear_nvs();
+    
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\",\"msg\":\"Energy data cleared from NVS\"}");
+    return ESP_OK;
+}
+
 // Catch-all handler for captive portal redirect
 static esp_err_t handler_captive_redirect(httpd_req_t *req) {
     httpd_resp_set_status(req, "302 Found");
@@ -652,6 +626,9 @@ void webserver_init(void) {
     httpd_uri_t uri_api_status = {
         .uri = "/api/status", .method = HTTP_GET, .handler = handler_api_status
     };
+    httpd_uri_t uri_api_tasks = {
+        .uri = "/api/tasks", .method = HTTP_GET, .handler = handler_api_tasks
+    };
     httpd_uri_t uri_api_config = {
         .uri = "/api/config", .method = HTTP_POST, .handler = handler_api_config
     };
@@ -673,6 +650,12 @@ void webserver_init(void) {
     httpd_uri_t uri_api_wifi_reset = {
         .uri = "/api/wifi/reset", .method = HTTP_POST, .handler = handler_api_wifi_reset
     };
+    httpd_uri_t uri_api_energy = {
+        .uri = "/api/energy", .method = HTTP_GET, .handler = handler_api_energy
+    };
+    httpd_uri_t uri_api_energy_clear = {
+        .uri = "/api/energy/clear", .method = HTTP_POST, .handler = handler_api_energy_clear
+    };
     httpd_uri_t uri_api_nvs_save = {
         .uri = "/api/nvs/save", .method = HTTP_POST, .handler = handler_api_nvs_save
     };
@@ -692,6 +675,7 @@ void webserver_init(void) {
 
     httpd_register_uri_handler(s_server, &uri_index);
     httpd_register_uri_handler(s_server, &uri_api_status);
+    httpd_register_uri_handler(s_server, &uri_api_tasks);
     httpd_register_uri_handler(s_server, &uri_api_config);
     httpd_register_uri_handler(s_server, &uri_api_wifi);
     httpd_register_uri_handler(s_server, &uri_api_ota);
@@ -699,6 +683,8 @@ void webserver_init(void) {
     httpd_register_uri_handler(s_server, &uri_api_graph);
     httpd_register_uri_handler(s_server, &uri_api_graph_save);
     httpd_register_uri_handler(s_server, &uri_api_wifi_reset);
+    httpd_register_uri_handler(s_server, &uri_api_energy);
+    httpd_register_uri_handler(s_server, &uri_api_energy_clear);
     httpd_register_uri_handler(s_server, &uri_api_nvs_save);
     httpd_register_uri_handler(s_server, &uri_api_factory_reset);
     httpd_register_uri_handler(s_server, &uri_api_reset);
