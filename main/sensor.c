@@ -336,9 +336,11 @@ void task_sensor(void *pvParameters) {
             s_error_count++;
             ESP_LOGW(TAG, "Sensor read error #%d", s_error_count);
             
-            // Schon bei 1 Fehler aktivieren für schnellere Reaktion
-            s_emergency_mode = true;
-            ESP_LOGE(TAG, "EMERGENCY MODE ACTIVATED: Sensor error!");
+            // Emergency Mode erst nach 3 aufeinanderfolgenden Fehlern aktivieren
+            if (s_error_count >= 3) {
+                s_emergency_mode = true;
+                ESP_LOGE(TAG, "EMERGENCY MODE ACTIVATED: %d consecutive sensor errors!", s_error_count);
+            }
         } else {
             s_error_count = 0;
             if (s_emergency_mode) {
