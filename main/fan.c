@@ -298,19 +298,14 @@ void task_fan(void *pvParameters) {
 
         // Hauptzustand an peltier-Modul übergeben (für Anzeige)
         peltier_set_main_state(peltier_main_state);
-        
-        ESP_LOGD(TAG, "Peltier state: was_on=%d, is_on=%d, scheduler_active=%d", 
-                 s_peltier_main_was_on, peltier_main_state, scheduler_is_active());
 
         // ---- Energy Tracker Session-Tracking ----
         // Session starten, wenn main_state von false auf true wechselt
         if (!s_peltier_main_was_on && peltier_main_state) {
-            ESP_LOGI(TAG, "Energy Tracker: Session START - main_state changed from false to true");
             energy_tracker_start_session();
         }
         // Session stoppen, wenn main_state von true auf false wechselt
         else if (s_peltier_main_was_on && !peltier_main_state) {
-            ESP_LOGI(TAG, "Energy Tracker: Session STOP - main_state changed from true to false");
             energy_tracker_stop_session();
         }
         // Energie während aktiver Session aktualisieren
