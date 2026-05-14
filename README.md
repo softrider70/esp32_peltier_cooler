@@ -168,9 +168,34 @@ main/
 ├── webserver.c/.h  HTTP-Server + Captive-DNS
 ├── scheduler.c/.h  Zeitfenster-Pruefung (SNTP, CET/CEST)
 ├── nvs_config.c/.h NVS-Persistenz aller Einstellungen
+├── energy_tracker.c/.h  Peltier-Kühlsitzungen Tracking (Ringbuffer, NVS)
+├── data_logger.c/.h  Temperatur-Logger mit Ringbuffer
+├── task_monitor.c/.h  FreeRTOS Task-Status
+├── ota.c/.h       Over-The-Air Firmware Updates
 ├── index.html      Monitor-Webseite (Dark Theme, Live-Refresh)
 └── captive.html    WiFi-Setup Captive Portal
 ```
+
+### Energy Tracker Module
+
+**Funktion:** Verfolgt Peltier-Kühlsitzungen mit detaillierten Verbrauchsdaten
+
+**Features:**
+- Ringbuffer mit 50 Sitzungen (neueste zuerst)
+- Persistente Speicherung in NVS
+- Session-Tracking bei Hauptschalter-Wechsel
+- Energieberechnung mit PWM-Duty-Cycle
+- API-Endpunkt `/api/energy` für Webinterface
+
+**Session-Definition:**
+- **Start:** Peltier Hauptschalter wird AN
+- **Ende:** Peltier Hauptschalter wird AUS
+- **Daten:** Dauer, Start/End-Temperatur, Energieverbrauch (Wh)
+
+**NVS-Speicherung:**
+- `energy_sessions`: Blob mit 50 energy_session_t Strukturen
+- `energy_index`: uint8_t mit aktuellem Schreibindex (0-49)
+- Zirkuläres Überschreiben bei vollem Buffer
 
 ## Webinterface
 
@@ -179,9 +204,13 @@ main/
 - Live-Anzeige: Innenraum-Temperatur, Kuehlblock-Temperatur, Luefter-%, Luefter-RPM, Peltier AN/AUS, Notmodus-Status, PWM Duty, PWM Step, Aktuelle Leistung (W)
 - Einstellbar: Temperatur-Schwellen (on/off/max), PWM-Parameter (Period, Duty), Auto-Duty (Hauptschalter, Zyklus), Zeitfenster (7-Tage-Tabelle mit Stundenwerten)
 - Energiedaten: Gesamt, Heute, Woche, Monat (Wh) mit Kostenberechnung (€)
+- **Verbrauchsdaten-Tab**: Detaillierte Tabelle mit 50 Peltier-Kühlsitzungen
+  - Dauer, Start/End-Temperatur, Energieverbrauch pro Sitzung
+  - Sortiert nach Datum (neueste zuerst)
+  - Automatisches Refresh alle 10 Sekunden
 - WiFi-Reset: Rot markierter Button zum Löschen der WiFi-Credentials und Starten des AP-Modus
 - Auto-Refresh alle 3 Sekunden
-- REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`
+- REST API: `GET /api/status`, `POST /api/config`, `POST /api/wifi/reset`, `GET /api/energy`
 
 ### Captive Portal (AP-Modus)
 
@@ -261,6 +290,8 @@ Alle Einstellungen werden im Non-Volatile Storage (NVS) des ESP32 gespeichert un
 | Letztes Datum | `last_date` | 0 | Zuletzt gespeichertes Datum (YYYYMMDD) |
 | Letzte Woche | `last_week` | 0 | Zuletzt gespeicherte Kalenderwoche (0-53) |
 | Letzter Monat | `last_month` | 0 | Zuletzt gespeicherter Monat (0-11) |
+| Energy Sessions | `energy_sessions` | (Blob) | 50 Peltier-Kühlsitzungen (Ringbuffer) |
+| Energy Index | `energy_index` | 0 | Schreibindex für Ringbuffer (0-49) |
 
 ## NVS-Schreibzugriffe
 
