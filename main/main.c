@@ -141,11 +141,14 @@ void app_main(void) {
     peltier_pwm_enable(true);  // PWM immer aktivieren
     
     // Auto-Duty nur starten, wenn in Config aktiviert
+    ESP_LOGI(TAG, "Auto-Duty config check: auto_duty_en=%s", cfg_pwm->auto_duty_en ? "true" : "false");
     if (cfg_pwm->auto_duty_en) {
         peltier_autoduty_start();
         ESP_LOGI(TAG, "Auto-Duty enabled in config, started");
     } else {
-        ESP_LOGI(TAG, "Auto-Duty disabled in config, not started");
+        // Sicherstellen dass Auto-Duty deaktiviert ist (Hotfix)
+        peltier_autoduty_stop();
+        ESP_LOGI(TAG, "Auto-Duty disabled in config, forced stop");
     }
 
     // 2.5. Initialize data logger (ring buffer)

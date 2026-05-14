@@ -1,7 +1,7 @@
 #pragma once
 
 // ===== Build Information =====
-#define BUILD_NUMBER        321     // Build counter - increment with each flash
+#define BUILD_NUMBER        323     // Build counter - increment with each flash
 
 // ===== GPIO Configuration (ESP32-D Board D2-D35) =====
 #define GPIO_FAN_PWM        5       // Noctua 4-pin PWM signal (D5/GPIO5)
@@ -31,7 +31,7 @@
 #define PELTIER_PWM_DUTY_DEFAULT   10      // PWM duty cycle % (10 = start value for power saving)
 
 // ===== Auto-Duty Defaults =====
-#define AUTO_DUTY_EN_DEFAULT       true    // Auto-Duty enabled by default
+#define AUTO_DUTY_EN_DEFAULT       false    // Auto-Duty disabled by default
 #define AUTO_DUTY_DUTY_DEFAULT     80      // Auto-Duty duty cycle % (default 80%)
 #define AUTO_DUTY_CYCLE_DEFAULT    3       // Auto-Duty cycle duration in seconds (default 3s for faster response)
 
