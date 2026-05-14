@@ -223,14 +223,14 @@ void task_fan(void *pvParameters) {
         }
         s_was_active = active;
 
-        // ---- Emergency mode: sensor errors → fan full, peltier off ----
-        // Schon bei 1 Fehler aktivieren für schnellere Reaktion
+        // ---- Emergency mode: sensor errors → fan 50%, peltier off ----
+        // Lüfter auf 50% für 5 Minuten oder bis Sensoren wieder arbeiten
         if (sensor_get_emergency_mode()) {
             peltier_off();
             peltier_autoduty_stop();  // Auto-Duty stoppen
-            fan_set_duty(255);
-            ESP_LOGW(TAG, "EMERGENCY MODE: Fan full, Peltier off, Auto-Duty stopped (sensor errors)");
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            fan_set_duty(128);        // Lüfter auf 50% (128 von 255)
+            ESP_LOGW(TAG, "EMERGENCY MODE: Fan 50%%, Peltier off, Auto-Duty stopped (sensor errors)");
+            vTaskDelay(pdMS_TO_TICKS(5000));  // 5 Sekunden Pause (wird in Schleife wiederholt)
             continue;
         }
 
