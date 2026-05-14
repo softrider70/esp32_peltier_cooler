@@ -128,11 +128,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <th>Dauer</th>
 <th>Starttemp</th>
 <th>Endtemp</th>
+<th>Min/Max</th>
 <th>Energie (Wh)</th>
+<th>PWM</th>
+<th>Auto-Duty</th>
+<th>Zieltemp</th>
 </tr>
 </thead>
 <tbody id="energy_table_body">
-<tr><td colspan="5">Laden...</td></tr>
+<tr><td colspan="9">Laden...</td></tr>
 </tbody>
 </table>
 </div>
@@ -418,15 +422,16 @@ fetch('/api/energy').then(r=>r.json()).then(d=>{
 var tbody=document.getElementById('energy_table_body');
 tbody.innerHTML='';
 if(d.sessions.length===0){
-tbody.innerHTML='<tr><td colspan="5">Keine Sitzungen vorhanden</td></tr>';
+tbody.innerHTML='<tr><td colspan="9">Keine Sitzungen vorhanden</td></tr>';
 return;
 }
 d.sessions.forEach(function(session){
 var row=document.createElement('tr');
-row.innerHTML='<td>'+session.datetime+'</td><td>'+session.duration_formatted+'</td><td>'+session.start_temp.toFixed(1)+'°C</td><td>'+session.end_temp.toFixed(1)+'°C</td><td>'+session.energy_wh.toFixed(3)+' Wh</td>';
+var autoDutyText = session.auto_duty_enabled ? session.auto_duty_cycle+'s' : 'aus';
+row.innerHTML='<td>'+session.datetime+'</td><td>'+session.duration_formatted+'</td><td>'+session.start_temp.toFixed(1)+'°C</td><td>'+session.end_temp.toFixed(1)+'°C</td><td>'+session.min_temp.toFixed(1)+'°C / '+session.max_temp.toFixed(1)+'°C</td><td>'+session.energy_wh.toFixed(3)+' Wh</td><td>'+session.pwm_period+'s</td><td>'+autoDutyText+'</td><td>'+session.target_temp.toFixed(1)+'°C</td>';
 tbody.appendChild(row);
 });
-}).catch(e=>{console.error('Energy data error:',e);document.getElementById('energy_table_body').innerHTML='<tr><td colspan="5">Fehler beim Laden</td></tr>'});
+}).catch(e=>{console.error('Energy data error:',e);document.getElementById('energy_table_body').innerHTML='<tr><td colspan="9">Fehler beim Laden</td></tr>'});
 }
 
 function pollOta(){

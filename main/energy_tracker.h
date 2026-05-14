@@ -9,7 +9,13 @@ typedef struct {
     uint32_t duration_sec;    // Dauer der Sitzung in Sekunden
     float start_temp;         // Indoor-Temperatur zu Beginn (°C)
     float end_temp;           // Indoor-Temperatur am Ende (°C)
+    float min_temp;           // Minimale Indoor-Temperatur während Sitzung (°C)
+    float max_temp;           // Maximale Indoor-Temperatur während Sitzung (°C)
     float energy_wh;          // Energieverbrauch in Wh
+    uint8_t pwm_period;       // PWM Period in Sekunden
+    bool auto_duty_enabled;   // Auto-Duty war aktiviert
+    uint8_t auto_duty_cycle;  // Auto-Duty Zyklus in Sekunden
+    float target_temp;        // Zieltemperatur für Lüfter-PID (°C)
 } energy_session_t;
 
 // Konfiguration

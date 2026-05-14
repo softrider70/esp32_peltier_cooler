@@ -487,7 +487,7 @@ static esp_err_t handler_api_energy(httpd_req_t *req) {
         strftime(datetime_str, sizeof(datetime_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
         
         pos += snprintf(json_buf + pos, 10240 - pos,
-            "%s{\"timestamp\":%lu,\"datetime\":\"%s\",\"duration_sec\":%lu,\"duration_formatted\":\"%02lu:%02lu:%02lu\",\"start_temp\":%.1f,\"end_temp\":%.1f,\"energy_wh\":%.3f}",
+            "%s{\"timestamp\":%lu,\"datetime\":\"%s\",\"duration_sec\":%lu,\"duration_formatted\":\"%02lu:%02lu:%02lu\",\"start_temp\":%.1f,\"end_temp\":%.1f,\"min_temp\":%.1f,\"max_temp\":%.1f,\"energy_wh\":%.3f,\"pwm_period\":%d,\"auto_duty_enabled\":%s,\"auto_duty_cycle\":%d,\"target_temp\":%.1f}",
             (pos > 12) ? "," : "",
             sessions[i].timestamp,
             datetime_str,
@@ -495,7 +495,13 @@ static esp_err_t handler_api_energy(httpd_req_t *req) {
             hours, minutes, seconds,
             sessions[i].start_temp,
             sessions[i].end_temp,
-            sessions[i].energy_wh);
+            sessions[i].min_temp,
+            sessions[i].max_temp,
+            sessions[i].energy_wh,
+            sessions[i].pwm_period,
+            sessions[i].auto_duty_enabled ? "true" : "false",
+            sessions[i].auto_duty_cycle,
+            sessions[i].target_temp);
     }
     
     snprintf(json_buf + pos, 10240 - pos, "]}");

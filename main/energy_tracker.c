@@ -1,6 +1,7 @@
 #include "energy_tracker.h"
 #include "sensor.h"
 #include "peltier.h"
+#include "nvs_config.h"
 #include "config.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -19,6 +20,8 @@ static uint16_t s_session_count = 0;  // Anzahl der gespeicherten Sitzungen
 static bool s_tracking_active = false;
 static uint32_t s_start_time = 0;
 static float s_start_temp = 0.0f;
+static float s_min_temp = 0.0f;
+static float s_max_temp = 0.0f;
 static float s_energy_accumulated = 0.0f;
 
 // NVS-Keys
@@ -52,9 +55,11 @@ void energy_tracker_start_session(void) {
     s_start_time = (uint32_t)(esp_timer_get_time() / 1000000ULL);
     s_energy_accumulated = 0.0f;
     
-    // Start-Temperatur speichern
+    // Start-Temperatur speichern und Min/Max initialisieren
     sensor_data_t sd = sensor_get_data();
     s_start_temp = sd.indoor_valid ? sd.temp_indoor : 0.0f;
+    s_min_temp = s_start_temp;
+    s_max_temp = s_start_temp;
     
     ESP_LOGI(TAG, "Session started: time=%lu, start_temp=%.1f°C", s_start_time, s_start_temp);
 }
@@ -73,12 +78,19 @@ void energy_tracker_stop_session(void) {
     float end_temp = sd.indoor_valid ? sd.temp_indoor : 0.0f;
     
     // Sitzung im Ringbuffer speichern
+    app_config_t *cfg = nvs_config_get();
     energy_session_t session = {
         .timestamp = s_start_time,
         .duration_sec = duration,
         .start_temp = s_start_temp,
         .end_temp = end_temp,
-        .energy_wh = s_energy_accumulated
+        .min_temp = s_min_temp,
+        .max_temp = s_max_temp,
+        .energy_wh = s_energy_accumulated,
+        .pwm_period = cfg->peltier_pwm_period,
+        .auto_duty_enabled = cfg->auto_duty_en,
+        .auto_duty_cycle = cfg->auto_duty_cycle,
+        .target_temp = cfg->temp_heatsink_target
     };
     
     s_sessions[s_write_index] = session;
@@ -101,6 +113,17 @@ void energy_tracker_stop_session(void) {
 void energy_tracker_update_energy(float pwm_duty_percent) {
     if (!s_tracking_active) {
         return;
+    }
+    
+    // Min/Max Temperaturen aktualisieren
+    sensor_data_t sd = sensor_get_data();
+    if (sd.indoor_valid) {
+        if (sd.temp_indoor < s_min_temp) {
+            s_min_temp = sd.temp_indoor;
+        }
+        if (sd.temp_indoor > s_max_temp) {
+            s_max_temp = sd.temp_indoor;
+        }
     }
     
     // Energie für 1 Sekunde berechnen: P * (duty/100) * (1/3600)
