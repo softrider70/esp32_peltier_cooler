@@ -1,0 +1,24 @@
+{
+  "device_id": "test_001",
+  "build": 1,
+  "sessions": [
+    {
+      "timestamp": 1715678900,
+      "duration_min": 5,
+      "start_temp": 15.3,
+      "end_temp": 14.8,
+      "min_temp": 14.5,
+      "max_temp": 15.5,
+      "energy_wh": 0.5,
+      "pwm_period": 10,
+      "auto_duty_cycle": 3,
+      "auto_duty_enabled": false
+    }
+  ],
+  "stats": {
+    "energy_wh": 10.5,
+    "energy_day": 2.0,
+    "energy_week": 5.0,
+    "energy_month": 8.0
+  }
+}

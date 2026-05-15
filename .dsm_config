@@ -1,0 +1,7 @@
+# DSM DS917+ SSH Konfiguration
+# Zugriff für ESP32 Cooler Integration
+
+DSM_HOST=192.168.1.10
+DSM_USER=ds918admin
+DSM_KEY=C:\Users\win4g\.ssh\id_ed25519_ds918_new.ppk
+DSM_PORT=22

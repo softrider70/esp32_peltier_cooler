@@ -337,36 +337,34 @@ Der Non-Volatile Storage (NVS) wird bei folgenden Aktionen beschrieben:
 
 **Wichtig:** Die ESP-IDF Umgebung muss vor jedem Build aktiviert werden!
 
-1. **ESP-IDF Installation prüfen:**
-   ```bash
-   # ESP-IDF Konfiguration anzeigen
-   Get-Content C:\Users\win4g\.espressif\idf-env.json
-   ```
+**Empfohlene Methode (PowerShell):**
+```powershell
+# ESP-IDF Umgebung aktivieren
+.\activate-esp-idf.ps1
 
-2. **Umgebung aktivieren (einmal pro Terminal-Sitzung):**
-   ```bash
-   # ESP-IDF 6.1 (verwendet in diesem Projekt)
-   cmd /c "C:\Users\win4g\Downloads\GitHub\VS-Projekte\CascadeProjects\esp-idf\export.bat"
-   
-   # Alternativ: ESP-IDF 6.0
-   cmd /c "C:\esp\v6.0\esp-idf\export.bat"
-   ```
+# Build
+idf.py build
 
-3. **Build durchführen:**
-   ```bash
-   cd esp32_cooler
-   idf.py set-target esp32
-   idf.py build
-   ```
+# Flash (COM-Port automatisch erkennen)
+idf.py -p COM11 flash
 
-4. **Flash (COM-Port automatisch erkennen):**
-   ```bash
-   # ESP32 auf COM11 erkannt
-   idf.py -p COM11 flash monitor
-   
-   # Oder Port automatisch finden
-   python -m esptool --chip esp32 flash-id
-   ```
+# Oder mit Monitor
+idf.py -p COM11 flash monitor
+```
+
+**Alternativ (CMD):**
+```bash
+# ESP-IDF 6.1 (verwendet in diesem Projekt)
+cmd /c "C:\Users\win4g\Downloads\GitHub\VS-Projekte\CascadeProjects\esp-idf\export.bat"
+
+# Build
+cd esp32_cooler
+idf.py set-target esp32
+idf.py build
+
+# Flash (COM-Port automatisch erkennen)
+idf.py -p COM11 flash monitor
+```
 
 ### Build Workflow (empfohlen)
 

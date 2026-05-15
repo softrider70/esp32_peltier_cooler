@@ -6,6 +6,7 @@
 #include "nvs_config.h"
 #include "data_logger.h"
 #include "energy_tracker.h"
+#include "dsm_uploader.h"
 #include "driver/ledc.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -334,6 +335,7 @@ void task_fan(void *pvParameters) {
                 nvs_config_save_energy();
                 s_last_energy_wh = cfg->energy_wh;
                 ESP_LOGI(TAG, "Energy saved on Peltier main OFF: %.2f Wh", cfg->energy_wh);
+                dsm_uploader_sync();
             }
         }
 

@@ -7,6 +7,7 @@
 #include "webserver.h"
 #include "scheduler.h"
 #include "energy_tracker.h"
+#include "dsm_uploader.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -129,6 +130,10 @@ void app_main(void) {
     // 1.5. Initialize energy tracker
     energy_tracker_init();
     ESP_LOGI(TAG, "Energy tracker initialized");
+
+    // 1.6. Initialize DSM uploader
+    dsm_uploader_init();
+    ESP_LOGI(TAG, "DSM uploader initialized");
 
     // 2. Initialize hardware
     sensor_init();
